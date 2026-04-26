@@ -76,14 +76,14 @@ lazy val root = project
       .evaluated,
     Test / testOptions ++= {
       val heavyTag         = "com.boombustgroup.amorfati.tags.Heavy"
-      // Local `sbt test` skips @Heavy suites by default.
-      // Run the full suite locally with: `sbt -DamorFati.includeHeavyTests=true test`
+      // Standard `sbt test` skips @Heavy suites by default, including coverage
+      // runs where scoverage instrumentation makes long simulations expensive.
+      // Run the full suite with: `sbt -DamorFati.includeHeavyTests=true test`
       val includeHeavy     = sys.props.get("amorFati.includeHeavyTests").exists { value =>
         val normalized = value.trim.toLowerCase
         normalized == "true" || normalized == "1" || normalized == "yes"
       }
-      val runningOnCi      = sys.env.get("CI").contains("true") || sys.env.get("GITHUB_ACTIONS").contains("true")
-      val excludeHeavyByDefault = !includeHeavy && !runningOnCi
+      val excludeHeavyByDefault = !includeHeavy
       if (excludeHeavyByDefault) Seq(Tests.Argument(TestFrameworks.ScalaTest, "-l", heavyTag))
       else Nil
     },
@@ -91,7 +91,7 @@ lazy val root = project
 
 lazy val integrationTests = project
   .in(file("integration-tests"))
-  .dependsOn(root)
+  .dependsOn(root % "compile->compile;test->test")
   .settings(commonProjectSettings)
   .settings(
     name := "amor-fati-integration-tests",

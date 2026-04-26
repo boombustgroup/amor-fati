@@ -12,16 +12,16 @@ class FiscalSemanticsSpec extends AnyFlatSpec with Matchers:
       taxRevenue = PLN.Zero,
       deficit = PLN.Zero,
       cumulativeDebt = PLN.Zero,
-      unempBenefitSpend = PLN(40e6),
-      debtServiceSpend = PLN(30e6),
-      socialTransferSpend = PLN(50e6),
-      govCurrentSpend = PLN(200e6),
-      govCapitalSpend = PLN(80e6),
-      euProjectCapital = PLN(120e6),
-      euCofinancing = PLN(25e6),
+      unempBenefitSpend = PLN(40000000),
+      debtServiceSpend = PLN(30000000),
+      socialTransferSpend = PLN(50000000),
+      govCurrentSpend = PLN(200000000),
+      govCapitalSpend = PLN(80000000),
+      euProjectCapital = PLN(120000000),
+      euCofinancing = PLN(25000000),
     )
 
-    gov.domesticBudgetDemand shouldBe PLN(280e6)
+    gov.domesticBudgetDemand shouldBe PLN(280000000)
   }
 
   "GovState.domesticBudgetOutlays" should "include domestic budget outlays but exclude total EU project envelope" in {
@@ -29,14 +29,14 @@ class FiscalSemanticsSpec extends AnyFlatSpec with Matchers:
       taxRevenue = PLN.Zero,
       deficit = PLN.Zero,
       cumulativeDebt = PLN.Zero,
-      unempBenefitSpend = PLN(40e6),
-      debtServiceSpend = PLN(30e6),
-      socialTransferSpend = PLN(50e6),
-      govCurrentSpend = PLN(200e6),
-      govCapitalSpend = PLN(80e6),
-      euProjectCapital = PLN(120e6),
-      euCofinancing = PLN(25e6),
+      unempBenefitSpend = PLN(40000000),
+      debtServiceSpend = PLN(30000000),
+      socialTransferSpend = PLN(50000000),
+      govCurrentSpend = PLN(200000000),
+      govCapitalSpend = PLN(80000000),
+      euProjectCapital = PLN(120000000),
+      euCofinancing = PLN(25000000),
     )
 
-    gov.domesticBudgetOutlays shouldBe PLN(425e6)
+    gov.domesticBudgetOutlays shouldBe PLN(425000000)
   }

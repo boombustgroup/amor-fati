@@ -19,8 +19,8 @@ import java.util.concurrent.TimeUnit
 object McRunner:
 
   /** Single month snapshot emitted by [[seedStream]]. */
-  private case class MonthSnapshot(executionMonth: ExecutionMonth, state: FlowSimulation.SimState, monthData: Array[Double])
-  private case class SeedTerminalSnapshot(executionMonth: ExecutionMonth, lastMonthData: Array[Double], terminalState: FlowSimulation.SimState)
+  private case class MonthSnapshot(executionMonth: ExecutionMonth, state: FlowSimulation.SimState, monthData: Array[MetricValue])
+  private case class SeedTerminalSnapshot(executionMonth: ExecutionMonth, lastMonthData: Array[MetricValue], terminalState: FlowSimulation.SimState)
 
   /** Run N seeds in parallel, each streaming months via [[seedStream]]. Writes
     * per-seed CSV + aggregated HH/bank CSVs. Fails with [[SimError]].
@@ -43,7 +43,7 @@ object McRunner:
       _         <- McRunnerConsole.emit(Event.BlankLine)
       _         <- McRunnerConsole.emitAll(McOutputFiles.savedFiles(outputDir, rc).map(file => Event.SavedFile(file.getPath)))
       t1        <- Clock.currentTime(TimeUnit.MILLISECONDS)
-      _         <- McRunnerConsole.emit(Event.TotalTime((t1 - t0) / 1000.0))
+      _         <- McRunnerConsole.emit(Event.TotalTime(t1 - t0))
     yield ()
 
   /** Pure simulation — returns Either, no side effects. For tests. */
@@ -100,7 +100,7 @@ object McRunner:
       initState: FlowSimulation.SimState,
       steps: Iterator[FlowSimulation.StepOutput],
   )(using p: SimParams): Either[SimError, RunResult] =
-    val monthSeries = Vector.newBuilder[Array[Double]]
+    val monthSeries = Vector.newBuilder[Array[MetricValue]]
 
     @scala.annotation.tailrec
     def collect(remaining: Iterator[FlowSimulation.StepOutput], terminal: FlowSimulation.SimState): Either[SimError, RunResult] =
@@ -138,7 +138,7 @@ object McRunner:
   private def monthProgressEvent(seed: Long, totalSeeds: Int, month: ExecutionMonth, durationMonths: Int): Event =
     Event.MonthProgress(seed = seed, totalSeeds = totalSeeds, month = month, durationMonths = durationMonths)
 
-  private def seedDoneEvent(seed: Long, totalSeeds: Int, lastMonthData: Array[Double], elapsedMillis: Long): Event =
+  private def seedDoneEvent(seed: Long, totalSeeds: Int, lastMonthData: Array[MetricValue], elapsedMillis: Long): Event =
     Event.SeedDone(
       seed = seed,
       totalSeeds = totalSeeds,

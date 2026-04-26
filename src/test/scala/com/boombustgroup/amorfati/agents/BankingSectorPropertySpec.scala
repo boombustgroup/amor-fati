@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -16,8 +17,6 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
 
   given SimParams = SimParams.defaults
 
-  private val td = ComputationBoundary
-
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
@@ -26,9 +25,9 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   @annotation.nowarn("msg=unused private member") // defaults used by callers
   private def mkBankRow(
       id: Int = 0,
-      deposits: PLN = PLN(1e6),
-      loans: PLN = PLN(1e6),
-      capital: PLN = PLN(2e5),
+      deposits: PLN = PLN(1000000),
+      loans: PLN = PLN(1000000),
+      capital: PLN = PLN(200000),
       nplAmount: PLN = PLN.Zero,
       govBondHoldings: PLN = PLN.Zero,
       reservesAtNbp: PLN = PLN.Zero,
@@ -39,7 +38,7 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       id = BankId(id),
       capital = capital,
       nplAmount = nplAmount,
-      htmBookYield = Rate(0.055),
+      htmBookYield = Rate.decimal(55, 3),
       status = status,
       loansShort = PLN.Zero,
       loansMedium = PLN.Zero,
@@ -49,8 +48,8 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
     Banking.BankFinancialStocks(
       totalDeposits = deposits,
       firmLoan = loans,
-      govBondAfs = govBondHoldings * Share(0.40),
-      govBondHtm = govBondHoldings * Share(0.60),
+      govBondAfs = govBondHoldings * Share.decimal(40, 2),
+      govBondHtm = govBondHoldings * Share.decimal(60, 2),
       reserve = reservesAtNbp,
       interbankLoan = interbankNet,
       demandDeposit = PLN.Zero,
@@ -64,47 +63,47 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   "clearInterbank" should "always produce interbankNet that sums to zero" in
     forAll(genBanking.Sector) { bs =>
       val cleared = Banking.clearInterbank(bs.banks, bs.financialStocks, bs.configs)
-      val netSum  = cleared.financialStocks.map(stocks => td.toDouble(stocks.interbankLoan)).sum
-      netSum shouldBe 0.0 +- 1.0 // tolerance for floating-point
+      val netSum  = cleared.financialStocks.map(stocks => decimal(stocks.interbankLoan)).sum
+      netSum shouldBe BigDecimal("0.0") +- BigDecimal("1.0") // tolerance for floating-point
     }
 
   // ---- bond allocation increments sum exactly ----
 
   "allocateBondIssuance/allocateBondRedemption" should "have individual deltas summing to exactly the requested change (residual)" in
-    forAll(genBanking.Sector, Gen.choose(-1e8, 1e8)) { (bs, signedChange: Double) =>
-      val aliveDep = bs.banks.zip(bs.financialStocks).filterNot(_._1.failed).map((_, stocks) => td.toDouble(stocks.totalDeposits)).sum
-      whenever(aliveDep > 0 && signedChange != 0.0) {
+    forAll(genBanking.Sector, genDecimal("-1e8", "1e8")) { (bs, signedChange: BigDecimal) =>
+      val aliveDep = bs.banks.zip(bs.financialStocks).filterNot(_._1.failed).map((_, stocks) => decimal(stocks.totalDeposits)).sum
+      whenever(aliveDep > 0 && signedChange != BigDecimal("0.0")) {
         val after  =
-          if signedChange > 0.0 then Banking.allocateBondIssuance(bs.banks, bs.financialStocks, PLN(signedChange), Rate(0.05))
-          else Banking.allocateBondRedemption(bs.banks, bs.financialStocks, PLN(-signedChange), Rate(0.05))
+          if signedChange > BigDecimal("0.0") then Banking.allocateBondIssuance(bs.banks, bs.financialStocks, plnBD(signedChange), Rate.decimal(5, 2))
+          else Banking.allocateBondRedemption(bs.banks, bs.financialStocks, plnBD(-signedChange), Rate.decimal(5, 2))
         // Per-bank deltas sum to the signed issuance/redemption request.
         val deltas =
-          after.financialStocks.zip(bs.financialStocks).map((a, b) => td.toDouble(Banking.govBondHoldings(a)) - td.toDouble(Banking.govBondHoldings(b)))
-        deltas.sum shouldBe signedChange +- 1.0
+          after.financialStocks.zip(bs.financialStocks).map((a, b) => decimal(Banking.govBondHoldings(a)) - decimal(Banking.govBondHoldings(b)))
+        deltas.sum shouldBe signedChange +- BigDecimal("1.0")
       }
     }
 
   it should "keep aggregate bond change within tight tolerance for large issuance" in
-    forAll(genBanking.Sector, Gen.choose(1e10, 1e14)) { (bs, issuance: Double) =>
+    forAll(genBanking.Sector, genDecimal("1e10", "1e14")) { (bs, issuance: BigDecimal) =>
       val alive = bs.banks.filterNot(_.failed)
       whenever(alive.nonEmpty) {
-        val before   = bs.financialStocks.map(stocks => td.toDouble(Banking.govBondHoldings(stocks))).sum
-        val after    = Banking.allocateBondIssuance(bs.banks, bs.financialStocks, PLN(issuance), Rate(0.05))
-        val afterSum = after.financialStocks.map(stocks => td.toDouble(Banking.govBondHoldings(stocks))).sum
-        (afterSum - before) shouldBe issuance +- 1.0 // well within SFC tolerance
+        val before   = bs.financialStocks.map(stocks => decimal(Banking.govBondHoldings(stocks))).sum
+        val after    = Banking.allocateBondIssuance(bs.banks, bs.financialStocks, plnBD(issuance), Rate.decimal(5, 2))
+        val afterSum = after.financialStocks.map(stocks => decimal(Banking.govBondHoldings(stocks))).sum
+        (afterSum - before) shouldBe issuance +- BigDecimal("1.0") // well within SFC tolerance
       }
     }
 
   // ---- lendingRate monotonic in NPL ----
 
   "lendingRate" should "be monotonically non-decreasing with NPL ratio" in
-    forAll(genRate, Gen.choose(0.0, 0.15), Gen.choose(0.0, 0.15)) { (refRate: Double, npl1Frac: Double, npl2Frac: Double) =>
-      val loans              = 1e6
+    forAll(genRate, genDecimal("0.0", "0.15"), genDecimal("0.0", "0.15")) { (refRate: BigDecimal, npl1Frac: BigDecimal, npl2Frac: BigDecimal) =>
+      val loans              = BigDecimal("1e6")
       val (lo, hi)           = if npl1Frac <= npl2Frac then (npl1Frac, npl2Frac) else (npl2Frac, npl1Frac)
-      val (bankLo, stocksLo) = mkBankRow(nplAmount = PLN(loans * lo))
-      val (bankHi, stocksHi) = mkBankRow(nplAmount = PLN(loans * hi))
-      val rateLo             = Banking.lendingRate(bankLo, stocksLo, configs(0), Rate(refRate), Rate.Zero, PLN.Zero)
-      val rateHi             = Banking.lendingRate(bankHi, stocksHi, configs(0), Rate(refRate), Rate.Zero, PLN.Zero)
+      val (bankLo, stocksLo) = mkBankRow(nplAmount = plnBD(loans * lo))
+      val (bankHi, stocksHi) = mkBankRow(nplAmount = plnBD(loans * hi))
+      val rateLo             = Banking.lendingRate(bankLo, stocksLo, configs(0), rateBD(refRate), Rate.Zero, PLN.Zero)
+      val rateHi             = Banking.lendingRate(bankHi, stocksHi, configs(0), rateBD(refRate), Rate.Zero, PLN.Zero)
       rateHi should be >= rateLo
     }
 
@@ -124,15 +123,15 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   "aggregate" should "have deposits equal to sum of individual deposits" in
     forAll(genBanking.Sector) { bs =>
       val agg         = Banking.aggregateFromBankStocks(bs.banks, bs.financialStocks)
-      val expectedDep = bs.financialStocks.map(stocks => td.toDouble(stocks.totalDeposits)).sum
-      td.toDouble(agg.deposits) shouldBe expectedDep +- 1.0
+      val expectedDep = bs.financialStocks.map(stocks => decimal(stocks.totalDeposits)).sum
+      decimal(agg.deposits) shouldBe expectedDep +- BigDecimal("1.0")
     }
 
   it should "have capital equal to sum of individual capital" in
     forAll(genBanking.Sector) { bs =>
       val agg         = Banking.aggregateFromBankStocks(bs.banks, bs.financialStocks)
-      val expectedCap = bs.banks.map(b => td.toDouble(b.capital)).sum
-      td.toDouble(agg.capital) shouldBe expectedCap +- 1.0
+      val expectedCap = bs.banks.map(b => decimal(b.capital)).sum
+      decimal(agg.capital) shouldBe expectedCap +- BigDecimal("1.0")
     }
 
   // ---- Failed banks stay failed ----
@@ -156,16 +155,16 @@ class BankingSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
   // ---- Initialize preserves totals ----
 
   "initialize" should "preserve total deposits and capital" in
-    forAll(Gen.choose(1e5, 1e10), Gen.choose(1e4, 1e9)) { (totalDep: Double, totalCap: Double) =>
-      val bs = testBankingSector(totalDeposits = PLN(totalDep), totalCapital = PLN(totalCap), totalLoans = PLN.Zero, configs = configs)
-      bs.financialStocks.map(stocks => td.toDouble(stocks.totalDeposits)).sum shouldBe totalDep +- 1.0
-      bs.banks.map(b => td.toDouble(b.capital)).sum shouldBe totalCap +- 1.0
+    forAll(genDecimal("1e5", "1e10"), genDecimal("1e4", "1e9")) { (totalDep: BigDecimal, totalCap: BigDecimal) =>
+      val bs = testBankingSector(totalDeposits = plnBD(totalDep), totalCapital = plnBD(totalCap), totalLoans = PLN.Zero, configs = configs)
+      bs.financialStocks.map(stocks => decimal(stocks.totalDeposits)).sum shouldBe totalDep +- BigDecimal("1.0")
+      bs.banks.map(b => decimal(b.capital)).sum shouldBe totalCap +- BigDecimal("1.0")
     }
 
   // ---- QE purchases don't exceed bond holdings ----
 
   "sellToBuyer" should "not make any bank's bond holdings negative" in
-    forAll(genBanking.Sector, Gen.choose(0.0, 1e9)) { (bs, qe: Double) =>
-      val result = Banking.sellToBuyer(bs.banks, bs.financialStocks, PLN(qe)).financialStocks
+    forAll(genBanking.Sector, genDecimal("0.0", "1e9")) { (bs, qe: BigDecimal) =>
+      val result = Banking.sellToBuyer(bs.banks, bs.financialStocks, plnBD(qe)).financialStocks
       result.foreach(stocks => Banking.govBondHoldings(stocks) should be >= PLN.Zero)
     }

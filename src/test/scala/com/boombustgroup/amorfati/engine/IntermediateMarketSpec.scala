@@ -15,12 +15,12 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   given SimParams = SimParams.defaults
 
   private val defaultMatrix = Vector(
-    Vector(Share(0.05), Share(0.03), Share(0.04), Share(0.02), Share(0.03), Share(0.01)),
-    Vector(Share(0.04), Share(0.35), Share(0.12), Share(0.15), Share(0.05), Share(0.18)),
-    Vector(Share(0.15), Share(0.10), Share(0.12), Share(0.08), Share(0.07), Share(0.08)),
-    Vector(Share(0.01), Share.Zero, Share(0.01), Share(0.05), Share(0.02), Share(0.01)),
-    Vector(Share(0.01), Share(0.01), Share(0.01), Share(0.01), Share(0.03), Share(0.01)),
-    Vector(Share.Zero, Share(0.08), Share(0.05), Share(0.01), Share(0.01), Share(0.12)),
+    Vector(Share.decimal(5, 2), Share.decimal(3, 2), Share.decimal(4, 2), Share.decimal(2, 2), Share.decimal(3, 2), Share.decimal(1, 2)),
+    Vector(Share.decimal(4, 2), Share.decimal(35, 2), Share.decimal(12, 2), Share.decimal(15, 2), Share.decimal(5, 2), Share.decimal(18, 2)),
+    Vector(Share.decimal(15, 2), Share.decimal(10, 2), Share.decimal(12, 2), Share.decimal(8, 2), Share.decimal(7, 2), Share.decimal(8, 2)),
+    Vector(Share.decimal(1, 2), Share.Zero, Share.decimal(1, 2), Share.decimal(5, 2), Share.decimal(2, 2), Share.decimal(1, 2)),
+    Vector(Share.decimal(1, 2), Share.decimal(1, 2), Share.decimal(1, 2), Share.decimal(1, 2), Share.decimal(3, 2), Share.decimal(1, 2)),
+    Vector(Share.Zero, Share.decimal(8, 2), Share.decimal(5, 2), Share.decimal(1, 2), Share.decimal(1, 2), Share.decimal(12, 2)),
   )
 
   private val defaultColSums =
@@ -32,17 +32,17 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   private def makeFirm(
       id: Int,
       sector: Int,
-      cash: Double = 50000.0,
+      cash: BigDecimal = BigDecimal("50000.0"),
       tech: TechState = TechState.Traditional(10),
   ): Firm.State =
     TestFirmState(
       FirmId(id),
-      PLN(cash),
+      plnBD(cash),
       PLN.Zero,
       tech,
-      Share(0.5),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share(0.3),
+      Share.decimal(3, 1),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -74,7 +74,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   "IntermediateMarket.process" should "produce zero-sum cash adjustments" in {
     val firms  = makeFirmsAllSectors(20)
     val result = IntermediateMarket.process(baseInput(firms))
-    result.cashAdjustments.sum shouldBe PLN.Zero +- PLN(1.0)
+    decimal(result.cashAdjustments.sumPln) shouldBe (decimal(PLN.Zero) +- decimal(PLN(1)))
     result.firms shouldBe firms
   }
 
@@ -109,7 +109,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     // Bankrupt firm should not receive a cash settlement.
     result.cashAdjustments(1) shouldBe PLN.Zero
     // Still zero-sum among living firms
-    firms.zip(result.cashAdjustments).filter((firm, _) => Firm.isAlive(firm)).map(_._2).sum shouldBe PLN.Zero +- PLN(1.0)
+    decimal(firms.zip(result.cashAdjustments).filter((firm, _) => Firm.isAlive(firm)).map(_._2).sumPln) shouldBe (decimal(PLN.Zero) +- decimal(PLN(1)))
   }
 
   // ---- Test 4: Zero matrix -> no changes ----
@@ -127,7 +127,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
     val firms  = (0 until 10).map(i => makeFirm(i, 0)).toVector
     val result = IntermediateMarket.process(baseInput(firms))
     // Zero-sum still holds
-    result.cashAdjustments.sum shouldBe PLN.Zero +- PLN(1.0)
+    decimal(result.cashAdjustments.sumPln) shouldBe (decimal(PLN.Zero) +- decimal(PLN(1)))
     // With only sector 0 firms: effective colSum(0) = a_00 (only sector 0 has suppliers)
     // cost = a_00 x output, revenue = a_00 x output -> net = 0 for each firm
     for i <- firms.indices do
@@ -144,8 +144,8 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
       (0 until 10).map(i => makeFirm(s * 10 + i, s))
     }.toVector
     // Replace two sector-1 firms with our test subjects
-    val firm1     = makeFirm(100, 1, tech = TechState.Automated(Multiplier(1.5))) // High capacity Mfg
-    val firm2     = makeFirm(101, 1)                                              // Normal capacity Mfg
+    val firm1     = makeFirm(100, 1, tech = TechState.Automated(Multiplier.decimal(15, 1))) // High capacity Mfg
+    val firm2     = makeFirm(101, 1)                                                        // Normal capacity Mfg
     val firms     = baseFirms.filter(_.sector.toInt != 1) ++ Vector(firm1, firm2)
     val result    = IntermediateMarket.process(baseInput(firms))
     // Higher capacity firm receives more I-O revenue, so net cash gain is higher
@@ -168,7 +168,7 @@ class IntermediateMarketSpec extends AnyFlatSpec with Matchers:
   it should "scale I-O flows with demandMult and price" in {
     val firms   = makeFirmsAllSectors(5)
     val base    = IntermediateMarket.process(baseInput(firms))
-    val doubled = IntermediateMarket.process(baseInput(firms).copy(sectorMults = Vector.fill(6)(Multiplier(2.0))))
+    val doubled = IntermediateMarket.process(baseInput(firms).copy(sectorMults = Vector.fill(6)(Multiplier(2))))
     // Doubling demand should double total I-O flows
     doubled.totalPaid.bd shouldBe ((base.totalPaid.bd * 2) +- (base.totalPaid.bd * BigDecimal("0.01")))
   }

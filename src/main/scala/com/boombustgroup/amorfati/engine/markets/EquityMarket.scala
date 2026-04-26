@@ -21,17 +21,17 @@ import com.boombustgroup.amorfati.types.*
 object EquityMarket:
 
   // --- Named constants ---
-  private val EquityRiskPremium      = Rate(0.05)        // GPW historical average
-  private val MinDiscountRate        = Rate(0.02)        // floor to avoid near-zero discount
-  private val GrowthFloor            = Rate(-0.10)       // max annualized contraction
-  private val GordonSingularityGuard = Rate(0.005)       // min denominator (r - g) to avoid explosion
-  private val AdjustmentSpeed        = Share(0.15)       // monthly partial adjustment to fundamental
-  private val MinIndex               = PriceIndex(100.0) // index floor
-  private val EarningsYieldFloor     = Rate(0.01)        // E/P floor (P/E = 100)
-  private val EarningsYieldCap       = Rate(0.50)        // E/P cap (P/E = 2)
-  private val PayoutRatio            = Share(0.57)       // GPW average payout ratio
-  private val DivYieldSmoothing      = Share(0.10)       // weight on implied div yield (1-α on prev)
-  private val ForeignReversionSpeed  = Share(0.01)       // monthly mean-reversion speed
+  private val EquityRiskPremium      = Rate.decimal(5, 2)   // GPW historical average
+  private val MinDiscountRate        = Rate.decimal(2, 2)   // floor to avoid near-zero discount
+  private val GrowthFloor            = Rate.decimal(-10, 2) // max annualized contraction
+  private val GordonSingularityGuard = Rate.decimal(5, 3)   // min denominator (r - g) to avoid explosion
+  private val AdjustmentSpeed        = Share.decimal(15, 2) // monthly partial adjustment to fundamental
+  private val MinIndex               = PriceIndex(100)      // index floor
+  private val EarningsYieldFloor     = Rate.decimal(1, 2)   // E/P floor (P/E = 100)
+  private val EarningsYieldCap       = Rate.decimal(50, 2)  // E/P cap (P/E = 2)
+  private val PayoutRatio            = Share.decimal(57, 2) // GPW average payout ratio
+  private val DivYieldSmoothing      = Share.decimal(10, 2) // weight on implied div yield (1-α on prev)
+  private val ForeignReversionSpeed  = Share.decimal(1, 2)  // monthly mean-reversion speed
 
   /** GPW equity market state: aggregate index, valuation/yield memory, dividend
     * diagnostics, and the calibrated foreign share used for BoP dividend

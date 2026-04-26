@@ -13,17 +13,16 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
-  private val sectorOutputs = Vector(PLN(30000.0), PLN(160000.0), PLN(450000.0), PLN(60000.0), PLN(220000.0), PLN(80000.0))
+  private val sectorOutputs = Vector(PLN(30000), PLN(160000), PLN(450000), PLN(60000), PLN(220000), PLN(80000))
 
   private def baseInput(
       prev: GvcTrade.State = GvcTrade.initial,
-      er: Double = td.toDouble(p.forex.baseExRate),
-      price: Double = 1.0,
-      autoR: Double = 0.0,
+      er: BigDecimal = decimal(p.forex.baseExRate),
+      price: BigDecimal = BigDecimal("1.0"),
+      autoR: BigDecimal = BigDecimal("0.0"),
       month: Int = 30,
-  ) = GvcTrade.StepInput(prev, sectorOutputs, PriceIndex(price), ExchangeRate(er), Share(autoR), ExecutionMonth(month), rng = RandomStream.seeded(42))
+  ) = GvcTrade.StepInput(prev, sectorOutputs, priceIndexBD(price), exchangeRateBD(er), shareBD(autoR), ExecutionMonth(month), rng = RandomStream.seeded(42))
 
   // ---- Initialization ----
 
@@ -63,7 +62,7 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
     val s           = GvcTrade.initial
     val eu          = p.gvc.euTradeShare.bd
     val expectedHhi = eu * eu + (BigDecimal(1) - eu) * (BigDecimal(1) - eu)
-    s.tradeConcentration.bd shouldBe expectedHhi +- 1e-10
+    s.tradeConcentration.bd shouldBe expectedHhi +- BigDecimal("1e-10")
   }
 
   // ---- Step ----
@@ -104,8 +103,8 @@ class ExternalSectorSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase exports with higher automation" in {
-    val r0 = GvcTrade.step(baseInput(autoR = 0.0))
-    val r1 = GvcTrade.step(baseInput(autoR = 0.5))
+    val r0 = GvcTrade.step(baseInput(autoR = BigDecimal("0.0")))
+    val r1 = GvcTrade.step(baseInput(autoR = BigDecimal("0.5")))
     r1.totalExports.should(be > r0.totalExports)
   }
 

@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.TestFirmState
 
 import org.scalatest.flatspec.AnyFlatSpec
@@ -16,10 +17,9 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   private def cyclicalAdj(unemployment: Rate): Share =
-    Share(Math.max(0.0, td.toDouble(unemployment) - td.toDouble(p.informal.unempThreshold)) * td.toDouble(p.informal.cyclicalSens))
+    shareBD(DecimalMath.max(BigDecimal("0.0"), decimal(unemployment) - decimal(p.informal.unempThreshold)) * decimal(p.informal.cyclicalSens))
 
   // ==========================================================================
   // Config defaults
@@ -44,31 +44,38 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   }
 
   it should "match expected defaults" in {
-    p.informal.sectorShares shouldBe Vector(Share(0.05), Share(0.15), Share(0.30), Share(0.20), Share(0.02), Share(0.35))
+    p.informal.sectorShares shouldBe Vector(
+      Share.decimal(5, 2),
+      Share.decimal(15, 2),
+      Share.decimal(30, 2),
+      Share.decimal(20, 2),
+      Share.decimal(2, 2),
+      Share.decimal(35, 2),
+    )
   }
 
   "InformalCitEvasion" should "default to 0.80" in {
-    p.informal.citEvasion shouldBe Share(0.80)
+    p.informal.citEvasion shouldBe Share.decimal(80, 2)
   }
 
   "InformalVatEvasion" should "default to 0.90" in {
-    p.informal.vatEvasion shouldBe Share(0.90)
+    p.informal.vatEvasion shouldBe Share.decimal(90, 2)
   }
 
   "InformalPitEvasion" should "default to 0.85" in {
-    p.informal.pitEvasion shouldBe Share(0.85)
+    p.informal.pitEvasion shouldBe Share.decimal(85, 2)
   }
 
   "InformalExciseEvasion" should "default to 0.70" in {
-    p.informal.exciseEvasion shouldBe Share(0.70)
+    p.informal.exciseEvasion shouldBe Share.decimal(70, 2)
   }
 
   "InformalUnempThreshold" should "default to 0.05" in {
-    p.informal.unempThreshold shouldBe Rate(0.05)
+    p.informal.unempThreshold shouldBe Rate.decimal(5, 2)
   }
 
   "InformalCyclicalSens" should "default to 0.50" in {
-    p.informal.cyclicalSens shouldBe Coefficient(0.50)
+    p.informal.cyclicalSens shouldBe Coefficient.decimal(50, 2)
   }
 
   // ==========================================================================
@@ -76,20 +83,20 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   private def mkMinimalWorld() = Generators.testWorld(
-    inflation = Rate(0.0),
-    currentSigmas = Vector.fill(6)(Sigma(5.0)),
+    inflation = Rate(0),
+    currentSigmas = Vector.fill(6)(Sigma(5)),
     marketWage = PLN(8000),
     reservationWage = PLN(4500),
   )
 
   "World" should "have informalCyclicalAdj defaulting to 0.0" in {
     val w = mkMinimalWorld()
-    w.mechanisms.informalCyclicalAdj shouldBe 0.0
+    w.mechanisms.informalCyclicalAdj shouldBe Share.Zero
   }
 
   it should "have nextTaxShadowShare defaulting to 0.0" in {
     val w = mkMinimalWorld()
-    w.mechanisms.nextTaxShadowShare shouldBe 0.0
+    w.mechanisms.nextTaxShadowShare shouldBe Share.Zero
   }
 
   it should "have taxEvasionLoss defaulting to 0.0" in {
@@ -99,22 +106,22 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
   it should "have realizedTaxShadowShare defaulting to 0.0" in {
     val w = mkMinimalWorld()
-    w.flows.realizedTaxShadowShare shouldBe 0.0
+    w.flows.realizedTaxShadowShare shouldBe Share.Zero
   }
 
   // ==========================================================================
   // Firm.Result citEvasion
   // ==========================================================================
 
-  private def mkFirm(tech: TechState = TechState.Traditional(10), cash: PLN = PLN(50000.0)): Firm.State =
+  private def mkFirm(tech: TechState = TechState.Traditional(10), cash: PLN = PLN(50000)): Firm.State =
     TestFirmState(
       FirmId(0),
       cash,
       PLN.Zero,
       tech,
-      Share(0.5),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share(0.3),
+      Share.decimal(3, 1),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -128,7 +135,7 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     )
 
   "Firm.Result" should "have citEvasion defaulting to 0.0" in {
-    val r = Firm.Result.zero(mkFirm()).copy(taxPaid = PLN(100.0))
+    val r = Firm.Result.zero(mkFirm()).copy(taxPaid = PLN(100))
     r.citEvasion shouldBe PLN.Zero
   }
 
@@ -151,18 +158,18 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Counter-cyclical adjustment" should "be 0 when unemployment <= threshold" in {
-    cyclicalAdj(Rate(0.04)) shouldBe Share.Zero
+    cyclicalAdj(Rate.decimal(4, 2)) shouldBe Share.Zero
   }
 
   it should "be positive when unemployment > threshold" in {
-    val adj = cyclicalAdj(Rate(0.10))
+    val adj = cyclicalAdj(Rate.decimal(10, 2))
     adj should be > Share.Zero
-    adj shouldBe Share(0.025)
+    adj shouldBe Share.decimal(25, 3)
   }
 
   it should "increase with unemployment" in {
-    val adj1 = cyclicalAdj(Rate(0.08))
-    val adj2 = cyclicalAdj(Rate(0.15))
+    val adj1 = cyclicalAdj(Rate.decimal(8, 2))
+    val adj2 = cyclicalAdj(Rate.decimal(15, 2))
     adj2 should be > adj1
   }
 
@@ -176,20 +183,20 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     ess should be < Share.One
     // BPO=0.02*0.05, Mfg=0.22*0.15, Ret=0.53*0.30, Hlt=0.06*0.20, Pub=0.07*0.02, Agr=0.10*0.35
     // = 0.001 + 0.033 + 0.159 + 0.012 + 0.0014 + 0.035 = ~0.2414
-    ess shouldBe Share(0.2414)
+    ess shouldBe Share.decimal(2414, 4)
   }
 
   it should "be capped at 1.0 per sector" in {
-    val cyclicalAdj = Share(2.0)
+    val cyclicalAdj = Share(2)
     val shares      = p.informal.sectorShares.map(ss => (ss + cyclicalAdj).min(Share.One))
     shares.foreach(_ shouldBe Share.One)
   }
 
   it should "keep the baseline aggregate tax shadow share inside the Schneider target band" in {
     val baseline = InformalEconomy.aggregateTaxShadowShare(Share.Zero)
-    baseline should be >= Share(0.20)
-    baseline should be <= Share(0.25)
-    baseline shouldBe Share(0.2414)
+    baseline should be >= Share.decimal(20, 2)
+    baseline should be <= Share.decimal(25, 2)
+    baseline shouldBe Share.decimal(2414, 4)
   }
 
   // ==========================================================================
@@ -197,9 +204,9 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "VAT evasion" should "reduce VAT proportionally" in {
-    val vat         = PLN(1000.0)
-    val ess         = Share(0.20)
-    val evasionFrac = Share(td.toDouble(ess) * td.toDouble(p.informal.vatEvasion))
+    val vat         = PLN(1000)
+    val ess         = Share.decimal(20, 2)
+    val evasionFrac = shareBD(decimal(ess) * decimal(p.informal.vatEvasion))
     val vatAfter    = vat * (Share.One - evasionFrac)
     vatAfter should be < vat
     vatAfter should be > PLN.Zero
@@ -210,9 +217,9 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "PIT evasion" should "reduce PIT proportionally" in {
-    val pit         = PLN(500.0)
-    val ess         = Share(0.20)
-    val evasionFrac = Share(td.toDouble(ess) * td.toDouble(p.informal.pitEvasion))
+    val pit         = PLN(500)
+    val ess         = Share.decimal(20, 2)
+    val evasionFrac = shareBD(decimal(ess) * decimal(p.informal.pitEvasion))
     val pitAfter    = pit * (Share.One - evasionFrac)
     pitAfter should be < pit
     pitAfter should be > PLN.Zero
@@ -223,9 +230,9 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "Excise evasion" should "reduce excise proportionally" in {
-    val excise      = PLN(300.0)
-    val ess         = Share(0.20)
-    val evasionFrac = Share(td.toDouble(ess) * td.toDouble(p.informal.exciseEvasion))
+    val excise      = PLN(300)
+    val ess         = Share.decimal(20, 2)
+    val evasionFrac = shareBD(decimal(ess) * decimal(p.informal.exciseEvasion))
     val exciseAfter = excise * (Share.One - evasionFrac)
     exciseAfter should be < excise
     exciseAfter should be > PLN.Zero
@@ -236,12 +243,12 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "TaxEvasionLoss" should "be sum of all channels" in {
-    val citEvasion = PLN(100.0)
-    val vatDiff    = PLN(200.0)
-    val pitDiff    = PLN(150.0)
-    val exciseDiff = PLN(50.0)
+    val citEvasion = PLN(100)
+    val vatDiff    = PLN(200)
+    val pitDiff    = PLN(150)
+    val exciseDiff = PLN(50)
     val total      = citEvasion + vatDiff + pitDiff + exciseDiff
-    total shouldBe PLN(500.0)
+    total shouldBe PLN(500)
   }
 
   // ==========================================================================
@@ -249,18 +256,18 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // ==========================================================================
 
   "EvasionToGdpRatio" should "be positive when evasion > 0 and GDP > 0" in {
-    val evasion = PLN(100.0)
-    val gdp     = PLN(1000.0)
-    val ratio   = td.toDouble(evasion) / td.toDouble(gdp)
-    ratio should be > 0.0
-    ratio shouldBe 0.1
+    val evasion = PLN(100)
+    val gdp     = PLN(1000)
+    val ratio   = decimal(evasion) / decimal(gdp)
+    ratio should be > BigDecimal("0.0")
+    ratio shouldBe BigDecimal("0.1")
   }
 
   it should "be zero when GDP is zero" in {
-    val evasion = PLN(100.0)
+    val evasion = PLN(100)
     val gdp     = PLN.Zero
-    val ratio   = if gdp > PLN.Zero then td.toDouble(evasion) / td.toDouble(gdp) else 0.0
-    ratio shouldBe 0.0
+    val ratio   = if gdp > PLN.Zero then decimal(evasion) / decimal(gdp) else BigDecimal("0.0")
+    ratio shouldBe BigDecimal("0.0")
   }
 
   // ==========================================================================
@@ -283,18 +290,18 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
 
     (1 to 12).foreach: month =>
       val result     = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
-      realizedShares += Share(result.nextState.world.flows.realizedTaxShadowShare)
+      realizedShares += result.nextState.world.flows.realizedTaxShadowShare
       val monthlyGdp = result.nextState.world.cachedMonthlyGdpProxy
       val ratio      =
-        if monthlyGdp > PLN.Zero then Share(td.toDouble(result.nextState.world.flows.taxEvasionLoss) / td.toDouble(monthlyGdp)) else Share.Zero
+        if monthlyGdp > PLN.Zero then shareBD(decimal(result.nextState.world.flows.taxEvasionLoss) / decimal(monthlyGdp)) else Share.Zero
       evasionRatios += ratio
       state = result.nextState
 
-    val avgShare = Share(realizedShares.map(td.toDouble).sum / realizedShares.size)
-    val avgRatio = Share(evasionRatios.map(td.toDouble).sum / evasionRatios.size)
+    val avgShare = shareBD(realizedShares.map(decimal).sum / realizedShares.size)
+    val avgRatio = shareBD(evasionRatios.map(decimal).sum / evasionRatios.size)
 
-    avgShare should be >= Share(0.24)
-    avgShare should be <= Share(0.30)
-    avgRatio should be >= Share(0.003)
-    avgRatio should be <= Share(0.02)
+    avgShare should be >= Share.decimal(24, 2)
+    avgShare should be <= Share.decimal(30, 2)
+    avgRatio should be >= Share.decimal(3, 3)
+    avgRatio should be <= Share.decimal(2, 2)
   }

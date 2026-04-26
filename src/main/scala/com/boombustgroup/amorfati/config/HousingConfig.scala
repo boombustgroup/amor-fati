@@ -54,21 +54,21 @@ import com.boombustgroup.amorfati.types.*
   *   Krakow, Wroclaw, Gdansk, Lodz, Poznan, and rest-of-Poland
   */
 case class HousingConfig(
-    initHpi: PriceIndex = PriceIndex(100.0),
-    initValue: PLN = PLN(3.0e12),   // raw — scaled by gdpRatio
-    initMortgage: PLN = PLN(485e9), // raw — scaled by gdpRatio
-    priceIncomeElast: Coefficient = Coefficient(1.2),
-    priceRateElast: Coefficient = Coefficient(-0.8),
-    priceReversion: Coefficient = Coefficient(0.05),
-    mortgageSpread: Rate = Rate(0.025),
+    initHpi: PriceIndex = PriceIndex(100),
+    initValue: PLN = PLN(3000000000000L),   // raw — scaled by gdpRatio
+    initMortgage: PLN = PLN(485000000000L), // raw — scaled by gdpRatio
+    priceIncomeElast: Coefficient = Coefficient.decimal(12, 1),
+    priceRateElast: Coefficient = Coefficient.decimal(-8, 1),
+    priceReversion: Coefficient = Coefficient.decimal(5, 2),
+    mortgageSpread: Rate = Rate.decimal(25, 3),
     mortgageMaturity: Int = 300,
-    ltvMax: Share = Share(0.80),
-    originationRate: Share = Share(0.003),
-    defaultBase: Share = Share(0.001),
-    defaultUnempSens: Coefficient = Coefficient(0.05),
-    mortgageRecovery: Share = Share(0.70),
-    wealthMpc: Share = Share(0.05),
-    rentalYield: Rate = Rate(0.045),
+    ltvMax: Share = Share.decimal(80, 2),
+    originationRate: Share = Share.decimal(3, 3),
+    defaultBase: Share = Share.decimal(1, 3),
+    defaultUnempSens: Coefficient = Coefficient.decimal(5, 2),
+    mortgageRecovery: Share = Share.decimal(70, 2),
+    wealthMpc: Share = Share.decimal(5, 2),
+    rentalYield: Rate = Rate.decimal(45, 3),
     regionalMarkets: Vector[HousingConfig.RegionalMarketConfig] = HousingConfig.DefaultRegionalMarkets,
 ):
   require(ltvMax > Share.Zero && ltvMax <= Share.One, s"ltvMax must be in (0,1]: $ltvMax")
@@ -128,11 +128,60 @@ object HousingConfig:
 
   private[amorfati] val DefaultRegionalMarkets: Vector[RegionalMarketConfig] =
     Vector(
-      RegionalMarketConfig(RegionalMarket.Warsaw, PriceIndex(230.0), Share(0.25), Share(0.30), Coefficient(0.03), Multiplier(1.35)),
-      RegionalMarketConfig(RegionalMarket.Krakow, PriceIndex(190.0), Share(0.08), Share(0.10), Coefficient(0.04), Multiplier(1.15)),
-      RegionalMarketConfig(RegionalMarket.Wroclaw, PriceIndex(170.0), Share(0.07), Share(0.08), Coefficient(0.04), Multiplier(1.10)),
-      RegionalMarketConfig(RegionalMarket.Gdansk, PriceIndex(175.0), Share(0.08), Share(0.09), Coefficient(0.04), Multiplier(1.12)),
-      RegionalMarketConfig(RegionalMarket.Lodz, PriceIndex(110.0), Share(0.04), Share(0.04), Coefficient(0.06), Multiplier(0.95)),
-      RegionalMarketConfig(RegionalMarket.Poznan, PriceIndex(140.0), Share(0.05), Share(0.06), Coefficient(0.05), Multiplier(1.05)),
-      RegionalMarketConfig(RegionalMarket.RestOfPoland, PriceIndex(100.0), Share(0.43), Share(0.33), Coefficient(0.06), Multiplier(0.82)),
+      RegionalMarketConfig(
+        RegionalMarket.Warsaw,
+        PriceIndex(230),
+        Share.decimal(25, 2),
+        Share.decimal(30, 2),
+        Coefficient.decimal(3, 2),
+        Multiplier.decimal(135, 2),
+      ),
+      RegionalMarketConfig(
+        RegionalMarket.Krakow,
+        PriceIndex(190),
+        Share.decimal(8, 2),
+        Share.decimal(10, 2),
+        Coefficient.decimal(4, 2),
+        Multiplier.decimal(115, 2),
+      ),
+      RegionalMarketConfig(
+        RegionalMarket.Wroclaw,
+        PriceIndex(170),
+        Share.decimal(7, 2),
+        Share.decimal(8, 2),
+        Coefficient.decimal(4, 2),
+        Multiplier.decimal(110, 2),
+      ),
+      RegionalMarketConfig(
+        RegionalMarket.Gdansk,
+        PriceIndex(175),
+        Share.decimal(8, 2),
+        Share.decimal(9, 2),
+        Coefficient.decimal(4, 2),
+        Multiplier.decimal(112, 2),
+      ),
+      RegionalMarketConfig(
+        RegionalMarket.Lodz,
+        PriceIndex(110),
+        Share.decimal(4, 2),
+        Share.decimal(4, 2),
+        Coefficient.decimal(6, 2),
+        Multiplier.decimal(95, 2),
+      ),
+      RegionalMarketConfig(
+        RegionalMarket.Poznan,
+        PriceIndex(140),
+        Share.decimal(5, 2),
+        Share.decimal(6, 2),
+        Coefficient.decimal(5, 2),
+        Multiplier.decimal(105, 2),
+      ),
+      RegionalMarketConfig(
+        RegionalMarket.RestOfPoland,
+        PriceIndex(100),
+        Share.decimal(43, 2),
+        Share.decimal(33, 2),
+        Coefficient.decimal(6, 2),
+        Multiplier.decimal(82, 2),
+      ),
     )

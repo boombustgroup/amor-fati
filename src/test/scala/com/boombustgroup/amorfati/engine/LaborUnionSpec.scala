@@ -1,15 +1,14 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.types.*
 
 class LaborUnionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   // --- Config defaults ---
 
@@ -19,17 +18,17 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
 
   "UnionDensity" should "have aggregate ~12%" in {
     val aggDensity =
-      p.sectorDefs.zipWithIndex.map((s, i) => td.toDouble(s.share) * td.toDouble(p.labor.unionDensity(i))).sum
-    aggDensity shouldBe (0.12 +- 0.02)
+      p.sectorDefs.zipWithIndex.map((s, i) => decimal(s.share) * decimal(p.labor.unionDensity(i))).sum
+    aggDensity shouldBe (BigDecimal("0.12") +- BigDecimal("0.02"))
   }
 
   "UnionWagePremium" should "be positive" in {
-    td.toDouble(p.labor.unionWagePremium) should be > 0.0
+    decimal(p.labor.unionWagePremium) should be > BigDecimal("0.0")
   }
 
   "UnionRigidity" should "be in [0,1]" in {
-    td.toDouble(p.labor.unionRigidity) should be >= 0.0
-    td.toDouble(p.labor.unionRigidity) should be <= 1.0
+    decimal(p.labor.unionRigidity) should be >= BigDecimal("0.0")
+    decimal(p.labor.unionRigidity) should be <= BigDecimal("1.0")
   }
 
   // --- effectiveWageMult ---
@@ -39,12 +38,12 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   "effectiveWageMult formula" should "include premium proportional to density" in {
     // Verify the formula: base * (1 + premium * density)
     val publicIdx = 4 // Public sector: density 0.30
-    val base      = td.toDouble(p.sectorDefs(publicIdx).wageMultiplier)
-    val premium   = td.toDouble(p.labor.unionWagePremium)
-    val density   = td.toDouble(p.labor.unionDensity(publicIdx))
-    val expected  = base * (1.0 + premium * density)
+    val base      = decimal(p.sectorDefs(publicIdx).wageMultiplier)
+    val premium   = decimal(p.labor.unionWagePremium)
+    val density   = decimal(p.labor.unionDensity(publicIdx))
+    val expected  = base * (BigDecimal("1.0") + premium * density)
     // Public: 0.91 * (1 + 0.08 * 0.30) = 0.91 * 1.024 = 0.93184
-    expected shouldBe (0.932 +- 0.001)
+    expected shouldBe (BigDecimal("0.932") +- BigDecimal("0.001"))
     expected should be > base
   }
 
@@ -57,37 +56,37 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
   // --- Downward wage rigidity ---
 
   "Downward rigidity formula" should "dampen wage decline" in {
-    val prevWage   = 8000.0
-    val rawWage    = 7600.0             // 5% decline
+    val prevWage   = BigDecimal("8000.0")
+    val rawWage    = BigDecimal("7600.0") // 5% decline
     val aggDensity =
-      p.sectorDefs.zipWithIndex.map((s, i) => td.toDouble(s.share) * td.toDouble(p.labor.unionDensity(i))).sum
-    val decline    = prevWage - rawWage // 400
-    val dampened   = rawWage + decline * td.toDouble(p.labor.unionRigidity) * aggDensity
+      p.sectorDefs.zipWithIndex.map((s, i) => decimal(s.share) * decimal(p.labor.unionDensity(i))).sum
+    val decline    = prevWage - rawWage   // 400
+    val dampened   = rawWage + decline * decimal(p.labor.unionRigidity) * aggDensity
     // With ~12% density and 0.50 rigidity: 7600 + 400 * 0.50 * 0.12 = 7600 + 24 = 7624
     dampened should be > rawWage
     dampened should be < prevWage
-    dampened shouldBe (7624.0 +- 5.0)
+    dampened shouldBe (BigDecimal("7624.0") +- BigDecimal("5.0"))
   }
 
   "Downward rigidity" should "respect reservation wage floor" in {
-    val resWage    = 4666.0
-    val prevWage   = 5000.0
-    val rawWage    = 4500.0 // Below resWage
-    val aggDensity = 0.12
+    val resWage    = BigDecimal("4666.0")
+    val prevWage   = BigDecimal("5000.0")
+    val rawWage    = BigDecimal("4500.0") // Below resWage
+    val aggDensity = BigDecimal("0.12")
     val decline    = prevWage - rawWage
-    val dampened   = rawWage + decline * td.toDouble(p.labor.unionRigidity) * aggDensity
-    val result     = Math.max(resWage, dampened)
+    val dampened   = rawWage + decline * decimal(p.labor.unionRigidity) * aggDensity
+    val result     = DecimalMath.max(resWage, dampened)
     result should be >= resWage
   }
 
   "Downward rigidity" should "not affect rising wages" in {
-    val prevWage = 8000.0
-    val rawWage  = 8200.0 // Wages rising
+    val prevWage = BigDecimal("8000.0")
+    val rawWage  = BigDecimal("8200.0") // Wages rising
     // When rawWage >= prevWage, union rigidity has no effect
     val result   = if rawWage < prevWage then
-      val aggDensity = 0.12
+      val aggDensity = BigDecimal("0.12")
       val decline    = prevWage - rawWage
-      rawWage + decline * td.toDouble(p.labor.unionRigidity) * aggDensity
+      rawWage + decline * decimal(p.labor.unionRigidity) * aggDensity
     else rawWage
     result shouldBe rawWage
   }
@@ -107,18 +106,18 @@ class LaborUnionSpec extends AnyFlatSpec with Matchers:
     // When unions enabled, raw wages for union sectors are higher
     // After normalization (rawWages * scale where scale = 1/rawMean),
     // unionized sector workers earn more, non-union less (redistribution)
-    val sectors = Vector(0.02, 0.15, 0.03, 0.12, 0.30, 0.04) // densities
-    val premium = 0.08
+    val sectors = Vector(BigDecimal("0.02"), BigDecimal("0.15"), BigDecimal("0.03"), BigDecimal("0.12"), BigDecimal("0.30"), BigDecimal("0.04")) // densities
+    val premium = BigDecimal("0.08")
 
     // Compute relative wages without union
-    val baseRaw  = p.sectorDefs.map(s => td.toDouble(s.wageMultiplier))
-    val baseMean = p.sectorDefs.map(s => td.toDouble(s.wageMultiplier) * td.toDouble(s.share)).sum /
-      p.sectorDefs.map(s => td.toDouble(s.share)).sum
+    val baseRaw  = p.sectorDefs.map(s => decimal(s.wageMultiplier))
+    val baseMean = p.sectorDefs.map(s => decimal(s.wageMultiplier) * decimal(s.share)).sum /
+      p.sectorDefs.map(s => decimal(s.share)).sum
 
     // Compute relative wages with union
-    val unionRaw  = p.sectorDefs.zipWithIndex.map((s, i) => td.toDouble(s.wageMultiplier) * (1.0 + premium * sectors(i)))
+    val unionRaw  = p.sectorDefs.zipWithIndex.map((s, i) => decimal(s.wageMultiplier) * (BigDecimal("1.0") + premium * sectors(i)))
     val unionMean =
-      p.sectorDefs.zipWithIndex.map((s, i) => unionRaw(i) * td.toDouble(s.share)).sum / p.sectorDefs.map(s => td.toDouble(s.share)).sum
+      p.sectorDefs.zipWithIndex.map((s, i) => unionRaw(i) * decimal(s.share)).sum / p.sectorDefs.map(s => decimal(s.share)).sum
 
     // After normalization, Public sector (index 4) should be relatively higher
     val publicBaseNorm  = baseRaw(4) / baseMean

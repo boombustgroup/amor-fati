@@ -20,7 +20,7 @@ import com.boombustgroup.amorfati.random.RandomStream
 object FirmEconomics:
 
   // ---- Calibration constants ----
-  private val BondRevertThreshold = 0.001 // minimum revert ratio to trigger bond-to-loan reversion
+  private val BondRevertThreshold: Share = Share.decimal(1, 3) // minimum revert ratio to trigger bond-to-loan reversion
 
   // ---- Accumulated flows (monoid on PLN) ----
 
@@ -427,7 +427,7 @@ object FirmEconomics:
     val requestedByFirm      = result.outcomes
       .map(o => o.firm.id -> result.firmBondAmounts.getOrElse(o.firm.id, PLN.Zero))
       .filter((_, amount) => amount > PLN.Zero)
-    val shouldRevert         = revertShare > Share(BondRevertThreshold)
+    val shouldRevert         = revertShare > BondRevertThreshold
     val absorbedBondIssuance = result.flows.bondIssuance * absorption
     val actualIssuanceByFirm =
       allocateAbsorbedBondIssuance(requestedByFirm, absorbedBondIssuance, executionMonth)
@@ -456,7 +456,7 @@ object FirmEconomics:
       firms = CorporateBondOwnership.applyIssuance(ledgerFinancialState.firms, issuanceMapToApply),
     )
 
-    val bondRevertLoans    = bondReversionByFirm.valuesIterator.sum
+    val bondRevertLoans    = bondReversionByFirm.valuesIterator.sumPln
     val actualBondIssuance =
       if shouldRevert then absorbedBondIssuance
       else result.flows.bondIssuance
@@ -482,20 +482,23 @@ object FirmEconomics:
     if positiveRequests.isEmpty || target <= 0L || totalRequested <= 0L then Map.empty
     else if target >= totalRequested then positiveRequests.toMap
     else
-      case class AllocationRow(index: Int, firmId: FirmId, requested: Long, base: Long, remainder: BigInt, tieBreak: Long)
+      case class AllocationRow(index: Int, firmId: FirmId, requested: Long, base: Long, remainder: Long, tieBreak: Long)
 
-      val rows = positiveRequests.zipWithIndex.map { case ((firmId, requestedAmount), index) =>
-        val requested = requestedAmount.distributeRaw
-        val product   = BigInt(target) * BigInt(requested)
-        AllocationRow(
-          index = index,
-          firmId = firmId,
-          requested = requested,
-          base = (product / BigInt(totalRequested)).toLong,
-          remainder = product % BigInt(totalRequested),
-          tieBreak = allocationTieBreak(firmId, executionMonth),
-        )
-      }
+      val rows =
+        try
+          positiveRequests.zipWithIndex.map { case ((firmId, requestedAmount), index) =>
+            val requested = requestedAmount.distributeRaw
+            val product   = java.lang.Math.multiplyExact(target, requested)
+            AllocationRow(
+              index = index,
+              firmId = firmId,
+              requested = requested,
+              base = product / totalRequested,
+              remainder = product % totalRequested,
+              tieBreak = allocationTieBreak(firmId, executionMonth),
+            )
+          }
+        catch case _: ArithmeticException => return allocateAbsorbedBondIssuanceBig(positiveRequests, target, totalRequested, executionMonth)
 
       val remaining         = target - rows.iterator.map(_.base).sum
       val (_, bonusByIndex) = rows
@@ -517,6 +520,48 @@ object FirmEconomics:
         s"Corporate bond absorption allocation must sum to target=$target, got $allocatedRaw",
       )
       allocations.filter((_, amount) => amount > PLN.Zero).toMap
+
+  private def allocateAbsorbedBondIssuanceBig(
+      positiveRequests: Vector[(FirmId, PLN)],
+      target: Long,
+      totalRequested: Long,
+      executionMonth: ExecutionMonth,
+  ): Map[FirmId, PLN] =
+    case class AllocationRow(index: Int, firmId: FirmId, requested: Long, base: Long, remainder: BigInt, tieBreak: Long)
+
+    val rows = positiveRequests.zipWithIndex.map { case ((firmId, requestedAmount), index) =>
+      val requested = requestedAmount.distributeRaw
+      val product   = BigInt(target) * BigInt(requested)
+      AllocationRow(
+        index = index,
+        firmId = firmId,
+        requested = requested,
+        base = (product / BigInt(totalRequested)).toLong,
+        remainder = product % BigInt(totalRequested),
+        tieBreak = allocationTieBreak(firmId, executionMonth),
+      )
+    }
+
+    val remaining         = target - rows.iterator.map(_.base).sum
+    val (_, bonusByIndex) = rows
+      .sortWith: (left, right) =>
+        if left.remainder == right.remainder then
+          if left.tieBreak == right.tieBreak then left.index < right.index
+          else left.tieBreak < right.tieBreak
+        else left.remainder > right.remainder
+      .foldLeft((remaining, Map.empty[Int, Long])) { case ((left, bonuses), row) =>
+        if left <= 0L || row.base >= row.requested then (left, bonuses)
+        else (left - 1L, bonuses.updated(row.index, 1L))
+      }
+
+    val allocations  = rows.map: row =>
+      row.firmId -> PLN.fromRaw(row.base + bonusByIndex.getOrElse(row.index, 0L))
+    val allocatedRaw = allocations.iterator.map((_, amount) => amount.distributeRaw).sum
+    require(
+      allocatedRaw == target,
+      s"Corporate bond absorption allocation must sum to target=$target, got $allocatedRaw",
+    )
+    allocations.filter((_, amount) => amount > PLN.Zero).toMap
 
   private def allocationTieBreak(firmId: FirmId, executionMonth: ExecutionMonth): Long =
     val firm  = firmId.toInt.toLong
@@ -592,7 +637,7 @@ object FirmEconomics:
     val newlyDead            = postFirms.filter(f => !Firm.isAlive(f) && prevAlive.contains(f.id))
     val closingStocksById    = postFirms.zip(closingFinancialStocks).map((firm, stocks) => firm.id -> stocks).toMap
     val openingStocksById    = preFirms.zip(openingFinancialStocks).map((firm, stocks) => firm.id -> stocks).toMap
-    val nplNew               = newlyDead.flatMap(f => closingStocksById.get(f.id).map(_.firmLoan)).sum
+    val nplNew               = newlyDead.flatMap(f => closingStocksById.get(f.id).map(_.firmLoan)).sumPln
     val nplLoss              = nplNew * (Share.One - p.banking.loanRecovery)
     val defaultedBondFirmIds = newlyDead.map(_.id).toSet
     val totalBondDefault     = CorporateBondOwnership.defaultedIssuerDebt(ledgerFinancialState.firms, defaultedBondFirmIds)

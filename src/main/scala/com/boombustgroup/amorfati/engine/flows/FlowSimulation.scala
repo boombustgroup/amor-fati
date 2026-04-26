@@ -548,7 +548,7 @@ object FlowSimulation:
       domesticCons = s3.domesticCons,
       govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
-      totalSystemLoans = ledger.banks.map(_.firmLoan).sum,
+      totalSystemLoans = ledger.banks.map(_.firmLoan).sumPln,
       firmStep = s5,
     )
     val s8                = OpenEconEconomics.runStep(

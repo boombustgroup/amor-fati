@@ -11,19 +11,19 @@ import com.boombustgroup.amorfati.types.*
 object YieldCurve:
 
   // Base term premia over O/N (annual). NBP/GPW Benchmark 2024 calm-market values.
-  val BasePremium1M: Rate = Rate(0.0006) // 6bp
-  val BasePremium3M: Rate = Rate(0.0009) // 9bp
-  val BasePremium6M: Rate = Rate(0.0012) // 12bp
+  val BasePremium1M: Rate = Rate.decimal(6, 4)  // 6bp
+  val BasePremium3M: Rate = Rate.decimal(9, 4)  // 9bp
+  val BasePremium6M: Rate = Rate.decimal(12, 4) // 12bp
 
   // Sensitivity to credit stress (NPL ratio): premium += nplRatio × sensitivity
-  private val CreditSensitivity1M: Rate = Rate(0.005) // 50bp per 10% NPL
-  private val CreditSensitivity3M: Rate = Rate(0.010) // 100bp per 10% NPL
-  private val CreditSensitivity6M: Rate = Rate(0.015) // 150bp per 10% NPL
+  private val CreditSensitivity1M: Rate = Rate.decimal(5, 3)  // 50bp per 10% NPL
+  private val CreditSensitivity3M: Rate = Rate.decimal(10, 3) // 100bp per 10% NPL
+  private val CreditSensitivity6M: Rate = Rate.decimal(15, 3) // 150bp per 10% NPL
 
   // Sensitivity to de-anchored expectations: premium += (1 − κ) × |πᵉ − π*| × sensitivity
-  private val ExpSensitivity1M: Coefficient = Coefficient(0.10) // 10bp per 1pp de-anchoring gap
-  private val ExpSensitivity3M: Coefficient = Coefficient(0.20) // 20bp per 1pp de-anchoring gap
-  private val ExpSensitivity6M: Coefficient = Coefficient(0.30) // 30bp per 1pp de-anchoring gap
+  private val ExpSensitivity1M: Coefficient = Coefficient.decimal(10, 2) // 10bp per 1pp de-anchoring gap
+  private val ExpSensitivity3M: Coefficient = Coefficient.decimal(20, 2) // 20bp per 1pp de-anchoring gap
+  private val ExpSensitivity6M: Coefficient = Coefficient.decimal(30, 2) // 30bp per 1pp de-anchoring gap
 
   case class State(
       overnight: Rate, // O/N rate (WIRON)
@@ -37,8 +37,8 @@ object YieldCurve:
       overnightRate: Rate,
       nplRatio: Share = Share.Zero,
       credibility: Share = Share.One,
-      expectedInflation: Rate = Rate(0.025),
-      targetInflation: Rate = Rate(0.025),
+      expectedInflation: Rate = Rate.decimal(25, 3),
+      targetInflation: Rate = Rate.decimal(25, 3),
   ): State =
     val creditAdj1M = CreditSensitivity1M * nplRatio
     val creditAdj3M = CreditSensitivity3M * nplRatio

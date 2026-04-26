@@ -196,13 +196,13 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   it should "have regional values summing to aggregate" in {
     val aggValue = pln(1_000_000_000)
     val state    = makeRegionalState(aggValue, pln(400_000_000))
-    state.regions.get.map(_.totalValue).sum shouldBe aggValue
+    state.regions.get.map(_.totalValue).sumPln shouldBe aggValue
   }
 
   it should "have regional mortgages summing to aggregate" in {
     val aggMortgage = pln(400_000_000)
     val state       = makeRegionalState(pln(1_000_000_000), aggMortgage)
-    state.regions.get.map(_.mortgageStock).sum shouldBe aggMortgage
+    state.regions.get.map(_.mortgageStock).sumPln shouldBe aggMortgage
   }
 
   it should "have Warszawa HPI > Rest HPI" in {
@@ -214,7 +214,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   "applyFlows with regions" should "distribute flows proportionally to mortgage stock" in {
     val state  = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
     val result = HousingMarket.applyFlows(state, mkFlows(interest = pln(3_000), principal = pln(10_000), defaultAmount = pln(5_000)))
-    shouldBeClosePln(result.regions.get.map(_.mortgageStock).sum, result.mortgageStock, onePln)
+    shouldBeClosePln(result.regions.get.map(_.mortgageStock).sumPln, result.mortgageStock, onePln)
   }
 
   it should "reduce each region's stock proportionally" in {
@@ -230,8 +230,8 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
   it should "preserve regional repayment and default tracking" in {
     val state  = makeRegionalState(pln(1_000_000_000), pln(400_000_000))
     val result = HousingMarket.applyFlows(state, mkFlows(interest = pln(3_000), principal = pln(10_000), defaultAmount = pln(5_000)))
-    result.regions.get.map(_.lastRepayment).sum shouldBe pln(10_000)
-    result.regions.get.map(_.lastDefault).sum shouldBe pln(5_000)
+    result.regions.get.map(_.lastRepayment).sumPln shouldBe pln(10_000)
+    result.regions.get.map(_.lastDefault).sumPln shouldBe pln(5_000)
   }
 
   it should "preserve exact regional repayment and default sums under residual rounding" in {
@@ -240,8 +240,8 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val defaultAmount = pln(2)
     val result        = HousingMarket.applyFlows(state, HousingMarket.MortgageFlows(PLN.Zero, principal, defaultAmount, PLN.Zero))
 
-    result.regions.get.map(_.lastRepayment).sum shouldBe principal
-    result.regions.get.map(_.lastDefault).sum shouldBe defaultAmount
+    result.regions.get.map(_.lastRepayment).sumPln shouldBe principal
+    result.regions.get.map(_.lastDefault).sumPln shouldBe defaultAmount
   }
 
   "Mortgage stock identity with regions" should "hold per-region" in {
@@ -269,7 +269,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
     val defaultAmt     = pln(1_000)
     val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(interest = pln(1_000), principal = principal, defaultAmount = defaultAmt))
     result.mortgageStock shouldBe state.mortgageStock + origAmount - principal - defaultAmt
-    shouldBeClosePln(result.regions.get.map(_.mortgageStock).sum, result.mortgageStock, onePln)
+    shouldBeClosePln(result.regions.get.map(_.mortgageStock).sumPln, result.mortgageStock, onePln)
   }
 
   "step with regions" should "preserve exact regional origination sum under residual rounding" in {
@@ -285,7 +285,7 @@ class HousingMarketSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    result.regions.get.map(_.lastOrigination).sum shouldBe result.lastOrigination
+    result.regions.get.map(_.lastOrigination).sumPln shouldBe result.lastOrigination
   }
 
   it should "align regional price updates by market identity when input order changes" in {

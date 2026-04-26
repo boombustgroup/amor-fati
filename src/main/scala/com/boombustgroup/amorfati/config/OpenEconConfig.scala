@@ -49,23 +49,24 @@ import com.boombustgroup.amorfati.types.*
   *   sensitivity of portfolio flows to risk premium changes
   */
 case class OpenEconConfig(
-    importContent: Vector[Share] = Vector(Share(0.15), Share(0.50), Share(0.20), Share(0.15), Share(0.05), Share(0.12)),
-    erFloor: ExchangeRate = ExchangeRate(2.5),
-    erCeiling: ExchangeRate = ExchangeRate(10.0),
-    exportBase: PLN = PLN(138.5e9),           // raw — scaled by gdpRatio
-    importPushCap: Share = Share(0.03),
-    foreignGdpGrowth: Rate = Rate(0.015),
-    exportPriceElasticity: Coefficient = Coefficient(0.8),
-    importPriceElasticity: Coefficient = Coefficient(0.6),
-    erElasticity: Coefficient = Coefficient(0.5),
-    ulcExportBoost: Coefficient = Coefficient(0.15),
-    nfaReturnRate: Rate = Rate(0.03),
-    euTransfers: PLN = PLN(1.458e9),          // raw — scaled by gdpRatio
-    fdiBase: PLN = PLN(583.1e6),              // raw — scaled by gdpRatio
-    portfolioSensitivity: Coefficient = Coefficient(0.20),
-    riskPremiumSensitivity: Coefficient = Coefficient(0.10),
-    pppSpeed: Coefficient = Coefficient(0.10), // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
+    importContent: Vector[Share] =
+      Vector(Share.decimal(15, 2), Share.decimal(50, 2), Share.decimal(20, 2), Share.decimal(15, 2), Share.decimal(5, 2), Share.decimal(12, 2)),
+    erFloor: ExchangeRate = ExchangeRate.decimal(25, 1),
+    erCeiling: ExchangeRate = ExchangeRate(10),
+    exportBase: PLN = PLN(138500000000L),              // raw — scaled by gdpRatio
+    importPushCap: Share = Share.decimal(3, 2),
+    foreignGdpGrowth: Rate = Rate.decimal(15, 3),
+    exportPriceElasticity: Coefficient = Coefficient.decimal(8, 1),
+    importPriceElasticity: Coefficient = Coefficient.decimal(6, 1),
+    erElasticity: Coefficient = Coefficient.decimal(5, 1),
+    ulcExportBoost: Coefficient = Coefficient.decimal(15, 2),
+    nfaReturnRate: Rate = Rate.decimal(3, 2),
+    euTransfers: PLN = PLN(1458000000),                // raw — scaled by gdpRatio
+    fdiBase: PLN = PLN(583100000),                     // raw — scaled by gdpRatio
+    portfolioSensitivity: Coefficient = Coefficient.decimal(20, 2),
+    riskPremiumSensitivity: Coefficient = Coefficient.decimal(10, 2),
+    pppSpeed: Coefficient = Coefficient.decimal(10, 2), // annual convergence speed toward PPP equilibrium (Rogoff 1996: 3-5yr half-life)
 ):
-  require(erFloor > ExchangeRate(0.0001), s"erFloor must be positive: $erFloor")
+  require(erFloor > ExchangeRate.decimal(1, 4), s"erFloor must be positive: $erFloor")
   require(erFloor < erCeiling, s"erFloor ($erFloor) must be < erCeiling ($erCeiling)")
   require(importContent.length == 6, s"importContent must have 6 sectors: ${importContent.length}")

@@ -21,10 +21,10 @@ import com.boombustgroup.amorfati.types.*
   *   cap)
   */
 case class EarmarkedConfig(
-    fpRate: Rate = Rate(0.0245),
-    fpAlmpSpendPerWorker: PLN = PLN(15.0),
-    pfronMonthlyRevenue: PLN = PLN(460e6),
-    pfronMonthlySpending: PLN = PLN(420e6),
-    fgspRate: Rate = Rate(0.001),
-    fgspPayoutPerWorker: PLN = PLN(10000.0),
+    fpRate: Rate = Rate.decimal(245, 4),
+    fpAlmpSpendPerWorker: PLN = PLN(15),
+    pfronMonthlyRevenue: PLN = PLN(460000000),
+    pfronMonthlySpending: PLN = PLN(420000000),
+    fgspRate: Rate = Rate.decimal(1, 3),
+    fgspPayoutPerWorker: PLN = PLN(10000),
 )

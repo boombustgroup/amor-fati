@@ -33,14 +33,14 @@ case class RunResult(
 )
 
 // ---------------------------------------------------------------------------
-//  TimeSeries — opaque over Array[Array[Double]]
+//  TimeSeries — opaque over Array[Array[MetricValue]]
 // ---------------------------------------------------------------------------
 
-opaque type TimeSeries = Array[Array[Double]]
+opaque type TimeSeries = Array[Array[MetricValue]]
 
 object TimeSeries:
   /** Wrap raw Monte Carlo output rows without runtime overhead. */
-  inline def wrap(raw: Array[Array[Double]]): TimeSeries = raw
+  inline def wrap(raw: Array[Array[MetricValue]]): TimeSeries = raw
 
   /** Convert a realized execution month to the underlying zero-based row index.
     */
@@ -51,10 +51,10 @@ object TimeSeries:
 
   extension (ts: TimeSeries)
     /** Read one typed cell from a realized execution month. */
-    inline def at(month: ExecutionMonth, col: Col): Double = ts(rowIndex(ts, month))(col.ordinal)
+    inline def at(month: ExecutionMonth, col: Col): MetricValue = ts(rowIndex(ts, month))(col.ordinal)
 
     /** Raw Monte Carlo row for a realized execution month. */
-    inline def monthRow(month: ExecutionMonth): Array[Double] = ts(rowIndex(ts, month))
+    inline def monthRow(month: ExecutionMonth): Array[MetricValue] = ts(rowIndex(ts, month))
 
     /** All realized execution months materialized in this series, starting from
       * M1.
@@ -63,7 +63,7 @@ object TimeSeries:
       Vector.tabulate(ts.length)(offset => ExecutionMonth.First.advanceBy(offset))
 
     /** Raw row for the latest realized month in the run. */
-    inline def lastMonth: Array[Double] = ts(ts.length - 1)
+    inline def lastMonth: Array[MetricValue] = ts(ts.length - 1)
 
     /** Number of realized months stored in the series. */
     inline def nMonths: Int = ts.length
@@ -74,12 +74,12 @@ object TimeSeries:
     inline def indices: Range = 0 until ts.length
 
     /** Iterate through raw rows without exposing the backing array type. */
-    inline def foreach(f: Array[Double] => Unit): Unit =
+    inline def foreach(f: Array[MetricValue] => Unit): Unit =
       var i = 0
       while i < ts.length do { f(ts(i)); i += 1 }
 
     /** Map over raw rows while preserving the opaque TimeSeries wrapper. */
-    def map[B](f: Array[Double] => B): Vector[B] =
+    def map[B](f: Array[MetricValue] => B): Vector[B] =
       val b = Vector.newBuilder[B]
       b.sizeHint(ts.length)
       var i = 0

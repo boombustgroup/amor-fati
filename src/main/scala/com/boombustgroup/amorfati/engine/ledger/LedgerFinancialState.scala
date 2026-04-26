@@ -2,7 +2,7 @@ package com.boombustgroup.amorfati.engine.ledger
 
 import com.boombustgroup.amorfati.agents.{Banking, Firm, Household, Insurance, Nbfi, Nbp, QuasiFiscal}
 import com.boombustgroup.amorfati.engine.markets.CorporateBondMarket
-import com.boombustgroup.amorfati.types.{distributeRaw, FirmId, HhId, PLN}
+import com.boombustgroup.amorfati.types.{distributeRaw, sumPln, FirmId, HhId, PLN}
 import com.boombustgroup.ledger.Distribute
 
 /** Ledger-owned snapshot of ledger-contracted financial stocks used by the
@@ -59,7 +59,7 @@ object LedgerFinancialState:
     householdMortgageStock(ledgerFinancialState.households)
 
   def householdMortgageStock(households: Vector[HouseholdBalances]): PLN =
-    households.map(_.mortgageLoan).sum
+    households.map(_.mortgageLoan).sumPln
 
   /** Writes the aggregate mortgage model's closing principal back into
     * household ledger rows. Until origination/defaults are modeled per

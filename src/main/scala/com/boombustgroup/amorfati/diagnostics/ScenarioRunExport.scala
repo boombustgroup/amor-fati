@@ -3,11 +3,10 @@ package com.boombustgroup.amorfati.diagnostics
 import com.boombustgroup.amorfati.config.ScenarioRegistry
 import com.boombustgroup.amorfati.config.ScenarioRegistry.ScenarioSpec
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.montecarlo.{McRunner, McTimeseriesSchema}
+import com.boombustgroup.amorfati.montecarlo.{McRunner, McTimeseriesSchema, MetricValue}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.util.Locale
 import scala.util.Try
 
 object ScenarioRunExport:
@@ -31,7 +30,7 @@ object ScenarioRunExport:
       scenarioId: String,
       seed: Long,
       metric: MetricDef,
-      value: Double,
+      value: MetricValue,
   )
 
   def main(args: Array[String]): Unit =
@@ -202,12 +201,12 @@ object ScenarioRunExport:
 
     lines.mkString("\n") + "\n"
 
-  private def renderTimeSeriesCsv(rows: Vector[Array[Double]]): String =
+  private def renderTimeSeriesCsv(rows: Vector[Array[MetricValue]]): String =
     val header = McTimeseriesSchema.colNames.mkString(";")
     val body   = rows.map: row =>
       row.indices
         .map: idx =>
-          if idx == 0 then row(idx).toInt.toString
+          if idx == 0 then row(idx).format(0)
           else fmt(row(idx))
         .mkString(";")
     (header +: body).mkString("\n") + "\n"
@@ -228,8 +227,8 @@ object ScenarioRunExport:
     if value.exists(ch => ch == ';' || ch == '"' || ch == '\n') then "\"" + value.replace("\"", "\"\"") + "\""
     else value
 
-  private def fmt(value: Double): String =
-    String.format(Locale.US, "%.8f", Double.box(value))
+  private def fmt(value: MetricValue): String =
+    value.format(8)
 
   private def metric(column: String): MetricDef =
     val ordinal = McTimeseriesSchema.colNames.indexOf(column)

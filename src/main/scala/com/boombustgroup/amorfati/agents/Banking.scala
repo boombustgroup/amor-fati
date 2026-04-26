@@ -15,13 +15,13 @@ object Banking:
   // ---------------------------------------------------------------------------
 
   /** Corp bond risk weight (Basel III, BBB bucket). */
-  private val CorpBondRiskWeight: Share = Share(0.50)
+  private val CorpBondRiskWeight: Share = Share.decimal(50, 2)
 
   /** Well-capitalised floor for CAR/LCR/NSFR when denominator ≤ threshold. */
-  private val SafeRatioFloor: Multiplier = Multiplier(10.0)
+  private val SafeRatioFloor: Multiplier = Multiplier(10)
 
   /** Minimum balance threshold to avoid division by zero. */
-  private val MinBalanceThreshold: PLN = PLN(1.0)
+  private val MinBalanceThreshold: PLN = PLN(1)
 
   type BankCorpBondHoldings = BankId => PLN
 
@@ -41,31 +41,31 @@ object Banking:
     if totalRwa > MinBalanceThreshold then capital.ratioTo(totalRwa).toMultiplier else SafeRatioFloor
 
   // NSFR weights (Basel III §6)
-  private val AsfTermWeight: Share   = Share(0.95)
-  private val AsfDemandWeight: Share = Share(0.90)
-  private val RsfShort: Share        = Share(0.50)
-  private val RsfMedium: Share       = Share(0.65)
-  private val RsfLong: Share         = Share(0.85)
-  private val RsfGovBond: Share      = Share(0.05)
-  private val RsfCorpBond: Share     = Share(0.50)
+  private val AsfTermWeight: Share   = Share.decimal(95, 2)
+  private val AsfDemandWeight: Share = Share.decimal(90, 2)
+  private val RsfShort: Share        = Share.decimal(50, 2)
+  private val RsfMedium: Share       = Share.decimal(65, 2)
+  private val RsfLong: Share         = Share.decimal(85, 2)
+  private val RsfGovBond: Share      = Share.decimal(5, 2)
+  private val RsfCorpBond: Share     = Share.decimal(50, 2)
 
   // Lending rate components
-  private val FailedBankSpread: Rate           = Rate(0.50)      // 500 bps penalty spread for failed banks
-  private val NplSpreadCap: Rate               = Rate(0.15)      // max NPL-driven spread (1500 bps)
-  private val CarPenaltyThreshMult: Multiplier = Multiplier(1.5) // CAR penalty kicks in below minCar × 1.5
-  private val CarPenaltyScale: Multiplier      = Multiplier(2.0) // bps per unit of CAR shortfall
+  private val FailedBankSpread: Rate           = Rate.decimal(50, 2)       // 500 bps penalty spread for failed banks
+  private val NplSpreadCap: Rate               = Rate.decimal(15, 2)       // max NPL-driven spread (1500 bps)
+  private val CarPenaltyThreshMult: Multiplier = Multiplier.decimal(15, 1) // CAR penalty kicks in below minCar × 1.5
+  private val CarPenaltyScale: Multiplier      = Multiplier(2)             // bps per unit of CAR shortfall
 
   // Credit approval
-  private val MinApprovalProb: Share         = Share(0.1)      // floor: 10% approval even under max stress
-  private val NplApprovalPenalty: Multiplier = Multiplier(3.0) // approval drop per unit NPL ratio (e.g. NPL 10% → 30pp)
-  private val ReserveDeficitPenalty: Share   = Share(0.5)      // 50pp approval drop when free reserves < 0
+  private val MinApprovalProb: Share         = Share.decimal(1, 1) // floor: 10% approval even under max stress
+  private val NplApprovalPenalty: Multiplier = Multiplier(3)       // approval drop per unit NPL ratio (e.g. NPL 10% → 30pp)
+  private val ReserveDeficitPenalty: Share   = Share.decimal(5, 1) // 50pp approval drop when free reserves < 0
 
   // Crowding-out (gov bonds vs firm loans)
-  private val CrowdingOutSensitivity: Multiplier = Multiplier(0.30) // 30% of bond yield gap passed through to lending spread
+  private val CrowdingOutSensitivity: Multiplier = Multiplier.decimal(30, 2) // 30% of bond yield gap passed through to lending spread
 
   // Interbank corridor (NBP: ref ± 100 bps)
-  private val DepositSpreadFromRef: Rate = Rate(0.01) // deposit facility rate = refRate − 100 bps
-  private val LombardSpreadFromRef: Rate = Rate(0.01) // lombard facility rate = refRate + 100 bps
+  private val DepositSpreadFromRef: Rate = Rate.decimal(1, 2) // deposit facility rate = refRate − 100 bps
+  private val LombardSpreadFromRef: Rate = Rate.decimal(1, 2) // lombard facility rate = refRate + 100 bps
 
   // ---------------------------------------------------------------------------
   // ADT: BankStatus
@@ -115,7 +115,7 @@ object Banking:
     def nplRatio: Share = Banking.nplRatio(totalLoans, nplAmount)
 
     /** Capital adequacy ratio: capital / risk-weighted assets. Corporate bonds
-      * carry 50% risk weight (Basel III, BBB bucket). Returns Multiplier(10.0)
+      * carry 50% risk weight (Basel III, BBB bucket). Returns Multiplier(10)
       * (well-capitalised floor) when risk-weighted assets ≤ 1 to avoid division
       * by zero.
       */
@@ -174,9 +174,9 @@ object Banking:
         s"Banking.MonetaryAggregates.computeFromBankStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
       )
       val alive  = banks.zip(financialStocks).filterNot(_._1.failed).map(_._2)
-      val m0     = alive.map(_.reserve).sum
-      val demand = alive.map(_.demandDeposit).sum
-      val term   = alive.map(_.termDeposit).sum
+      val m0     = alive.map(_.reserve).sumPln
+      val demand = alive.map(_.demandDeposit).sumPln
+      val term   = alive.map(_.termDeposit).sumPln
       val m1     = demand
       val m2     = demand + term
       val m3     = m2 + tfiAum + corpBondOutstanding
@@ -315,16 +315,65 @@ object Banking:
   // Default configs (7 Polish banks, KNF 2024)
   // ---------------------------------------------------------------------------
 
-  private def affinity(xs: Double*): Vector[Share] = xs.map(Share(_)).toVector
+  private def affinity(xs: Share*): Vector[Share] = xs.toVector
 
   val DefaultConfigs: Vector[Config] = Vector(
-    Config(BankId(0), "PKO BP", Share(0.175), Share(0.185), Rate(-0.002), affinity(0.15, 0.15, 0.15, 0.10, 0.30, 0.15)),
-    Config(BankId(1), "Pekao", Share(0.120), Share(0.178), Rate(-0.001), affinity(0.15, 0.20, 0.20, 0.15, 0.15, 0.15)),
-    Config(BankId(2), "mBank", Share(0.085), Share(0.169), Rate(0.000), affinity(0.30, 0.10, 0.25, 0.10, 0.10, 0.15)),
-    Config(BankId(3), "ING BSK", Share(0.075), Share(0.172), Rate(-0.001), affinity(0.15, 0.35, 0.15, 0.10, 0.10, 0.15)),
-    Config(BankId(4), "Santander", Share(0.070), Share(0.170), Rate(0.000), affinity(0.15, 0.10, 0.35, 0.15, 0.10, 0.15)),
-    Config(BankId(5), "BPS/Coop", Share(0.050), Share(0.150), Rate(0.003), affinity(0.05, 0.10, 0.10, 0.05, 0.05, 0.65)),
-    Config(BankId(6), "Others", Share(0.425), Share(0.165), Rate(0.001), affinity(0.15, 0.17, 0.17, 0.17, 0.17, 0.17)),
+    Config(
+      BankId(0),
+      "PKO BP",
+      Share.decimal(175, 3),
+      Share.decimal(185, 3),
+      Rate.decimal(-2, 3),
+      affinity(Share.decimal(15, 2), Share.decimal(15, 2), Share.decimal(15, 2), Share.decimal(10, 2), Share.decimal(30, 2), Share.decimal(15, 2)),
+    ),
+    Config(
+      BankId(1),
+      "Pekao",
+      Share.decimal(120, 3),
+      Share.decimal(178, 3),
+      Rate.decimal(-1, 3),
+      affinity(Share.decimal(15, 2), Share.decimal(20, 2), Share.decimal(20, 2), Share.decimal(15, 2), Share.decimal(15, 2), Share.decimal(15, 2)),
+    ),
+    Config(
+      BankId(2),
+      "mBank",
+      Share.decimal(85, 3),
+      Share.decimal(169, 3),
+      Rate(0),
+      affinity(Share.decimal(30, 2), Share.decimal(10, 2), Share.decimal(25, 2), Share.decimal(10, 2), Share.decimal(10, 2), Share.decimal(15, 2)),
+    ),
+    Config(
+      BankId(3),
+      "ING BSK",
+      Share.decimal(75, 3),
+      Share.decimal(172, 3),
+      Rate.decimal(-1, 3),
+      affinity(Share.decimal(15, 2), Share.decimal(35, 2), Share.decimal(15, 2), Share.decimal(10, 2), Share.decimal(10, 2), Share.decimal(15, 2)),
+    ),
+    Config(
+      BankId(4),
+      "Santander",
+      Share.decimal(70, 3),
+      Share.decimal(170, 3),
+      Rate(0),
+      affinity(Share.decimal(15, 2), Share.decimal(10, 2), Share.decimal(35, 2), Share.decimal(15, 2), Share.decimal(10, 2), Share.decimal(15, 2)),
+    ),
+    Config(
+      BankId(5),
+      "BPS/Coop",
+      Share.decimal(50, 3),
+      Share.decimal(150, 3),
+      Rate.decimal(3, 3),
+      affinity(Share.decimal(5, 2), Share.decimal(10, 2), Share.decimal(10, 2), Share.decimal(5, 2), Share.decimal(5, 2), Share.decimal(65, 2)),
+    ),
+    Config(
+      BankId(6),
+      "Others",
+      Share.decimal(425, 3),
+      Share.decimal(165, 3),
+      Rate.decimal(1, 3),
+      affinity(Share.decimal(15, 2), Share.decimal(17, 2), Share.decimal(17, 2), Share.decimal(17, 2), Share.decimal(17, 2), Share.decimal(17, 2)),
+    ),
   )
 
   // ---------------------------------------------------------------------------
@@ -337,7 +386,7 @@ object Banking:
     val total   = weights.map(_.toLong).sum
     if total <= 0L then BankId(0)
     else
-      val r      = (rng.nextDouble() * total).toLong
+      val r      = rng.between(0L, total)
       val cumul  = weights.map(_.toLong).scanLeft(0L)(_ + _).tail
       val picked = cumul.indexWhere(_ > r)
       BankId(if picked >= 0 then picked else weights.length - 1)
@@ -384,10 +433,10 @@ object Banking:
       s"Banking.interbankRate requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
     )
     val alive       = banks.zip(financialStocks).filterNot(_._1.failed)
-    val aggNpl      = alive.map(_._1.nplAmount).sum
-    val aggLoans    = alive.map(_._2.firmLoan).sum
-    val aggDeposits = alive.map(_._2.totalDeposits).sum
-    val aggReserves = alive.map(_._2.reserve).sum
+    val aggNpl      = alive.map(_._1.nplAmount).sumPln
+    val aggLoans    = alive.map(_._2.firmLoan).sumPln
+    val aggDeposits = alive.map(_._2.totalDeposits).sumPln
+    val aggReserves = alive.map(_._2.reserve).sumPln
 
     // Credit stress: NPL ratio relative to stress threshold (0 = healthy, 1 = max stress)
     val aggNplShare  = if aggLoans > MinBalanceThreshold then aggNpl.ratioTo(aggLoans).toShare else Share.Zero
@@ -532,7 +581,7 @@ object Banking:
             val consec    = b.consecutiveLowCar
             val minCar    = Macroprudential.effectiveMinCar(b.id.toInt, ccyb)
             val lowCar    = car(b, stocks, bankCorpBondHoldings(b.id)) < minCar
-            val lcrBreach = lcr(stocks) < p.banking.lcrMin * Share(0.5)
+            val lcrBreach = lcr(stocks) < p.banking.lcrMin * Share.decimal(5, 1)
             val newConsec = if lowCar then consec + 1 else 0
             val insolvent = b.capital < PLN.Zero
             if insolvent || newConsec >= 3 || lcrBreach then b.copy(status = BankStatus.Failed(month), capital = PLN.Zero)
@@ -554,7 +603,7 @@ object Banking:
       .map: (b, stocks) =>
         if b.failed then PLN.Zero
         else stocks.totalDeposits * p.banking.bfgLevyRate.monthly
-    PerBankAmounts(perBank, perBank.sum)
+    PerBankAmounts(perBank, perBank.sumPln)
 
   /** Bail-in: haircut uninsured deposits on failed banks. Deposits below
     * bfgDepositGuarantee are protected.
@@ -573,7 +622,7 @@ object Banking:
           val haircut    = uninsured * p.banking.bailInDepositHaircut
           (stocks.copy(totalDeposits = stocks.totalDeposits - haircut), haircut)
         else (stocks, PLN.Zero)
-    BailInResult(banks, withHaircut.map(_._1), withHaircut.map(_._2).sum)
+    BailInResult(banks, withHaircut.map(_._1), withHaircut.map(_._2).sumPln)
 
   /** BFG P&A resolution: transfer deposits, bonds, performing loans, consumer
     * loans from failed banks to the healthiest surviving bank.
@@ -594,15 +643,15 @@ object Banking:
       val absorberId = healthiestBankId(banks, financialStocks, bankCorpBondHoldingsFromVector(holderBalances))
       val toAbsorb   = newlyFailed.filter((bank, _) => bank.id != absorberId)
       // Single-pass PLN aggregation of all flows from failed banks (exact Long addition)
-      val addDep     = toAbsorb.map(_._2.totalDeposits).sum
-      val addLoans   = toAbsorb.map((bank, stocks) => stocks.firmLoan - bank.nplAmount).sum
-      val addAfs     = toAbsorb.map(_._2.govBondAfs).sum
-      val addHtm     = toAbsorb.map(_._2.govBondHtm).sum
-      val addCorpB   = toAbsorb.flatMap((bank, _) => holderBalances.lift(bank.id.toInt)).sum
-      val addCC      = toAbsorb.map(_._2.consumerLoan).sum
-      val addIB      = toAbsorb.map(_._2.interbankLoan).sum
+      val addDep     = toAbsorb.map(_._2.totalDeposits).sumPln
+      val addLoans   = toAbsorb.map((bank, stocks) => stocks.firmLoan - bank.nplAmount).sumPln
+      val addAfs     = toAbsorb.map(_._2.govBondAfs).sumPln
+      val addHtm     = toAbsorb.map(_._2.govBondHtm).sumPln
+      val addCorpB   = toAbsorb.flatMap((bank, _) => holderBalances.lift(bank.id.toInt)).sumPln
+      val addCC      = toAbsorb.map(_._2.consumerLoan).sumPln
+      val addIB      = toAbsorb.map(_._2.interbankLoan).sumPln
       // Weighted yield: Σ(htmBonds × htmBookYield) — PLN × Rate → PLN
-      val htmYieldWt = toAbsorb.map((bank, stocks) => stocks.govBondHtm * bank.htmBookYield).sum
+      val htmYieldWt = toAbsorb.map((bank, stocks) => stocks.govBondHtm * bank.htmBookYield).sumPln
 
       val resolvedRows      = banks
         .zip(financialStocks)
@@ -610,7 +659,7 @@ object Banking:
           if b.id == absorberId then
             val combinedHtm      = stocks.govBondHtm + addHtm
             val combinedHtmYield =
-              if combinedHtm > PLN.Zero then Rate((stocks.govBondHtm * b.htmBookYield + htmYieldWt) / combinedHtm)
+              if combinedHtm > PLN.Zero then (stocks.govBondHtm * b.htmBookYield + htmYieldWt).ratioTo(combinedHtm).toRate
               else b.htmBookYield
             (
               b.copy(htmBookYield = combinedHtmYield, status = BankStatus.Active(0)),
@@ -756,7 +805,7 @@ object Banking:
       val afsPortion   = amount - htmPortion
       val newHtmTotal  = stocks.govBondHtm + htmPortion
       val newBookYield =
-        if newHtmTotal > PLN.Zero then Rate((stocks.govBondHtm * b.htmBookYield + htmPortion * currentYield) / newHtmTotal)
+        if newHtmTotal > PLN.Zero then (stocks.govBondHtm * b.htmBookYield + htmPortion * currentYield).ratioTo(newHtmTotal).toRate
         else b.htmBookYield
       (b.copy(htmBookYield = newBookYield), stocks.copy(govBondAfs = stocks.govBondAfs + afsPortion, govBondHtm = newHtmTotal))
     else if amount < PLN.Zero then
@@ -766,8 +815,8 @@ object Banking:
         (
           b,
           stocks.copy(
-            govBondAfs = stocks.govBondAfs + amount * Share(0.5),
-            govBondHtm = stocks.govBondHtm + amount * Share(0.5),
+            govBondAfs = stocks.govBondAfs + amount * Share.decimal(5, 1),
+            govBondHtm = stocks.govBondHtm + amount * Share.decimal(5, 1),
           ),
         )
       else
@@ -799,7 +848,7 @@ object Banking:
     if requested <= PLN.Zero then BondSaleResult(banks, financialStocks, PLN.Zero, zeroSales)
     else
       val eligible   = banks.zip(financialStocks).filter((b, stocks) => !b.failed && govBondHoldings(stocks) > PLN.Zero)
-      val totalBonds = eligible.map((_, stocks) => govBondHoldings(stocks)).sum
+      val totalBonds = eligible.map((_, stocks) => govBondHoldings(stocks)).sumPln
       if totalBonds <= PLN.Zero then BondSaleResult(banks, financialStocks, PLN.Zero, zeroSales)
       else
         val requestedSale  = requested.min(totalBonds)
@@ -925,7 +974,7 @@ object Banking:
       s"Banking.computeReserveInterestFromBankStocks requires aligned banks and financial stocks, got ${banks.length} banks and ${financialStocks.length} stock rows",
     )
     val perBank = banks.zip(financialStocks).map((bank, stocks) => reserveInterest(bank, stocks, refRate))
-    PerBankAmounts(perBank, perBank.sum)
+    PerBankAmounts(perBank, perBank.sumPln)
 
   /** Standing facility flows (monthly): deposit rate for excess reserves,
     * lombard rate for borrowers. Always-on — the NBP corridor (ref ± 100 bps)
@@ -952,7 +1001,7 @@ object Banking:
         else if stocks.reserve > PLN.Zero then stocks.reserve * depositRate.monthly
         else if stocks.interbankLoan < PLN.Zero then -(stocks.interbankLoan.abs * lombardRate.monthly)
         else PLN.Zero
-    PerBankAmounts(perBank, perBank.sum)
+    PerBankAmounts(perBank, perBank.sumPln)
 
   /** Interbank interest flows (monthly). Net zero in aggregate (closed system).
     */
@@ -969,4 +1018,4 @@ object Banking:
       .map: (bank, stocks) =>
         if bank.failed then PLN.Zero
         else stocks.interbankLoan * rate.monthly
-    PerBankAmounts(perBank, perBank.sum)
+    PerBankAmounts(perBank, perBank.sumPln)

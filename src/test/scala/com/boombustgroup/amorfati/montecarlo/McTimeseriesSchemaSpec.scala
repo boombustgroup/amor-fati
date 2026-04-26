@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.montecarlo
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.{HousingConfig, SimParams}
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.World
@@ -260,7 +261,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "Unemp_North",
   )
 
-  private def computeRow(world: World, ledgerFinancialState: LedgerFinancialState = initState.ledgerFinancialState): Array[Double] =
+  private def computeRow(world: World, ledgerFinancialState: LedgerFinancialState = initState.ledgerFinancialState): Array[MetricValue] =
     McTimeseriesSchema.compute(
       executionMonth = ExecutionMonth.First,
       world = world,
@@ -271,7 +272,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
       ledgerFinancialState = ledgerFinancialState,
     )
 
-  private def valueAt(row: Array[Double], name: String): Double =
+  private def valueAt(row: Array[MetricValue], name: String): MetricValue =
     val idx = McTimeseriesSchema.colNames.indexOf(name)
     idx.should(be >= 0)
     row(idx)
@@ -289,77 +290,77 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep sector sigma columns aligned with the schema" in {
-    val updatedSigma = Sigma(17.0)
+    val updatedSigma = Sigma(17)
     val updatedWorld = init.world.copy(currentSigmas = init.world.currentSigmas.updated(1, updatedSigma))
     val updatedRow   = computeRow(updatedWorld)
 
-    valueAt(updatedRow, "Manuf_Sigma") shouldBe 17.0
+    valueAt(updatedRow, "Manuf_Sigma") shouldBe MetricValue(17)
     valueAt(updatedRow, "BPO_Sigma") shouldBe valueAt(computeRow(init.world), "BPO_Sigma")
   }
 
   it should "source ledger-owned household, public, and fund stock columns from LedgerFinancialState" in {
     val ledger = initState.ledgerFinancialState.copy(
-      households = initState.ledgerFinancialState.households.map(_.copy(mortgageLoan = PLN(12.0), equity = PLN(11.0))),
-      banks = initState.ledgerFinancialState.banks.map(_.copy(govBondAfs = PLN(10.0), govBondHtm = PLN(20.0))),
-      government = initState.ledgerFinancialState.government.copy(govBondOutstanding = PLN(123.0)),
-      foreign = initState.ledgerFinancialState.foreign.copy(govBondHoldings = PLN(45.0)),
-      nbp = initState.ledgerFinancialState.nbp.copy(govBondHoldings = PLN(67.0)),
+      households = initState.ledgerFinancialState.households.map(_.copy(mortgageLoan = PLN(12), equity = PLN(11))),
+      banks = initState.ledgerFinancialState.banks.map(_.copy(govBondAfs = PLN(10), govBondHtm = PLN(20))),
+      government = initState.ledgerFinancialState.government.copy(govBondOutstanding = PLN(123)),
+      foreign = initState.ledgerFinancialState.foreign.copy(govBondHoldings = PLN(45)),
+      nbp = initState.ledgerFinancialState.nbp.copy(govBondHoldings = PLN(67)),
       funds = initState.ledgerFinancialState.funds.copy(
-        jstCash = PLN(89.0),
-        zusCash = PLN(90.0),
-        nfzCash = PLN(91.0),
-        ppkGovBondHoldings = PLN(92.0),
-        fpCash = PLN(93.0),
-        pfronCash = PLN(94.0),
-        fgspCash = PLN(95.0),
+        jstCash = PLN(89),
+        zusCash = PLN(90),
+        nfzCash = PLN(91),
+        ppkGovBondHoldings = PLN(92),
+        fpCash = PLN(93),
+        pfronCash = PLN(94),
+        fgspCash = PLN(95),
         quasiFiscal = initState.ledgerFinancialState.funds.quasiFiscal.copy(
-          bondsOutstanding = PLN(96.0),
-          loanPortfolio = PLN(97.0),
-          nbpHoldings = PLN(98.0),
+          bondsOutstanding = PLN(96),
+          loanPortfolio = PLN(97),
+          nbpHoldings = PLN(98),
         ),
       ),
     )
     val row    = computeRow(init.world, ledger)
 
-    valueAt(row, "HhEquityWealth") shouldBe initState.ledgerFinancialState.households.length.toDouble * 11.0
-    valueAt(row, "MortgageStock") shouldBe initState.ledgerFinancialState.households.length.toDouble * 12.0
-    valueAt(row, "BondsOutstanding") shouldBe 123.0
-    valueAt(row, "BankBondHoldings") shouldBe initState.ledgerFinancialState.banks.length.toDouble * 30.0
-    valueAt(row, "ForeignBondHoldings") shouldBe 45.0
-    valueAt(row, "NbpBondHoldings") shouldBe 67.0
-    valueAt(row, "QfBondsOutstanding") shouldBe 96.0
-    valueAt(row, "QfLoanPortfolio") shouldBe 97.0
-    valueAt(row, "QfNbpHoldings") shouldBe 98.0
-    valueAt(row, "JstDeposits") shouldBe 89.0
-    valueAt(row, "FusBalance") shouldBe 90.0
-    valueAt(row, "NfzBalance") shouldBe 91.0
-    valueAt(row, "PpkBondHoldings") shouldBe 92.0
-    valueAt(row, "FpBalance") shouldBe 93.0
-    valueAt(row, "PfronBalance") shouldBe 94.0
-    valueAt(row, "FgspBalance") shouldBe 95.0
+    valueAt(row, "HhEquityWealth") shouldBe MetricValue(initState.ledgerFinancialState.households.length) * 11
+    valueAt(row, "MortgageStock") shouldBe MetricValue(initState.ledgerFinancialState.households.length) * 12
+    valueAt(row, "BondsOutstanding") shouldBe MetricValue(123)
+    valueAt(row, "BankBondHoldings") shouldBe MetricValue(initState.ledgerFinancialState.banks.length) * 30
+    valueAt(row, "ForeignBondHoldings") shouldBe MetricValue(45)
+    valueAt(row, "NbpBondHoldings") shouldBe MetricValue(67)
+    valueAt(row, "QfBondsOutstanding") shouldBe MetricValue(96)
+    valueAt(row, "QfLoanPortfolio") shouldBe MetricValue(97)
+    valueAt(row, "QfNbpHoldings") shouldBe MetricValue(98)
+    valueAt(row, "JstDeposits") shouldBe MetricValue(89)
+    valueAt(row, "FusBalance") shouldBe MetricValue(90)
+    valueAt(row, "NfzBalance") shouldBe MetricValue(91)
+    valueAt(row, "PpkBondHoldings") shouldBe MetricValue(92)
+    valueAt(row, "FpBalance") shouldBe MetricValue(93)
+    valueAt(row, "PfronBalance") shouldBe MetricValue(94)
+    valueAt(row, "FgspBalance") shouldBe MetricValue(95)
   }
 
   it should "map regional HPI columns by market identity and preserve schema order" in {
     val regions     = init.world.real.housing.regions.getOrElse(fail("expected initialized regional housing data"))
     val hpiByMarket = Map(
-      HousingConfig.RegionalMarket.Warsaw       -> 101.0,
-      HousingConfig.RegionalMarket.Krakow       -> 102.0,
-      HousingConfig.RegionalMarket.Wroclaw      -> 103.0,
-      HousingConfig.RegionalMarket.Gdansk       -> 104.0,
-      HousingConfig.RegionalMarket.Lodz         -> 105.0,
-      HousingConfig.RegionalMarket.Poznan       -> 106.0,
-      HousingConfig.RegionalMarket.RestOfPoland -> 107.0,
+      HousingConfig.RegionalMarket.Warsaw       -> BigDecimal("101.0"),
+      HousingConfig.RegionalMarket.Krakow       -> BigDecimal("102.0"),
+      HousingConfig.RegionalMarket.Wroclaw      -> BigDecimal("103.0"),
+      HousingConfig.RegionalMarket.Gdansk       -> BigDecimal("104.0"),
+      HousingConfig.RegionalMarket.Lodz         -> BigDecimal("105.0"),
+      HousingConfig.RegionalMarket.Poznan       -> BigDecimal("106.0"),
+      HousingConfig.RegionalMarket.RestOfPoland -> BigDecimal("107.0"),
     )
-    val updated     = regions.reverse.map(region => region.copy(priceIndex = PriceIndex(hpiByMarket(region.market))))
+    val updated     = regions.reverse.map(region => region.copy(priceIndex = priceIndexBD(hpiByMarket(region.market))))
     val updatedRow  = computeRow(init.world.copy(real = init.world.real.copy(housing = init.world.real.housing.copy(regions = Some(updated)))))
 
-    valueAt(updatedRow, "WawHpi") shouldBe 101.0
-    valueAt(updatedRow, "KrkHpi") shouldBe 102.0
-    valueAt(updatedRow, "WroHpi") shouldBe 103.0
-    valueAt(updatedRow, "GdnHpi") shouldBe 104.0
-    valueAt(updatedRow, "LdzHpi") shouldBe 105.0
-    valueAt(updatedRow, "PozHpi") shouldBe 106.0
-    valueAt(updatedRow, "RestHpi") shouldBe 107.0
+    valueAt(updatedRow, "WawHpi") shouldBe MetricValue(101)
+    valueAt(updatedRow, "KrkHpi") shouldBe MetricValue(102)
+    valueAt(updatedRow, "WroHpi") shouldBe MetricValue(103)
+    valueAt(updatedRow, "GdnHpi") shouldBe MetricValue(104)
+    valueAt(updatedRow, "LdzHpi") shouldBe MetricValue(105)
+    valueAt(updatedRow, "PozHpi") shouldBe MetricValue(106)
+    valueAt(updatedRow, "RestHpi") shouldBe MetricValue(107)
   }
 
   it should "reject malformed regional housing state shapes before output indexing" in {

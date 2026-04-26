@@ -33,12 +33,12 @@ import com.boombustgroup.amorfati.types.*
   *   average bond maturity in months
   */
 case class CorpBondConfig(
-    spread: Rate = Rate(0.025),
-    initStock: PLN = PLN(90e9), // raw — scaled by gdpRatio
+    spread: Rate = Rate.decimal(25, 3),
+    initStock: PLN = PLN(90000000000L), // raw — scaled by gdpRatio
     minSize: Int = 50,
-    issuanceFrac: Share = Share(0.15),
-    bankShare: Share = Share(0.30),
-    ppkShare: Share = Share(0.15),
-    recovery: Share = Share(0.30),
+    issuanceFrac: Share = Share.decimal(15, 2),
+    bankShare: Share = Share.decimal(30, 2),
+    ppkShare: Share = Share.decimal(15, 2),
+    recovery: Share = Share.decimal(30, 2),
     maturity: Int = 60,
 )

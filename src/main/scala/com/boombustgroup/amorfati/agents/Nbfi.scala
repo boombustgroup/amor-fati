@@ -12,11 +12,11 @@ object Nbfi:
   // Named constants
   // ---------------------------------------------------------------------------
 
-  private val NplTightnessFloor: Share      = Share(0.03)      // NPL ratio below which bank tightness = 0
-  private val NplTightnessRange: Share      = Share(0.03)      // NPL range over which tightness rises from 0 → 1
-  private val UnempDefaultThreshold: Share  = Share(0.05)      // unemployment rate below which no cyclical default add-on
-  private val ExcessReturnSens: Coefficient = Coefficient(5.0) // TFI inflow sensitivity to excess fund vs deposit return
-  private val ExcessReturnCap: Rate         = Rate(0.05)       // cap on absolute excess return signal
+  private val NplTightnessFloor: Share      = Share.decimal(3, 2) // NPL ratio below which bank tightness = 0
+  private val NplTightnessRange: Share      = Share.decimal(3, 2) // NPL range over which tightness rises from 0 → 1
+  private val UnempDefaultThreshold: Share  = Share.decimal(5, 2) // unemployment rate below which no cyclical default add-on
+  private val ExcessReturnSens: Coefficient = Coefficient(5)      // TFI inflow sensitivity to excess fund vs deposit return
+  private val ExcessReturnCap: Rate         = Rate.decimal(5, 2)  // cap on absolute excess return signal
 
   // ---------------------------------------------------------------------------
   // State

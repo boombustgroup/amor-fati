@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.diagnostics
 
+import com.boombustgroup.amorfati.types.sumPln
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.{MonthRandomness, OperationalSignals, SignalExtraction, World}
@@ -192,7 +193,7 @@ object LaborDemandProbe:
         domesticCons = s3.domesticCons,
         govPurchases = s4.govPurchases,
         avgDemandMult = s4.avgDemandMult,
-        totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sum,
+        totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sumPln,
         firmStep = s5,
       )
       val s8     =

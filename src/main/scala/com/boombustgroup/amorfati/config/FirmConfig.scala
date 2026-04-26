@@ -83,50 +83,56 @@ import com.boombustgroup.amorfati.types.*
   */
 case class FirmConfig(
     // Production & costs
-    baseRevenue: PLN = PLN(180000.0),
-    otherCosts: PLN = PLN(16667.0),
-    aiCapex: PLN = PLN(1200000.0),
-    hybridCapex: PLN = PLN(350000.0),
-    aiOpex: PLN = PLN(30000.0),
-    hybridOpex: PLN = PLN(12000.0),
+    baseRevenue: PLN = PLN(180000),
+    otherCosts: PLN = PLN(16667),
+    aiCapex: PLN = PLN(1200000),
+    hybridCapex: PLN = PLN(350000),
+    aiOpex: PLN = PLN(30000),
+    hybridOpex: PLN = PLN(12000),
     autoSkeletonCrew: Int = 2,
-    hybridReadinessMin: Share = Share(0.20),
-    fullAiReadinessMin: Share = Share(0.35),
-    demandPassthrough: Share = Share(0.40),
+    hybridReadinessMin: Share = Share.decimal(20, 2),
+    fullAiReadinessMin: Share = Share.decimal(35, 2),
+    demandPassthrough: Share = Share.decimal(40, 2),
     // Entry
-    entryRate: Share = Share(0.02),
-    entryProfitSens: Coefficient = Coefficient(2.0),
-    entrySectorBarriers: Vector[Coefficient] =
-      Vector(Coefficient(0.8), Coefficient(0.6), Coefficient(1.2), Coefficient(0.5), Coefficient(0.1), Coefficient(0.7)),
-    entryAiThreshold: Share = Share(0.15),
-    entryAiProb: Share = Share(0.20),
-    entryStartupCash: PLN = PLN(50000.0),
-    replacementEntryRate: Share = Share(0.35),
+    entryRate: Share = Share.decimal(2, 2),
+    entryProfitSens: Coefficient = Coefficient(2),
+    entrySectorBarriers: Vector[Coefficient] = Vector(
+      Coefficient.decimal(8, 1),
+      Coefficient.decimal(6, 1),
+      Coefficient.decimal(12, 1),
+      Coefficient.decimal(5, 1),
+      Coefficient.decimal(1, 1),
+      Coefficient.decimal(7, 1),
+    ),
+    entryAiThreshold: Share = Share.decimal(15, 2),
+    entryAiProb: Share = Share.decimal(20, 2),
+    entryStartupCash: PLN = PLN(50000),
+    replacementEntryRate: Share = Share.decimal(35, 2),
     replacementEntryMinMonthly: Int = 1,
     replacementEntryMaxMonthly: Int = 250,
-    aggregateLaborSlackBuffer: Share = Share(1.05),
-    aggregateLaborSlackFloor: Share = Share(0.50),
+    aggregateLaborSlackBuffer: Share = Share.decimal(105, 2),
+    aggregateLaborSlackFloor: Share = Share.decimal(50, 2),
     // Net entry (dynamic vector growth when unemployment > NAIRU)
-    netEntryRate: Share = Share(0.06),                 // monthly net births as fraction of living firms, scaled by unemployment gap
-    netEntryMaxMonthly: Int = 100,                     // hard cap on net births per month (prevents vector explosion)
+    netEntryRate: Share = Share.decimal(6, 2),                  // monthly net births as fraction of living firms, scaled by unemployment gap
+    netEntryMaxMonthly: Int = 100,                              // hard cap on net births per month (prevents vector explosion)
     // Digitalization
-    digiDrift: Share = Share(0.001),
-    digiInvestCost: PLN = PLN(50000.0),
-    digiInvestBoost: Share = Share(0.05),
-    digiCapexDiscount: Share = Share(0.30),
-    digiInvestBaseProb: Share = Share(0.08),
+    digiDrift: Share = Share.decimal(1, 3),
+    digiInvestCost: PLN = PLN(50000),
+    digiInvestBoost: Share = Share.decimal(5, 2),
+    digiCapexDiscount: Share = Share.decimal(30, 2),
+    digiInvestBaseProb: Share = Share.decimal(8, 2),
     // Labor adjustment (smooth hiring/firing)
-    laborAdjustSpeed: Coefficient = Coefficient(0.15), // monthly partial adjustment toward target (λ)
-    severanceMonths: Multiplier = Multiplier(2.0),     // months of wage per fired worker (Kodeks Pracy)
-    minWorkersRetained: Int = 3,                       // hard floor on workforce
+    laborAdjustSpeed: Coefficient = Coefficient.decimal(15, 2), // monthly partial adjustment toward target (λ)
+    severanceMonths: Multiplier = Multiplier(2),                // months of wage per fired worker (Kodeks Pracy)
+    minWorkersRetained: Int = 3,                                // hard floor on workforce
     // Network / demonstration effects
     networkK: Int = 6,
-    networkRewireP: Share = Share(0.10),
-    demoEffectThresh: Share = Share(0.40),
-    demoEffectBoost: Share = Share(0.15),
+    networkRewireP: Share = Share.decimal(10, 2),
+    demoEffectThresh: Share = Share.decimal(40, 2),
+    demoEffectBoost: Share = Share.decimal(15, 2),
     adoptionRampMonths: Int = 36,
-    sigmaLambda: Coefficient = Coefficient(0.0),
-    sigmaCapMult: Multiplier = Multiplier(3.0),
+    sigmaLambda: Coefficient = Coefficient(0),
+    sigmaCapMult: Multiplier = Multiplier(3),
 ):
   require(entrySectorBarriers.length == 6, s"entrySectorBarriers must have 6 sectors: ${entrySectorBarriers.length}")
   require(adoptionRampMonths > 0, s"adoptionRampMonths must be positive: $adoptionRampMonths")

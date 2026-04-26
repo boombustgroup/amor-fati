@@ -10,7 +10,7 @@ import com.boombustgroup.amorfati.types.*
 object Insurance:
 
   // Unemployment threshold below which non-life claims have no cyclical add-on
-  private val NonLifeUnempThreshold = 0.05
+  private val NonLifeUnempThreshold: Share = Share.decimal(5, 2)
 
   case class OpeningBalances(
       lifeReserves: PLN,     // life insurance technical reserves
@@ -122,7 +122,7 @@ object Insurance:
     // Claims: life steady, non-life widens with unemployment stress
     val lifeCl      = lifePrem * p.ins.lifeLossRatio
     val nonLifeBase = nonLifePrem * p.ins.nonLifeLossRatio
-    val stressGap   = (input.unempRate - Share(NonLifeUnempThreshold)).max(Share.Zero)
+    val stressGap   = (input.unempRate - NonLifeUnempThreshold).max(Share.Zero)
     val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier // Share * Coefficient → Coefficient → Multiplier
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
@@ -137,7 +137,7 @@ object Insurance:
 
     // Update reserves: split investment income proportionally
     val totalReserves = opening.totalReserves
-    val lifeShare     = if totalReserves > PLN.Zero then Share(opening.lifeReserves / totalReserves) else Share(0.5)
+    val lifeShare     = if totalReserves > PLN.Zero then (opening.lifeReserves / totalReserves).toShare else Share.decimal(5, 1)
     val newLifeRes    = opening.lifeReserves + (lifePrem - lifeCl) + invIncome * lifeShare
     val newNonLifeRes = opening.nonLifeReserves + (nonLifePrem - nonLifeCl) + invIncome * (Share.One - lifeShare)
 

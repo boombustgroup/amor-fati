@@ -48,26 +48,28 @@ import com.boombustgroup.amorfati.types.*
 case class LaborConfig(
     // Sectoral mobility (GUS LFS 2024, Shimer 2005)
     frictionMatrix: Vector[Vector[Share]] = SectoralMobility.DefaultFrictionMatrix,
-    frictionDurationMult: Multiplier = Multiplier(1.0),
-    frictionCostMult: Share = Share(0.5),
-    voluntarySearchProb: Share = Share(0.02),
-    voluntaryWageThreshold: Share = Share(0.20),
-    vacancyWeight: Coefficient = Coefficient(2.0),
-    adjacentFrictionMax: Share = Share(0.4),
+    frictionDurationMult: Multiplier = Multiplier(1),
+    frictionCostMult: Share = Share.decimal(5, 1),
+    voluntarySearchProb: Share = Share.decimal(2, 2),
+    voluntaryWageThreshold: Share = Share.decimal(20, 2),
+    vacancyWeight: Coefficient = Coefficient(2),
+    adjacentFrictionMax: Share = Share.decimal(4, 1),
     // Unions (GUS 2024)
-    unionDensity: Vector[Share] = Vector(Share(0.02), Share(0.15), Share(0.03), Share(0.12), Share(0.30), Share(0.04)),
-    unionWagePremium: Share = Share(0.08),
-    unionRigidity: Share = Share(0.50),
+    unionDensity: Vector[Share] =
+      Vector(Share.decimal(2, 2), Share.decimal(15, 2), Share.decimal(3, 2), Share.decimal(12, 2), Share.decimal(30, 2), Share.decimal(4, 2)),
+    unionWagePremium: Share = Share.decimal(8, 2),
+    unionRigidity: Share = Share.decimal(50, 2),
     // Skills-biased technological change (Acemoglu & Restrepo 2020, Autor 2024)
-    sbtcEduRoutineness: Vector[Share] = Vector(Share(0.80), Share(0.65), Share(0.45), Share(0.25)), // Primary, Vocational, Secondary, Tertiary
-    sbtcComplementPremium: Share = Share(0.15),                                                     // max wage premium for AI-complemented cognitive workers
+    sbtcEduRoutineness: Vector[Share] =
+      Vector(Share.decimal(80, 2), Share.decimal(65, 2), Share.decimal(45, 2), Share.decimal(25, 2)), // Primary, Vocational, Secondary, Tertiary
+    sbtcComplementPremium: Share = Share.decimal(15, 2),                                              // max wage premium for AI-complemented cognitive workers
     // Expectations (Carroll 2003, Bewley 1999)
-    expLambda: Coefficient = Coefficient(0.70),
-    expCredibilityInit: Share = Share(0.80),
-    expCredibilitySpeed: Coefficient = Coefficient(0.05),
-    expCredibilityThreshold: Rate = Rate(0.02),
-    expWagePassthrough: Coefficient = Coefficient(0.50),
-    expBondSensitivity: Coefficient = Coefficient(0.50),
+    expLambda: Coefficient = Coefficient.decimal(70, 2),
+    expCredibilityInit: Share = Share.decimal(80, 2),
+    expCredibilitySpeed: Coefficient = Coefficient.decimal(5, 2),
+    expCredibilityThreshold: Rate = Rate.decimal(2, 2),
+    expWagePassthrough: Coefficient = Coefficient.decimal(50, 2),
+    expBondSensitivity: Coefficient = Coefficient.decimal(50, 2),
 ):
   require(unionDensity.length == 6, s"unionDensity must have 6 sectors: ${unionDensity.length}")
   require(sbtcEduRoutineness.length == 4, s"sbtcEduRoutineness must have 4 education levels: ${sbtcEduRoutineness.length}")

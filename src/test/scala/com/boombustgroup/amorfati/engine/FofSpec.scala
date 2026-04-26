@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.TestFirmState
 
 import org.scalatest.flatspec.AnyFlatSpec
@@ -13,7 +14,6 @@ class FofSpec extends AnyFlatSpec with Matchers:
   import com.boombustgroup.amorfati.config.SimParams
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   private def zeroSnap: Sfc.StockState = Sfc.StockState(
     hhSavings = PLN.Zero,
@@ -123,66 +123,66 @@ class FofSpec extends AnyFlatSpec with Matchers:
   )
 
   "FofConsWeights" should "sum to 1.0" in {
-    Math.abs(p.fiscal.fofConsWeights.map(w => td.toDouble(w)).sum - 1.0) should be < 0.01
+    DecimalMath.abs(p.fiscal.fofConsWeights.map(w => decimal(w)).sum - BigDecimal("1.0")) should be < BigDecimal("0.01")
   }
 
   "FofGovWeights" should "sum to 1.0" in {
-    Math.abs(p.fiscal.fofGovWeights.map(w => td.toDouble(w)).sum - 1.0) should be < 0.01
+    DecimalMath.abs(p.fiscal.fofGovWeights.map(w => decimal(w)).sum - BigDecimal("1.0")) should be < BigDecimal("0.01")
   }
 
   "FofExportShares" should "sum to 1.0" in {
-    Math.abs(p.fiscal.fofExportShares.map(s => td.toDouble(s)).sum - 1.0) should be < 0.01
+    DecimalMath.abs(p.fiscal.fofExportShares.map(s => decimal(s)).sum - BigDecimal("1.0")) should be < BigDecimal("0.01")
   }
 
   "Sector demand" should "equal consWeight*dc + govWeight*gp + exports" in {
-    val dc      = 1000000.0
-    val gp      = 500000.0
-    val exports = Vector(50.0, 550.0, 150.0, 20.0, 30.0, 200.0)
+    val dc      = BigDecimal("1000000.0")
+    val gp      = BigDecimal("500000.0")
+    val exports = Vector(BigDecimal("50.0"), BigDecimal("550.0"), BigDecimal("150.0"), BigDecimal("20.0"), BigDecimal("30.0"), BigDecimal("200.0"))
     for s <- 0 until 6 do
       val expected =
-        p.fiscal.fofConsWeights.map(w => td.toDouble(w))(s) * dc + p.fiscal.fofGovWeights.map(w => td.toDouble(w))(s) * gp + exports(s)
+        p.fiscal.fofConsWeights.map(w => decimal(w))(s) * dc + p.fiscal.fofGovWeights.map(w => decimal(w))(s) * gp + exports(s)
       val actual   =
-        p.fiscal.fofConsWeights.map(w => td.toDouble(w))(s) * dc + p.fiscal.fofGovWeights.map(w => td.toDouble(w))(s) * gp + exports(s)
+        p.fiscal.fofConsWeights.map(w => decimal(w))(s) * dc + p.fiscal.fofGovWeights.map(w => decimal(w))(s) * gp + exports(s)
       actual shouldBe expected
   }
 
   "Sector demand multiplier" should "equal sectorDemand / (sectorCap * price)" in {
-    val sectorDemand = 500000.0
-    val sectorCap    = 400000.0
-    val price        = 1.0
+    val sectorDemand = BigDecimal("500000.0")
+    val sectorCap    = BigDecimal("400000.0")
+    val price        = BigDecimal("1.0")
     val mult         = sectorDemand / (sectorCap * price)
-    mult shouldBe 1.25
+    mult shouldBe BigDecimal("1.25")
   }
 
   it should "be 0 for empty sectors" in {
-    val sectorCap = 0.0
-    val mult      = if sectorCap > 0 then 100.0 / (sectorCap * 1.0) else 0.0
-    mult shouldBe 0.0
+    val sectorCap = BigDecimal("0.0")
+    val mult      = if sectorCap > 0 then BigDecimal("100.0") / (sectorCap * BigDecimal("1.0")) else BigDecimal("0.0")
+    mult shouldBe BigDecimal("0.0")
   }
 
   "Total firm revenue" should "equal sum of sector demands (identity closes)" in {
     val firms   = mkFirms()
-    val price   = 1.0
-    val dc      = 800000.0
-    val gp      = 200000.0
-    val exports = p.fiscal.fofExportShares.map(s => td.toDouble(s)).map(_ * 100000.0)
+    val price   = BigDecimal("1.0")
+    val dc      = BigDecimal("800000.0")
+    val gp      = BigDecimal("200000.0")
+    val exports = p.fiscal.fofExportShares.map(s => decimal(s)).map(_ * BigDecimal("100000.0"))
 
     val sectorCap    = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).map(f => td.toDouble(Firm.computeCapacity(f))).sum
+      firms.filter(_.sector.toInt == s).map(f => decimal(Firm.computeCapacity(f))).sum
     }.toVector
     val sectorDemand = (0 until 6).map { s =>
-      p.fiscal.fofConsWeights.map(w => td.toDouble(w))(s) * dc + p.fiscal.fofGovWeights.map(w => td.toDouble(w))(s) * gp + exports(s)
+      p.fiscal.fofConsWeights.map(w => decimal(w))(s) * dc + p.fiscal.fofGovWeights.map(w => decimal(w))(s) * gp + exports(s)
     }.toVector
     val sectorMults  = sectorDemand.indices.map { s =>
-      if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * price) else 0.0
+      if sectorCap(s) > 0 then sectorDemand(s) / (sectorCap(s) * price) else BigDecimal("0.0")
     }.toVector
 
     val totalFirmRev = (0 until 6).map { s =>
-      firms.filter(_.sector.toInt == s).map(f => td.toDouble(Firm.computeCapacity(f)) * sectorMults(s) * price).sum
+      firms.filter(_.sector.toInt == s).map(f => decimal(Firm.computeCapacity(f)) * sectorMults(s) * price).sum
     }.sum
     val totalDemand  = sectorDemand.sum
 
-    Math.abs(totalFirmRev - totalDemand) should be < 0.01
+    DecimalMath.abs(totalFirmRev - totalDemand) should be < BigDecimal("0.01")
   }
 
   "Proportional allocation" should "distribute revenue proportionally within sector" in {
@@ -190,52 +190,52 @@ class FofSpec extends AnyFlatSpec with Matchers:
     val f2           = mkFirm(1, TechState.Traditional(20))
     // Both in sector 2 (Retail)
     val firms        = Array(f1.copy(sector = SectorIdx(2)), f2.copy(sector = SectorIdx(2)))
-    val price        = 1.0
-    val cap1         = td.toDouble(Firm.computeCapacity(firms(0)))
-    val cap2         = td.toDouble(Firm.computeCapacity(firms(1)))
-    val sectorDemand = 500000.0
+    val price        = BigDecimal("1.0")
+    val cap1         = decimal(Firm.computeCapacity(firms(0)))
+    val cap2         = decimal(Firm.computeCapacity(firms(1)))
+    val sectorDemand = BigDecimal("500000.0")
     val totalCap     = cap1 + cap2
     val mult         = sectorDemand / (totalCap * price)
     val rev1         = cap1 * mult * price
     val rev2         = cap2 * mult * price
-    Math.abs(rev1 + rev2 - sectorDemand) should be < 0.01
+    DecimalMath.abs(rev1 + rev2 - sectorDemand) should be < BigDecimal("0.01")
     // Revenue proportional to capacity
-    Math.abs(rev1 / rev2 - cap1 / cap2) should be < 0.001
+    DecimalMath.abs(rev1 / rev2 - cap1 / cap2) should be < BigDecimal("0.001")
   }
 
   "Gov purchases" should "equal GovBaseSpending * price" in {
-    val price = 1.2
-    val gp    = td.toDouble(p.fiscal.govBaseSpending) * price
-    gp shouldBe td.toDouble(p.fiscal.govBaseSpending) * 1.2
+    val price = BigDecimal("1.2")
+    val gp    = decimal(p.fiscal.govBaseSpending) * price
+    gp shouldBe decimal(p.fiscal.govBaseSpending) * BigDecimal("1.2")
   }
 
   "Scalar exports" should "be distributed by FofExportShares" in {
-    val totalExports = 1000000.0
-    val distributed  = p.fiscal.fofExportShares.map(s => td.toDouble(s)).map(_ * totalExports)
-    Math.abs(distributed.sum - totalExports) should be < 0.01
-    distributed(1) shouldBe 520000.0 // Manufacturing gets 52%
+    val totalExports = BigDecimal("1000000.0")
+    val distributed  = p.fiscal.fofExportShares.map(s => decimal(s)).map(_ * totalExports)
+    DecimalMath.abs(distributed.sum - totalExports) should be < BigDecimal("0.01")
+    distributed(1) shouldBe BigDecimal("520000.0") // Manufacturing gets 52%
   }
 
   "Sfc Identity 10" should "pass when fofResidual is zero" in {
     // All flows zero except fofResidual — all deltas are 0 = 0
     val flows  = zeroFlows
-    val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
+    val snap   = zeroSnap.copy(bankCapital = PLN(500000), bankDeposits = PLN(1000000))
     val result = Sfc.validateStockExactness(snap, snap, flows)
     result shouldBe Right(())
   }
 
   it should "fail when fofResidual exceeds tolerance" in {
-    val flows  = zeroFlows.copy(fofResidual = PLN(5000.0))
-    val snap   = zeroSnap.copy(bankCapital = PLN(500000.0), bankDeposits = PLN(1000000.0))
+    val flows  = zeroFlows.copy(fofResidual = PLN(5000))
+    val snap   = zeroSnap.copy(bankCapital = PLN(500000), bankDeposits = PLN(1000000))
     val result = Sfc.validateStockExactness(snap, snap, flows)
     result shouldBe a[Left[?, ?]]
-    td.toDouble(
+    decimal(
       result.swap
         .getOrElse(Vector.empty)
         .find(_.identity == Sfc.SfcIdentity.FlowOfFunds)
         .get
         .actual,
-    ) shouldBe 5000.0 +- 0.01
+    ) shouldBe BigDecimal("5000.0") +- BigDecimal("0.01")
   }
 
   // --- helpers ---
@@ -243,12 +243,12 @@ class FofSpec extends AnyFlatSpec with Matchers:
   private def mkFirm(id: Int, tech: TechState, sector: Int = 2): Firm.State =
     TestFirmState(
       FirmId(id),
-      PLN(50000.0),
+      PLN(50000),
       PLN.Zero,
       tech,
-      Share(0.5),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share(0.5),
+      Share.decimal(5, 1),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),

@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
@@ -28,7 +29,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
   "LaborEconomics.compute" should "produce positive wage" in {
     val result = LaborEconomics.compute(world, firms, households, s1)
-    ComputationBoundary.toDouble(result.newWage) should be > 0.0
+    decimal(result.newWage) should be > BigDecimal("0.0")
   }
 
   it should "produce positive employment" in {
@@ -44,7 +45,7 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
   it should "produce consistent wage growth" in {
     val result = LaborEconomics.compute(world, firms, households, s1)
     // Wage growth should be a finite number
-    ComputationBoundary.toDouble(result.wageGrowth).isNaN shouldBe false
+    decimal(result.wageGrowth).isNaN shouldBe false
   }
 
   it should "compress aggregate hiring plans when labor demand exceeds available labor" in {
@@ -64,5 +65,5 @@ class LaborEconomicsSpec extends AnyFlatSpec with Matchers:
 
     post.laborDemand shouldBe postLiving.map(Firm.workerCount).sum
     post.employed shouldBe 0
-    ComputationBoundary.toDouble(post.newWage).should(be >= ComputationBoundary.toDouble(s1.resWage))
+    decimal(post.newWage).should(be >= decimal(s1.resWage))
   }

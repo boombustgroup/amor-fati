@@ -1,7 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
-import com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
-import org.scalacheck.Gen
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -10,23 +9,22 @@ import com.boombustgroup.amorfati.types.*
 class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyChecks:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams                          = SimParams.defaults
-  private val p: SimParams                 = summon[SimParams]
-  private val td                           = ComputationBoundary
-  private val baseEr                       = td.toDouble(p.forex.baseExRate)
-  private def plnValue(x: PLN): Double     = x.toLong.toDouble / ScaleD
-  private def shareValue(x: Share): Double = x.toLong.toDouble / ScaleD
+  given SimParams                              = SimParams.defaults
+  private val p: SimParams                     = summon[SimParams]
+  private val baseEr                           = decimal(p.forex.baseExRate)
+  private def plnValue(x: PLN): BigDecimal     = decimal(x)
+  private def shareValue(x: Share): BigDecimal = decimal(x)
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val genER       = Gen.choose(2.5, 10.0)
-  private val genReserves = Gen.choose(0.0, 1e11)
-  private val genGdp      = Gen.choose(1e6, 1e12)
+  private val genER       = genDecimal("2.5", "10.0")
+  private val genReserves = genDecimal("0.0", "100000000000.0")
+  private val genGdp      = genDecimal("1000000.0", "1000000000000.0")
 
   // Helper: call with enabled=true
-  private def fxEnabled(er: Double, reserves: Double, gdp: Double) =
-    Nbp.fxIntervention(ExchangeRate(er), PLN(reserves), PLN(gdp), enabled = true)
+  private def fxEnabled(er: BigDecimal, reserves: BigDecimal, gdp: BigDecimal) =
+    Nbp.fxIntervention(exchangeRateBD(er), plnBD(reserves), plnBD(gdp), enabled = true)
 
   "Nbp.fxIntervention (enabled)" should "never produce negative reserves" in
     forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
@@ -39,21 +37,21 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       val result = fxEnabled(er, reserves, gdp)
       // When selling EUR (eurTraded < 0), magnitude <= reserves
       // When buying EUR (eurTraded > 0), magnitude <= reserves * maxMonthly
-      result.eurTraded.abs.should(be <= PLN(reserves + 1e-6))
+      result.eurTraded.abs.should(be <= PLN.fromRaw(plnBD(reserves).toLong + 1L))
     }
 
   it should "have erShock opposing deviation when outside band" in
     forAll(genER, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
-      val erDev  = ExchangeRate(er).deviationFrom(p.forex.baseExRate)
+      val erDev  = exchangeRateBD(er).deviationFrom(p.forex.baseExRate)
       if erDev.abs.toScalar > p.monetary.fxBand.toScalar && result.erShock != ExchangeRateShock.Zero then result.erShock.sign shouldBe (-erDev.sign)
     }
 
   "Nbp.fxIntervention (enabled)" should "return zero effect when ER within band" in {
     // Generate ER strictly inside band (0.5% margin avoids FP boundary issues)
-    val genERInBand = Gen.choose(
-      baseEr * (1.0 - shareValue(p.monetary.fxBand) + 0.005),
-      baseEr * (1.0 + shareValue(p.monetary.fxBand) - 0.005),
+    val genERInBand = genDecimalRange(
+      baseEr * (BigDecimal(1) - shareValue(p.monetary.fxBand) + BigDecimal("0.005")),
+      baseEr * (BigDecimal(1) + shareValue(p.monetary.fxBand) - BigDecimal("0.005")),
     )
     forAll(genERInBand, genReserves, genGdp) { (er, reserves, gdp) =>
       val result = fxEnabled(er, reserves, gdp)
@@ -68,5 +66,5 @@ class FxInterventionPropertySpec extends AnyFlatSpec with Matchers with ScalaChe
       // newReserves = max(0, reserves + eurTraded)
       // When reserves + eurTraded >= 0: |newReserves - reserves| = |eurTraded|
       // Tolerance 1.0 for large magnitudes (~1e10), consistent with SFC check
-      if result.newReserves > PLN.Zero then Math.abs(plnValue(result.newReserves) - reserves).shouldBe(plnValue(result.eurTraded.abs) +- 1.0)
+      if result.newReserves > PLN.Zero then (plnValue(result.newReserves) - reserves).abs.shouldBe(plnValue(result.eurTraded.abs) +- BigDecimal("1.0"))
     }

@@ -31,14 +31,15 @@ import com.boombustgroup.amorfati.types.*
   *   initial immigrant stock at simulation start (number of workers)
   */
 case class ImmigrationConfig(
-    monthlyRate: Share = Share(0.001),
-    wageElasticity: Coefficient = Coefficient(2.0),
-    foreignWage: PLN = PLN(4000.0),
-    remitRate: Share = Share(0.15),
-    returnRate: Share = Share(0.005),
-    sectorShares: Vector[Share] = Vector(Share(0.05), Share(0.35), Share(0.25), Share(0.05), Share(0.05), Share(0.25)),
-    skillMean: Share = Share(0.45),
-    wageDiscount: Share = Share(0.20),
+    monthlyRate: Share = Share.decimal(1, 3),
+    wageElasticity: Coefficient = Coefficient(2),
+    foreignWage: PLN = PLN(4000),
+    remitRate: Share = Share.decimal(15, 2),
+    returnRate: Share = Share.decimal(5, 3),
+    sectorShares: Vector[Share] =
+      Vector(Share.decimal(5, 2), Share.decimal(35, 2), Share.decimal(25, 2), Share.decimal(5, 2), Share.decimal(5, 2), Share.decimal(25, 2)),
+    skillMean: Share = Share.decimal(45, 2),
+    wageDiscount: Share = Share.decimal(20, 2),
     initStock: Int = 0,
 ):
   require(sectorShares.length == 6, s"sectorShares must have 6 sectors: ${sectorShares.length}")

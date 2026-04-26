@@ -1,5 +1,7 @@
 package com.boombustgroup.amorfati.networks
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
+import com.boombustgroup.amorfati.types.*
 import org.scalacheck.Gen
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -21,7 +23,7 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
 
   "wattsStrogatz" should "produce symmetric adjacency" in
     forAll(genN, genK) { (n: Int, k: Int) =>
-      val adj = Network.wattsStrogatz(n, k, 0.10, RandomStream.seeded(42))
+      val adj = Network.wattsStrogatz(n, k, Share.decimal(10, 2), RandomStream.seeded(42))
       for
         i <- 0 until n
         j <- adj(i)
@@ -30,14 +32,14 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
 
   it should "have no self-loops" in
     forAll(genN, genK) { (n: Int, k: Int) =>
-      val adj = Network.wattsStrogatz(n, k, 0.10, RandomStream.seeded(42))
+      val adj = Network.wattsStrogatz(n, k, Share.decimal(10, 2), RandomStream.seeded(42))
       for i <- 0 until n do adj(i) should not contain i
     }
 
   it should "have exact degree k when p=0" in
     forAll(genN, genK) { (n: Int, k: Int) =>
       whenever(n > k) {
-        val adj = Network.wattsStrogatz(n, k, 0.0, RandomStream.seeded(42))
+        val adj = Network.wattsStrogatz(n, k, Share.Zero, RandomStream.seeded(42))
         for i <- 0 until n do adj(i).toSet.size shouldBe k
       }
     }
@@ -45,16 +47,16 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
   it should "have average degree approximately k" in
     forAll(genN, genK) { (n: Int, k: Int) =>
       whenever(n > k) {
-        val adj    = Network.wattsStrogatz(n, k, 0.10, RandomStream.seeded(42))
-        val avgDeg = adj.map(_.length).sum.toDouble / n
-        avgDeg shouldBe (k.toDouble +- (k * 0.3))
+        val adj    = Network.wattsStrogatz(n, k, Share.decimal(10, 2), RandomStream.seeded(42))
+        val avgDeg = decimal(adj.map(_.length).sum) / decimal(n)
+        avgDeg shouldBe (decimal(k) +- (decimal(k) * BigDecimal("0.3")))
       }
     }
 
   it should "be connected (single component)" in
     forAll(genN) { (n: Int) =>
       whenever(n >= 20) {
-        val adj     = Network.wattsStrogatz(n, 6, 0.10, RandomStream.seeded(42))
+        val adj     = Network.wattsStrogatz(n, 6, Share.decimal(10, 2), RandomStream.seeded(42))
         val visited = new Array[Boolean](n)
         val queue   = scala.collection.mutable.Queue(0)
         visited(0) = true
@@ -89,8 +91,8 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
       whenever(n >= 30) {
         val target = 6
         val adj    = Network.erdosRenyi(n, target, RandomStream.seeded(42))
-        val avgDeg = adj.map(_.length).sum.toDouble / n
-        avgDeg shouldBe (target.toDouble +- (target * 0.5))
+        val avgDeg = decimal(adj.map(_.length).sum) / decimal(n)
+        avgDeg shouldBe (decimal(target) +- (decimal(target) * BigDecimal("0.5")))
       }
     }
 
@@ -128,8 +130,8 @@ class NetworkPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPrope
       whenever(n >= 20) {
         val m      = 3
         val adj    = Network.barabasiAlbert(n, m, RandomStream.seeded(42))
-        val avgDeg = adj.map(_.length).sum.toDouble / n
-        avgDeg shouldBe (2.0 * m +- (m * 1.5))
+        val avgDeg = decimal(adj.map(_.length).sum) / decimal(n)
+        avgDeg shouldBe (decimal(2 * m) +- (decimal(m) * BigDecimal("1.5")))
       }
     }
 

@@ -14,20 +14,20 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
   )
 
   private val baseInput = BankingFlows.Input(
-    firmInterestIncome = PLN(900000.0),
-    firmNplLoss = PLN(120000.0),
-    mortgageNplLoss = PLN(110000.0),
-    consumerNplLoss = PLN(60000.0),
-    govBondIncome = PLN(3000000.0),
-    reserveInterest = PLN(500000.0),
-    standingFacilityIncome = PLN(100000.0),
-    interbankInterest = PLN(200000.0),
-    corpBondCoupon = PLN(70000.0),
-    corpBondDefaultLoss = PLN(50000.0),
-    bfgLevy = PLN(400000.0),
-    unrealizedBondLoss = PLN(150000.0),
+    firmInterestIncome = PLN(900000),
+    firmNplLoss = PLN(120000),
+    mortgageNplLoss = PLN(110000),
+    consumerNplLoss = PLN(60000),
+    govBondIncome = PLN(3000000),
+    reserveInterest = PLN(500000),
+    standingFacilityIncome = PLN(100000),
+    interbankInterest = PLN(200000),
+    corpBondCoupon = PLN(70000),
+    corpBondDefaultLoss = PLN(50000),
+    bfgLevy = PLN(400000),
+    unrealizedBondLoss = PLN(150000),
     bailInLoss = PLN.Zero,
-    nbpRemittance = PLN(800000.0),
+    nbpRemittance = PLN(800000),
     fxReserveSettlement = PLN.Zero,
     standingFacilityBackstop = PLN.Zero,
   )
@@ -54,7 +54,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle negative interbank interest (net cost)" in {
-    val netCost  = baseInput.copy(interbankInterest = PLN(-300000.0))
+    val netCost  = baseInput.copy(interbankInterest = PLN(-300000))
     val flows    = BankingFlows.emit(netCost)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
@@ -64,7 +64,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle negative standing facility income (net cost)" in {
-    val netCost  = baseInput.copy(standingFacilityIncome = PLN(-250000.0))
+    val netCost  = baseInput.copy(standingFacilityIncome = PLN(-250000))
     val flows    = BankingFlows.emit(netCost)
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
@@ -74,7 +74,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "handle bail-in (depositor loss)" in {
-    val withBailIn = baseInput.copy(bailInLoss = PLN(5000000.0))
+    val withBailIn = baseInput.copy(bailInLoss = PLN(5000000))
     val flows      = BankingFlows.emit(withBailIn)
     val balances   = Interpreter.applyAll(Map.empty[Int, Long], flows)
     Interpreter.totalWealth(balances) shouldBe 0L
@@ -125,11 +125,11 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
       case (label, topology) =>
         withClue(s"$label: ") {
           val injection = BankingFlows
-            .emitBatches(baseInput.copy(fxReserveSettlement = PLN(125000.0)))(using topology)
+            .emitBatches(baseInput.copy(fxReserveSettlement = PLN(125000)))(using topology)
             .find(_.mechanism == FlowMechanism.NbpFxSettlement)
             .get
           val drain     = BankingFlows
-            .emitBatches(baseInput.copy(fxReserveSettlement = PLN(-90000.0)))(using topology)
+            .emitBatches(baseInput.copy(fxReserveSettlement = PLN(-90000)))(using topology)
             .find(_.mechanism == FlowMechanism.NbpFxSettlement)
             .get
 
@@ -147,7 +147,7 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
       case (label, topology) =>
         withClue(s"$label: ") {
           val backstop = BankingFlows
-            .emitBatches(baseInput.copy(standingFacilityBackstop = PLN(175000.0)))(using topology)
+            .emitBatches(baseInput.copy(standingFacilityBackstop = PLN(175000)))(using topology)
             .find(_.mechanism == FlowMechanism.BankStandingFacilityBackstop)
             .get
 

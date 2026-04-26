@@ -35,7 +35,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
   it should "detect tampered bondsOutstanding" in:
     val result   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val snap     = stockSnapshot(result)
-    val tampered = snap.copy(bondsOutstanding = snap.bondsOutstanding + PLN(1000.0))
+    val tampered = snap.copy(bondsOutstanding = snap.bondsOutstanding + PLN(1000))
     val errors   = InitCheck.validate(tampered, result.banks, result.firms, result.households, result.ledgerFinancialState)
     errors should not be empty
     errors.exists(_.identity == "Bond clearing") shouldBe true
@@ -45,7 +45,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     val snap           = stockSnapshot(result)
     val bankBalances   = result.ledgerFinancialState.banks
     val tamperedLedger = result.ledgerFinancialState.copy(
-      banks = bankBalances.updated(0, bankBalances(0).copy(totalDeposits = bankBalances(0).totalDeposits + PLN(5000.0))),
+      banks = bankBalances.updated(0, bankBalances(0).copy(totalDeposits = bankBalances(0).totalDeposits + PLN(5000))),
     )
     val errors         = InitCheck.validate(snap, result.banks, result.firms, result.households, tamperedLedger)
     errors should not be empty
@@ -56,7 +56,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     val snap           = stockSnapshot(result)
     val bankBalances   = result.ledgerFinancialState.banks
     val tamperedLedger = result.ledgerFinancialState.copy(
-      banks = bankBalances.updated(0, bankBalances(0).copy(firmLoan = bankBalances(0).firmLoan + PLN(5000.0))),
+      banks = bankBalances.updated(0, bankBalances(0).copy(firmLoan = bankBalances(0).firmLoan + PLN(5000))),
     )
     val errors         = InitCheck.validate(snap, result.banks, result.firms, result.households, tamperedLedger)
     errors should not be empty
@@ -67,7 +67,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     val snap           = stockSnapshot(result)
     val bankBalances   = result.ledgerFinancialState.banks
     val tamperedLedger = result.ledgerFinancialState.copy(
-      banks = bankBalances.updated(0, bankBalances(0).copy(consumerLoan = bankBalances(0).consumerLoan + PLN(5000.0))),
+      banks = bankBalances.updated(0, bankBalances(0).copy(consumerLoan = bankBalances(0).consumerLoan + PLN(5000))),
     )
     val errors         = InitCheck.validate(snap, result.banks, result.firms, result.households, tamperedLedger)
     errors should not be empty

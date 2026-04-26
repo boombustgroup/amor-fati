@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.engine.markets.FiscalBudget
@@ -13,7 +14,6 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
   // --- monthlyTransfer tests ---
   // Note: monthlyTransfer depends on Config env vars. Default: start=1, period=84
@@ -26,6 +26,21 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   it should "return positive value at startMonth" in
     EuFunds.monthlyTransfer(ExecutionMonth(p.fiscal.euFundsStartMonth)).should(be > PLN.Zero)
 
+  it should "scale the default total envelope without overflowing" in {
+    val totalPln = EuFundsMath.totalEnvelopePln(p.fiscal.euFundsTotalEur, p.forex.baseExRate, p.pop.firmsCount, 10000)
+
+    totalPln should be > PLN.Zero
+    decimal(totalPln) shouldBe BigDecimal("329080000000.0") +- BigDecimal("1.0")
+  }
+
+  it should "never produce negative transfers during the configured absorption period" in {
+    val transfers = (p.fiscal.euFundsStartMonth until p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths)
+      .map(month => EuFunds.monthlyTransfer(ExecutionMonth(month)))
+
+    transfers.foreach(_ should be >= PLN.Zero)
+    transfers.exists(_ > PLN.Zero) shouldBe true
+  }
+
   it should "return 0 after startMonth + periodMonths" in {
     val afterEnd = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths + 1
     EuFunds.monthlyTransfer(ExecutionMonth(afterEnd)).shouldBe(PLN.Zero)
@@ -33,24 +48,24 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
 
   it should "return positive value in the middle of the period" in {
     val mid = p.fiscal.euFundsStartMonth + p.fiscal.euFundsPeriodMonths / 2
-    td.toDouble(EuFunds.monthlyTransfer(ExecutionMonth(mid))).should(be > 0.0)
+    decimal(EuFunds.monthlyTransfer(ExecutionMonth(mid))).should(be > BigDecimal("0.0"))
   }
 
   it should "sum to ~totalAllocation over full period" in {
     val totalPln = EuFundsMath.totalEnvelopePln(p.fiscal.euFundsTotalEur, p.forex.baseExRate, p.pop.firmsCount, 10000)
     val sum      = (1 to p.fiscal.euFundsPeriodMonths + p.fiscal.euFundsStartMonth).map { m =>
       EuFunds.monthlyTransfer(ExecutionMonth(m))
-    }.sum
-    td.toDouble(sum).shouldBe(td.toDouble(totalPln) +- (td.toDouble(totalPln) * 0.02))
+    }.sumPln
+    decimal(sum).shouldBe(decimal(totalPln) +- (decimal(totalPln) * BigDecimal("0.02")))
   }
 
   // --- cofinancing tests ---
 
   "cofinancing" should "equal euMonthly * rate / (1 - rate)" in {
-    val eu       = PLN(1000000.0)
-    val rate     = 0.15
-    val expected = 1000000.0 * rate / (1.0 - rate)
-    td.toDouble(EuFunds.cofinancing(eu)).shouldBe(expected +- 0.01)
+    val eu       = PLN(1000000)
+    val rate     = BigDecimal("0.15")
+    val expected = BigDecimal("1000000.0") * rate / (BigDecimal("1.0") - rate)
+    decimal(EuFunds.cofinancing(eu)).shouldBe(expected +- BigDecimal("0.01"))
   }
 
   it should "return 0 for zero transfer" in
@@ -59,10 +74,10 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
   // --- capitalInvestment tests ---
 
   "capitalInvestment" should "equal (eu + cofin) * capitalShare" in {
-    val eu       = PLN(1000000.0)
-    val cofin    = PLN(176470.59)
-    val expected = (1000000.0 + 176470.59) * 0.60
-    td.toDouble(EuFunds.capitalInvestment(eu, cofin)).shouldBe(expected +- 0.01)
+    val eu       = PLN(1000000)
+    val cofin    = PLN.decimal(17647059, 2)
+    val expected = (BigDecimal("1000000.0") + BigDecimal("176470.59")) * BigDecimal("0.60")
+    decimal(EuFunds.capitalInvestment(eu, cofin)).shouldBe(expected +- BigDecimal("0.01"))
   }
 
   // --- updateGov integration ---
@@ -71,9 +86,9 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     val prev      = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN.Zero, PLN.Zero)
     val baseInput = FiscalBudget.Input(prev, priceLevel = PriceIndex.Base, citPaid = PLN(100000), govDividendRevenue = PLN.Zero, vat = PLN(200000))
     val base      = FiscalBudget.update(baseInput)
-    val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN(50000.0)))
+    val withEu    = FiscalBudget.update(baseInput.copy(euCofinancing = PLN(50000)))
     // Deficit should increase by euCofinancing amount
-    td.toDouble(withEu.deficit - base.deficit) shouldBe 50000.0 +- 0.01
+    decimal(withEu.deficit - base.deficit) shouldBe BigDecimal("50000.0") +- BigDecimal("0.01")
   }
 
   it should "record euCofinancing in GovState" in {
@@ -85,10 +100,10 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         citPaid = PLN(100000),
         govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
-        euCofinancing = PLN(75000.0),
+        euCofinancing = PLN(75000),
       ),
     )
-    td.toDouble(result.euCofinancing) shouldBe 75000.0
+    decimal(result.euCofinancing) shouldBe BigDecimal("75000.0")
   }
 
   it should "track euProjectCapital separately from budget-financed govCapitalSpend" in {
@@ -109,9 +124,9 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
         citPaid = PLN(100000),
         govDividendRevenue = PLN.Zero,
         vat = PLN(200000),
-        euProjectCapital = PLN(30000.0),
+        euProjectCapital = PLN(30000),
       ),
     )
-    td.toDouble(result.govCapitalSpend) shouldBe td.toDouble(base.govCapitalSpend) +- 0.01
-    td.toDouble(result.euProjectCapital) shouldBe 30000.0 +- 0.01
+    decimal(result.govCapitalSpend) shouldBe decimal(base.govCapitalSpend) +- BigDecimal("0.01")
+    decimal(result.euProjectCapital) shouldBe BigDecimal("30000.0") +- BigDecimal("0.01")
   }

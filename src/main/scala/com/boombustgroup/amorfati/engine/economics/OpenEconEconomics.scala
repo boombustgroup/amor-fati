@@ -23,7 +23,7 @@ import com.boombustgroup.amorfati.random.RandomStream
   */
 object OpenEconEconomics:
 
-  private val MaxDebtServiceGdpShare = Share(0.50)
+  private val MaxDebtServiceGdpShare = Share.decimal(50, 2)
 
   case class MonetaryPolicy(
       newRefRate: Rate,
@@ -90,7 +90,7 @@ object OpenEconEconomics:
       deficit: PLN,
       avgMaturityMonths: Int,
   ): Rate =
-    val rolloverFrac: Share = Share(1.0 / avgMaturityMonths.max(1))
+    val rolloverFrac: Share = Share.fraction(1, avgMaturityMonths.max(1))
     val deficitFrac: Share  =
       if bondsOutstanding > PLN.Zero then Share(deficit.max(PLN.Zero) / bondsOutstanding)
       else Share.Zero
@@ -115,7 +115,7 @@ object OpenEconEconomics:
       commodityRng: RandomStream,
   )
 
-  private val NbfiDepositRateSpread = 0.02
+  private val NbfiDepositRateSpread: Rate = Rate.decimal(2, 2)
 
   // Internal intermediate types for sub-method returns
   private case class ForexResult(
@@ -226,7 +226,6 @@ object OpenEconEconomics:
       ),
     )
 
-  @boundaryEscape
   private def runStepSectorOutputs(in: StepInput)(using p: SimParams): Vector[PLN] =
     aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.s5.ioFirms, in.s4.sectorMults.apply)
 
@@ -243,7 +242,6 @@ object OpenEconEconomics:
         .foldLeft(PLN.Zero): (acc, f) =>
           acc + (priceLevel * (Firm.computeCapacity(f) * sectorMultiplier(f.sector.toInt)))
 
-  @boundaryEscape
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
     GvcTrade.step(
       GvcTrade.StepInput(
@@ -325,7 +323,6 @@ object OpenEconEconomics:
       fxIntervention = fxResult.fxIntervention,
     )
 
-  @boundaryEscape
   private def runStepRateAndExpectations(in: StepInput, newForex: OpenEconomy.ForexState)(using p: SimParams): RateExpResult =
     val exRateChg       = newForex.exchangeRate.deviationFrom(in.w.forex.exchangeRate).toCoefficient
     val newRefRate      = Nbp.updateRate(
@@ -350,7 +347,6 @@ object OpenEconEconomics:
       interbankInterest = Banking.interbankInterestFlowsFromBankStocks(banks, bankFinancialStocks, bsec.interbankRate).total,
     )
 
-  @boundaryEscape
   private def runStepBondYieldAndQe(
       in: StepInput,
       bankAgg: Banking.Aggregate,
@@ -359,14 +355,13 @@ object OpenEconEconomics:
       fxResult: Nbp.FxInterventionResult,
       interbank: InterbankResult,
   )(using p: SimParams): BondQeResult =
-    import ComputationBoundary.toDouble
     val annualGdpForBonds = in.s7.gdp * 12
-    val debtToGdp         = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.gov.cumulativeDebt) / toDouble(annualGdpForBonds)) else Share.Zero
-    val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then Share(toDouble(in.w.nbp.qeCumulative) / toDouble(annualGdpForBonds)) else Share.Zero
+    val debtToGdp         = if annualGdpForBonds > PLN.Zero then (in.w.gov.cumulativeDebt / annualGdpForBonds).toShare else Share.Zero
+    val nbpBondGdpShare   = if annualGdpForBonds > PLN.Zero then (in.w.nbp.qeCumulative / annualGdpForBonds).toShare else Share.Zero
     val credPremium       =
       val deAnchor = (Share.One - in.w.mechanisms.expectations.credibility) *
-        Share(toDouble((in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs))
-      Rate(toDouble(deAnchor) * toDouble(p.labor.expBondSensitivity))
+        (in.w.mechanisms.expectations.expectedInflation - p.monetary.targetInfl).abs.toScalar.toShare
+      (deAnchor * p.labor.expBondSensitivity).toRate
     val marketYield       = Nbp.bondYield(newRefRate, debtToGdp, nbpBondGdpShare, in.w.bop.nfa, credPremium)
 
     val newWeightedCoupon = updateWeightedCouponPublic(
@@ -469,7 +464,7 @@ object OpenEconEconomics:
       newCorpBondYield: Rate,
       corpBondDefaultLoss: PLN,
   )(using p: SimParams): NbfiResult =
-    val nbfiDepositRate = (postFxNbp.referenceRate - Rate(NbfiDepositRateSpread)).max(Rate.Zero)
+    val nbfiDepositRate = (postFxNbp.referenceRate - NbfiDepositRateSpread).max(Rate.Zero)
     val nbfiUnempRate   = in.w.unemploymentRate(in.s2.employed)
     val nbfiStep        =
       Nbfi.step(

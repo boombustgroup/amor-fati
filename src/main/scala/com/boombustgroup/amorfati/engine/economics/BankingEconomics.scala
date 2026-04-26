@@ -22,10 +22,10 @@ import com.boombustgroup.amorfati.random.RandomStream
 object BankingEconomics:
 
   // ---- Calibration constants ----
-  private val NplMonthlyWriteOff = 0.05 // monthly NPL write-off rate (aggregate and per-bank)
-  private val ShortLoanFrac      = 0.20 // fraction of loans in short-term maturity bucket
-  private val MediumLoanFrac     = 0.30 // fraction of loans in medium-term maturity bucket
-  private val LongLoanFrac       = 0.50 // fraction of loans in long-term maturity bucket
+  private val NplMonthlyWriteOff: Share = Share.decimal(5, 2)  // monthly NPL write-off rate (aggregate and per-bank)
+  private val ShortLoanFrac: Share      = Share.decimal(20, 2) // fraction of loans in short-term maturity bucket
+  private val MediumLoanFrac: Share     = Share.decimal(30, 2) // fraction of loans in medium-term maturity bucket
+  private val LongLoanFrac: Share       = Share.decimal(50, 2) // fraction of loans in long-term maturity bucket
 
   // ---- Step-level types (formerly BankUpdateStep.Input / BankUpdateStep.Output) ----
 
@@ -310,7 +310,7 @@ object BankingEconomics:
         consumption = in.s3.consumption,
         pitRevenue = in.s3.pitRevenue,
         totalImports = in.s8.external.newBop.totalImports,
-        informalCyclicalAdj = Share(in.w.mechanisms.informalCyclicalAdj),
+        informalCyclicalAdj = in.w.mechanisms.informalCyclicalAdj,
       ),
     )
 
@@ -441,7 +441,7 @@ object BankingEconomics:
       households.length == householdBalances.length,
       s"BankingEconomics.alignConsumerLoanBookToHouseholdRouting requires aligned households and balances, got ${households.length} households and ${householdBalances.length} balance rows",
     )
-    val totalBook = bankStocks.map(_.consumerLoan).sum
+    val totalBook = bankStocks.map(_.consumerLoan).sumPln
     if bankStocks.isEmpty || totalBook <= PLN.Zero then bankStocks
     else
       val bankWeights = Array.fill(bankStocks.length)(0L)
@@ -498,7 +498,7 @@ object BankingEconomics:
   private def resolvePerBankHhFlows(
       bId: Int,
       perBankHhFlowsOpt: Option[Vector[PerBankFlow]],
-      totalWorkers: Double,
+      totalWorkers: Int,
       perBankWorkers: Vector[Int],
       in: StepInput,
   ): PerBankHhFlows =
@@ -515,15 +515,15 @@ object BankingEconomics:
           ccDefault = f.consumerDefault,
         )
       case None      =>
-        val ws = if totalWorkers > 0 then perBankWorkers(bId) / totalWorkers else 0.0
+        val ws = if totalWorkers > 0 then Share.fraction(perBankWorkers(bId), totalWorkers) else Share.Zero
         PerBankHhFlows(
-          incomeShare = in.s3.totalIncome * Share(ws),
-          consShare = in.s3.consumption * Share(ws),
-          hhDebtService = in.s6.hhDebtService * Share(ws),
+          incomeShare = in.s3.totalIncome * ws,
+          consShare = in.s3.consumption * ws,
+          hhDebtService = in.s6.hhDebtService * ws,
           depInterest = PLN.Zero,
-          ccDebtService = in.s6.consumerDebtService * Share(ws),
-          ccOrigination = in.s6.consumerOrigination * Share(ws),
-          ccDefault = in.s6.consumerDefaultAmt * Share(ws),
+          ccDebtService = in.s6.consumerDebtService * ws,
+          ccOrigination = in.s6.consumerOrigination * ws,
+          ccDefault = in.s6.consumerDefaultAmt * ws,
         )
 
   private def allocateBankCorpBondIssuance(issuance: PLN, perBankWorkers: Vector[Int]): Vector[PLN] =
@@ -540,7 +540,7 @@ object BankingEconomics:
     if holdings.isEmpty then Vector.empty
     else if reduction <= PLN.Zero then holdings
     else
-      val total           = holdings.sum
+      val total           = holdings.sumPln
       val actualReduction = reduction.min(total)
       val reductions      = Distribute.distribute(actualReduction.distributeRaw, holdings.map(_.distributeRaw).toArray)
       holdings.zip(reductions).map((holding, rawReduction) => (holding - PLN.fromRaw(rawReduction)).max(PLN.Zero))
@@ -648,13 +648,13 @@ object BankingEconomics:
 
     SingleBankUpdate(
       bank = b.copy(
-        nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * Share(NplMonthlyWriteOff)).max(PLN.Zero),
+        nplAmount = (b.nplAmount + bankNplNew - b.nplAmount * NplMonthlyWriteOff).max(PLN.Zero),
         capital = capitalPnl.newCapital - eclResult.provisionChange,
         eclStaging = eclResult.newStaging,
-        loansShort = newLoansTotal * Share(ShortLoanFrac),
-        loansMedium = newLoansTotal * Share(MediumLoanFrac),
-        loansLong = newLoansTotal * Share(LongLoanFrac),
-        consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * Share(NplMonthlyWriteOff)).max(PLN.Zero),
+        loansShort = newLoansTotal * ShortLoanFrac,
+        loansMedium = newLoansTotal * MediumLoanFrac,
+        loansLong = newLoansTotal * LongLoanFrac,
+        consumerNpl = (b.consumerNpl + hhFlows.ccDefault - b.consumerNpl * NplMonthlyWriteOff).max(PLN.Zero),
       ),
       financialStocks = stocks.copy(
         firmLoan = newLoansTotal,
@@ -688,7 +688,7 @@ object BankingEconomics:
       openingBankStocks,
     )
     require(
-      bankStocks.map(_.consumerLoan).sum == openingBankStocks.map(_.consumerLoan).sum,
+      bankStocks.map(_.consumerLoan).sumPln == openingBankStocks.map(_.consumerLoan).sumPln,
       "BankingEconomics consumer-loan realignment must preserve the aggregate opening bank loan book",
     )
     val perBankReserveInt   = Banking.computeReserveInterest(banks, bankStocks, in.w.nbp.referenceRate)
@@ -806,7 +806,7 @@ object BankingEconomics:
     // ---- Bond waterfall: single pass, SFC by construction ----
     // Each sellToBuyer removes bonds from banks and returns actualSold.
     // Buyer gets exactly old + actualSold. No speculation, no correction.
-    val bankDeposits  = afterBonds.financialStocks.map(_.totalDeposits).sum
+    val bankDeposits  = afterBonds.financialStocks.map(_.totalDeposits).sumPln
     val auctionResult = BondAuction.auction(
       newIssuance = wf.actualBondChange.max(PLN.Zero),
       bankBondCapacity = bankDeposits * p.fiscal.bankBondAbsorptionShare,
@@ -880,7 +880,7 @@ object BankingEconomics:
         tfiSale.banks
           .zip(afterFailCheck)
           .collect { case (pre, post) if !pre.failed && post.failed => pre.capital }
-          .sum
+          .sumPln
       else PLN.Zero
     val curve                        =
       val exp = in.w.mechanisms.expectations
@@ -988,8 +988,8 @@ object BankingEconomics:
         multiCapDestruction = multiCapDestruction,
         htmRealizedLoss = htmRealizedLoss,
       )
-      val actualDeposits = financialStocks.iterator.map(_.totalDeposits).sum
-      val actualCapital  = banks.iterator.map(_.capital).sum
+      val actualDeposits = financialStocks.iterator.map(_.totalDeposits).sumPln
+      val actualCapital  = banks.iterator.map(_.capital).sumPln
       val depResidual    = target.depositsResidual - actualDeposits
       val capResidual    = target.capitalResidual - actualCapital
       if depResidual == PLN.Zero && capResidual == PLN.Zero then Banking.BankStockState(banks, financialStocks)

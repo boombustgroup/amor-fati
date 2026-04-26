@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.accounting
 
-import org.scalacheck.Gen
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -15,10 +15,8 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 200)
 
-  private val td = ComputationBoundary
-
-  private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
+  private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): BigDecimal =
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => decimal(e.actual - e.expected)).getOrElse(BigDecimal(0))
 
   // --- Consistent flows always pass ---
 
@@ -112,57 +110,63 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
   // --- Perturbed states detect errors ---
 
   it should "detect perturbed bankCapital" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(perturbation))
-      val result              = Sfc.validateStockExactness(prev, perturbed, flows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankCapital) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(bankCapital = curr.bankCapital + plnBD(perturbation))
+        val result              = Sfc.validateStockExactness(prev, perturbed, flows)
+        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankCapital) shouldBe true
     }
 
   it should "detect perturbed bankDeposits" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(bankDeposits = curr.bankDeposits + PLN(perturbation))
-      val result              = Sfc.validateStockExactness(prev, perturbed, flows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(bankDeposits = curr.bankDeposits + plnBD(perturbation))
+        val result              = Sfc.validateStockExactness(prev, perturbed, flows)
+        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
     }
 
   it should "detect perturbed govDebt" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(perturbation))
-      val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
-      result.exists(_.identity == Sfc.SfcIdentity.GovDebt) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(govDebt = curr.govDebt + plnBD(perturbation))
+        val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
+        result.exists(_.identity == Sfc.SfcIdentity.GovDebt) shouldBe true
     }
 
   it should "detect perturbed nfa" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(nfa = curr.nfa + PLN(perturbation))
-      val result              = Sfc.validateStockExactness(prev, perturbed, flows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.Nfa) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(nfa = curr.nfa + plnBD(perturbation))
+        val result              = Sfc.validateStockExactness(prev, perturbed, flows)
+        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.Nfa) shouldBe true
     }
 
   // --- Error magnitude property ---
 
   it should "have error magnitude = actual change - expected change" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), delta: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(bankCapital = curr.bankCapital + PLN(delta))
-      val result              = Sfc.validateStockExactness(prev, perturbed, flows)
-      errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- 1.0)
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), delta: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(bankCapital = curr.bankCapital + plnBD(delta))
+        val result              = Sfc.validateStockExactness(prev, perturbed, flows)
+        errorDelta(result, Sfc.SfcIdentity.BankCapital) shouldBe (delta +- BigDecimal("1.0"))
     }
 
   // --- Four identities independent ---
 
   it should "have independent identities (perturb one, others unaffected)" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), delta: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(govDebt = curr.govDebt + PLN(delta))
-      val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
-      result.map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
-      result.exists(e => e.identity == Sfc.SfcIdentity.BankCapital) shouldBe false
-      result.exists(e => e.identity == Sfc.SfcIdentity.BankDeposits) shouldBe false
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), delta: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(govDebt = curr.govDebt + plnBD(delta))
+        val result              = Sfc.metricDiagnostics(prev, perturbed, flows)
+        result.map(_.identity) should contain(Sfc.SfcIdentity.GovDebt)
+        result.exists(e => e.identity == Sfc.SfcIdentity.BankCapital) shouldBe false
+        result.exists(e => e.identity == Sfc.SfcIdentity.BankDeposits) shouldBe false
     }
 
   // --- Bond clearing identity ---
@@ -175,11 +179,12 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed bondClearingError" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(bankBondHoldings = curr.bankBondHoldings + PLN(perturbation))
-      val result              = Sfc.validateStockExactness(prev, perturbed, flows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BondClearing) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(bankBondHoldings = curr.bankBondHoldings + plnBD(perturbation))
+        val result              = Sfc.validateStockExactness(prev, perturbed, flows)
+        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BondClearing) shouldBe true
     }
 
   // --- Interbank netting identity ---
@@ -192,11 +197,12 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed interbankNetSum" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(interbankNetSum = PLN(perturbation))
-      val result              = Sfc.validateStockExactness(prev, perturbed, flows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.InterbankNetting) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(interbankNetSum = plnBD(perturbation))
+        val result              = Sfc.validateStockExactness(prev, perturbed, flows)
+        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.InterbankNetting) shouldBe true
     }
 
   // --- Dividend flow consistency ---
@@ -211,22 +217,24 @@ class SfcPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPropertyC
     }
 
   it should "detect perturbed deposits from dividend flow mismatch" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      // Perturb dividendIncome without updating deposits → Identity 2 fails
-      val badFlows            = flows.copy(dividendIncome = flows.dividendIncome + PLN(perturbation))
-      val result              = Sfc.validateStockExactness(prev, curr, badFlows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        // Perturb dividendIncome without updating deposits → Identity 2 fails
+        val badFlows            = flows.copy(dividendIncome = flows.dividendIncome + plnBD(perturbation))
+        val result              = Sfc.validateStockExactness(prev, curr, badFlows)
+        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.BankDeposits) shouldBe true
     }
 
   // --- Mortgage stock identity ---
 
   it should "detect perturbed mortgageStock" in
-    forAll(genConsistentFlowsAndSnapshots, Gen.choose(5000.0, 50000.0)) { (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: Double) =>
-      val (prev, curr, flows) = triple
-      val perturbed           = curr.copy(mortgageStock = curr.mortgageStock + PLN(perturbation))
-      val result              = Sfc.validateStockExactness(prev, perturbed, flows)
-      result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.MortgageStock) shouldBe true
+    forAll(genConsistentFlowsAndSnapshots, genDecimal("5000.0", "50000.0")) {
+      (triple: (Sfc.StockState, Sfc.StockState, Sfc.SemanticFlows), perturbation: BigDecimal) =>
+        val (prev, curr, flows) = triple
+        val perturbed           = curr.copy(mortgageStock = curr.mortgageStock + plnBD(perturbation))
+        val result              = Sfc.validateStockExactness(prev, perturbed, flows)
+        result.swap.getOrElse(Vector.empty).exists(_.identity == Sfc.SfcIdentity.MortgageStock) shouldBe true
     }
 
   it should "pass mortgage stock identity in consistent snapshots" in

@@ -105,9 +105,9 @@ object FinancialMarketsState:
 
 /** Structural external-sector state carried across steps. */
 case class ExternalState(
-    gvc: GvcTrade.State,                // GVC: disruption, foreign prices, sector trade
-    immigration: Immigration.State,     // immigrant stock, monthly flows, remittances
-    tourismSeasonalFactor: Double = 1.0, // seasonal multiplier (base = 1.0)
+    gvc: GvcTrade.State,                               // GVC: disruption, foreign prices, sector trade
+    immigration: Immigration.State,                    // immigrant stock, monthly flows, remittances
+    tourismSeasonalFactor: Multiplier = Multiplier.One, // seasonal multiplier (base = 1.0)
 )
 object ExternalState:
   val zero: ExternalState = ExternalState(
@@ -122,7 +122,7 @@ case class RealState(
     grossInvestment: PLN = PLN.Zero,          // aggregate GFCF by firms
     aggGreenInvestment: PLN = PLN.Zero,       // green investment (renewables, energy efficiency)
     aggGreenCapital: PLN = PLN.Zero,          // green capital stock across all firms
-    etsPrice: Double = 0.0,                   // EU ETS allowance price (EUR/tCO₂)
+    etsPrice: Multiplier = Multiplier.Zero,   // EU ETS allowance price (EUR/tCO2)
     automationRatio: Share = Share.Zero,      // share of Automated firms
     hybridRatio: Share = Share.Zero,          // share of Hybrid firms
 )
@@ -136,11 +136,11 @@ object RealState:
   * steps.
   */
 case class MechanismsState(
-    macropru: Macroprudential.State,   // CCyB, credit-to-GDP gap
-    expectations: Expectations.State,  // inflation forecast, credibility, forward guidance
-    bfgFundBalance: PLN = PLN.Zero,    // cumulative BFG resolution fund
-    informalCyclicalAdj: Double = 0.0, // smoothed cyclical shadow-economy adjustment
-    nextTaxShadowShare: Double = 0.0,  // next-period smoothed tax-side shadow share
+    macropru: Macroprudential.State,         // CCyB, credit-to-GDP gap
+    expectations: Expectations.State,        // inflation forecast, credibility, forward guidance
+    bfgFundBalance: PLN = PLN.Zero,          // cumulative BFG resolution fund
+    informalCyclicalAdj: Share = Share.Zero, // smoothed cyclical shadow-economy adjustment
+    nextTaxShadowShare: Share = Share.Zero,  // next-period smoothed tax-side shadow share
 )
 object MechanismsState:
   def zero(using SimParams): MechanismsState = MechanismsState(
@@ -257,24 +257,24 @@ object PipelineState:
   * into SFC identities and output columns.
   */
 case class FlowState(
-    monthlyGdpProxy: PLN = PLN.Zero,          // cached monthly GDP proxy for diagnostics / output ratios
-    ioFlows: PLN = PLN.Zero,                  // I-O intermediate payments between sectors
-    fdiProfitShifting: PLN = PLN.Zero,        // intangible imports booked abroad (profit shifting)
-    fdiRepatriation: PLN = PLN.Zero,          // dividend repatriation by foreign-owned firms
-    fdiCitLoss: PLN = PLN.Zero,               // CIT lost to profit shifting
-    diasporaRemittanceInflow: PLN = PLN.Zero, // diaspora remittance inflow
-    tourismExport: PLN = PLN.Zero,            // inbound tourism services export
-    tourismImport: PLN = PLN.Zero,            // outbound tourism services import
-    aggInventoryStock: PLN = PLN.Zero,        // aggregate firm inventory stock
-    aggInventoryChange: PLN = PLN.Zero,       // ΔInventories (enters GDP)
-    aggEnergyCost: PLN = PLN.Zero,            // aggregate energy + CO₂ costs
-    firmBirths: Int = 0,                      // new firms (recycled + net new)
-    firmDeaths: Int = 0,                      // firms bankrupt this step
-    netFirmBirths: Int = 0,                   // net new firms appended to vector
-    taxEvasionLoss: PLN = PLN.Zero,           // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
-    realizedTaxShadowShare: Double = 0.0,     // current-period realized aggregate tax-side shadow share
-    bailInLoss: PLN = PLN.Zero,               // bail-in capital loss on bank creditors
-    bfgLevyTotal: Double = 0.0,               // BFG resolution levy from all banks
+    monthlyGdpProxy: PLN = PLN.Zero,            // cached monthly GDP proxy for diagnostics / output ratios
+    ioFlows: PLN = PLN.Zero,                    // I-O intermediate payments between sectors
+    fdiProfitShifting: PLN = PLN.Zero,          // intangible imports booked abroad (profit shifting)
+    fdiRepatriation: PLN = PLN.Zero,            // dividend repatriation by foreign-owned firms
+    fdiCitLoss: PLN = PLN.Zero,                 // CIT lost to profit shifting
+    diasporaRemittanceInflow: PLN = PLN.Zero,   // diaspora remittance inflow
+    tourismExport: PLN = PLN.Zero,              // inbound tourism services export
+    tourismImport: PLN = PLN.Zero,              // outbound tourism services import
+    aggInventoryStock: PLN = PLN.Zero,          // aggregate firm inventory stock
+    aggInventoryChange: PLN = PLN.Zero,         // ΔInventories (enters GDP)
+    aggEnergyCost: PLN = PLN.Zero,              // aggregate energy + CO₂ costs
+    firmBirths: Int = 0,                        // new firms (recycled + net new)
+    firmDeaths: Int = 0,                        // firms bankrupt this step
+    netFirmBirths: Int = 0,                     // net new firms appended to vector
+    taxEvasionLoss: PLN = PLN.Zero,             // tax lost to 4-channel evasion (CIT+VAT+PIT+excise)
+    realizedTaxShadowShare: Share = Share.Zero, // current-period realized aggregate tax-side shadow share
+    bailInLoss: PLN = PLN.Zero,                 // bail-in capital loss on bank creditors
+    bfgLevyTotal: PLN = PLN.Zero,               // BFG resolution levy from all banks
 )
 object FlowState:
   val zero: FlowState = FlowState()

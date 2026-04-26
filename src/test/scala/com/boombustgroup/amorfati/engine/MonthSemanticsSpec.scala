@@ -9,14 +9,14 @@ class MonthSemanticsSpec extends AnyFlatSpec with Matchers:
 
   "MonthSemantics" should "preserve typed wrappers for pre, same-month, and next-pre boundaries" in {
     val signals = DecisionSignals(
-      unemploymentRate = Share(0.08),
-      inflation = Rate(0.03),
-      expectedInflation = Rate(0.025),
-      laggedHiringSlack = Share(0.42),
-      startupAbsorptionRate = Share(0.65),
-      sectorDemandMult = Vector(Multiplier(0.9), Multiplier(1.1)),
-      sectorDemandPressure = Vector(Multiplier(0.8), Multiplier(1.2)),
-      sectorHiringSignal = Vector(Multiplier(0.85), Multiplier(1.15)),
+      unemploymentRate = Share.decimal(8, 2),
+      inflation = Rate.decimal(3, 2),
+      expectedInflation = Rate.decimal(25, 3),
+      laggedHiringSlack = Share.decimal(42, 2),
+      startupAbsorptionRate = Share.decimal(65, 2),
+      sectorDemandMult = Vector(Multiplier.decimal(9, 1), Multiplier.decimal(11, 1)),
+      sectorDemandPressure = Vector(Multiplier.decimal(8, 1), Multiplier.decimal(12, 1)),
+      sectorHiringSignal = Vector(Multiplier.decimal(85, 2), Multiplier.decimal(115, 2)),
     )
 
     val seedIn: MonthSemantics.SeedIn =
@@ -26,7 +26,7 @@ class MonthSemanticsSpec extends AnyFlatSpec with Matchers:
       sectorDemandMult = signals.sectorDemandMult,
       sectorDemandPressure = signals.sectorDemandPressure,
       sectorHiringSignal = signals.sectorHiringSignal,
-      operationalHiringSlack = Share(0.37),
+      operationalHiringSlack = Share.decimal(37, 2),
     )
     val operational: MonthSemantics.Operational =
       MonthSemantics.operational(operationalRaw)
@@ -64,14 +64,14 @@ class MonthSemanticsSpec extends AnyFlatSpec with Matchers:
       import com.boombustgroup.amorfati.types.*
 
       val signals = DecisionSignals(
-        unemploymentRate = Share(0.08),
-        inflation = Rate(0.03),
-        expectedInflation = Rate(0.025),
-        laggedHiringSlack = Share(0.42),
-        startupAbsorptionRate = Share(0.65),
-        sectorDemandMult = Vector(Multiplier(0.9), Multiplier(1.1)),
-        sectorDemandPressure = Vector(Multiplier(0.8), Multiplier(1.2)),
-        sectorHiringSignal = Vector(Multiplier(0.85), Multiplier(1.15)),
+        unemploymentRate = Share.decimal(8, 2),
+        inflation = Rate.decimal(3, 2),
+        expectedInflation = Rate.decimal(25, 3),
+        laggedHiringSlack = Share.decimal(42, 2),
+        startupAbsorptionRate = Share.decimal(65, 2),
+        sectorDemandMult = Vector(Multiplier.decimal(9, 1), Multiplier.decimal(11, 1)),
+        sectorDemandPressure = Vector(Multiplier.decimal(8, 1), Multiplier.decimal(12, 1)),
+        sectorHiringSignal = Vector(Multiplier.decimal(85, 2), Multiplier.decimal(115, 2)),
       )
 
       MonthSemantics.At[DecisionSignals, MonthSemantics.Pre](signals)
@@ -82,14 +82,14 @@ class MonthSemanticsSpec extends AnyFlatSpec with Matchers:
       import com.boombustgroup.amorfati.types.*
 
       val signals = DecisionSignals(
-        unemploymentRate = Share(0.08),
-        inflation = Rate(0.03),
-        expectedInflation = Rate(0.025),
-        laggedHiringSlack = Share(0.42),
-        startupAbsorptionRate = Share(0.65),
-        sectorDemandMult = Vector(Multiplier(0.9), Multiplier(1.1)),
-        sectorDemandPressure = Vector(Multiplier(0.8), Multiplier(1.2)),
-        sectorHiringSignal = Vector(Multiplier(0.85), Multiplier(1.15)),
+        unemploymentRate = Share.decimal(8, 2),
+        inflation = Rate.decimal(3, 2),
+        expectedInflation = Rate.decimal(25, 3),
+        laggedHiringSlack = Share.decimal(42, 2),
+        startupAbsorptionRate = Share.decimal(65, 2),
+        sectorDemandMult = Vector(Multiplier.decimal(9, 1), Multiplier.decimal(11, 1)),
+        sectorDemandPressure = Vector(Multiplier.decimal(8, 1), Multiplier.decimal(12, 1)),
+        sectorHiringSignal = Vector(Multiplier.decimal(85, 2), Multiplier.decimal(115, 2)),
       )
 
       MonthSemantics.seedIn(signals).value
@@ -100,14 +100,14 @@ class MonthSemanticsSpec extends AnyFlatSpec with Matchers:
       import com.boombustgroup.amorfati.types.*
 
       val signals = DecisionSignals(
-        unemploymentRate = Share(0.08),
-        inflation = Rate(0.03),
-        expectedInflation = Rate(0.025),
-        laggedHiringSlack = Share(0.42),
-        startupAbsorptionRate = Share(0.65),
-        sectorDemandMult = Vector(Multiplier(0.9), Multiplier(1.1)),
-        sectorDemandPressure = Vector(Multiplier(0.8), Multiplier(1.2)),
-        sectorHiringSignal = Vector(Multiplier(0.85), Multiplier(1.15)),
+        unemploymentRate = Share.decimal(8, 2),
+        inflation = Rate.decimal(3, 2),
+        expectedInflation = Rate.decimal(25, 3),
+        laggedHiringSlack = Share.decimal(42, 2),
+        startupAbsorptionRate = Share.decimal(65, 2),
+        sectorDemandMult = Vector(Multiplier.decimal(9, 1), Multiplier.decimal(11, 1)),
+        sectorDemandPressure = Vector(Multiplier.decimal(8, 1), Multiplier.decimal(12, 1)),
+        sectorHiringSignal = Vector(Multiplier.decimal(85, 2), Multiplier.decimal(115, 2)),
       )
 
       MonthSemantics.seedOut(signals)

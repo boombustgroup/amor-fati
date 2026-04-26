@@ -24,10 +24,9 @@ object InitCheck:
   )
 
   class InitValidationException(val errors: Vector[InitCheckResult])
-      extends RuntimeException({
-        import ComputationBoundary.toDouble
-        errors.map(e => f"${e.identity}: expected=${toDouble(e.expected)}%.2f actual=${toDouble(e.actual)}%.2f").mkString("; ")
-      })
+      extends RuntimeException(
+        errors.map(e => s"${e.identity}: expected=${e.expected.format(2)} actual=${e.actual.format(2)}").mkString("; "),
+      )
 
   /** Validate initial stock identities. Returns only the failing checks (empty =
     * all pass).
@@ -42,8 +41,8 @@ object InitCheck:
       households: Vector[Household.State],
       ledgerFinancialState: LedgerFinancialState,
   ): Vector[InitCheckResult] =
-    val levelTol   = PLN(0.01)
-    val perBankTol = PLN(1.0)
+    val levelTol   = PLN.decimal(1, 2)
+    val perBankTol = PLN(1)
     val bonds      = GovernmentBondCircuit(
       outstanding = snapshot.bondsOutstanding,
       bankHoldings = snapshot.bankBondHoldings,
@@ -120,7 +119,7 @@ object InitCheck:
       levelTol,
     )
 
-    val aggLoans     = ledgerFinancialState.banks.map(_.firmLoan).sum
+    val aggLoans     = ledgerFinancialState.banks.map(_.firmLoan).sumPln
     val aggLoanCheck = check(
       "Aggregate loans",
       expected = aggLoans,

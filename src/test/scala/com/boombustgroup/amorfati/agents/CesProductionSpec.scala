@@ -1,9 +1,9 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.TestFirmState
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -11,56 +11,55 @@ import org.scalatest.matchers.should.Matchers
 class CesProductionSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
-  private val td  = ComputationBoundary
 
-  private val alpha = Share(0.30)
-  private val tol   = 1e-3
+  private val alpha = Share.decimal(30, 2)
+  private val tol   = BigDecimal("1e-3")
 
   // --- cesOutput unit tests ---
 
   "cesOutput" should "return 1.0 when K=1 and L=1 for any sigma" in {
-    for sigma <- Seq(1.0, 2.0, 5.0, 50.0, 1000.0) do
+    for sigma <- Seq(BigDecimal("1.0"), BigDecimal("2.0"), BigDecimal("5.0"), BigDecimal("50.0"), BigDecimal("1000.0")) do
       withClue(s"sigma=$sigma: ") {
-        td.toDouble(Firm.cesOutput(alpha, Multiplier.One, Multiplier.One, Sigma(sigma))).shouldBe(1.0 +- tol)
+        decimal(Firm.cesOutput(alpha, Multiplier.One, Multiplier.One, sigmaBD(sigma))).shouldBe(BigDecimal("1.0") +- tol)
       }
   }
 
   it should "approximate Cobb-Douglas when sigma <= 1.001" in {
-    val k        = Multiplier(1.5)
-    val l        = Multiplier(0.8)
-    val expected = Math.pow(td.toDouble(k), td.toDouble(alpha)) * Math.pow(td.toDouble(l), 1.0 - td.toDouble(alpha))
-    td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(1.0))).shouldBe(expected +- tol)
+    val k        = Multiplier.decimal(15, 1)
+    val l        = Multiplier.decimal(8, 1)
+    val expected = DecimalMath.pow(decimal(k), decimal(alpha)) * DecimalMath.pow(decimal(l), BigDecimal("1.0") - decimal(alpha))
+    decimal(Firm.cesOutput(alpha, k, l, Sigma(1))).shouldBe(expected +- tol)
   }
 
   it should "approach linear when sigma is very large" in {
-    val k      = Multiplier(2.0)
-    val l      = Multiplier(0.5)
-    val linear = td.toDouble(alpha) * td.toDouble(k) + (1.0 - td.toDouble(alpha)) * td.toDouble(l)
-    val result = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(10000.0)))
-    result.shouldBe(linear +- 0.01)
+    val k      = Multiplier(2)
+    val l      = Multiplier.decimal(5, 1)
+    val linear = decimal(alpha) * decimal(k) + (BigDecimal("1.0") - decimal(alpha)) * decimal(l)
+    val result = decimal(Firm.cesOutput(alpha, k, l, Sigma(10000)))
+    result.shouldBe(linear +- BigDecimal("0.01"))
   }
 
   it should "produce higher output for high-sigma with K>L (easier substitution)" in {
-    val k         = Multiplier(2.0)
-    val l         = Multiplier(0.5)
-    val lowSigma  = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(2.0)))
-    val highSigma = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(50.0)))
+    val k         = Multiplier(2)
+    val l         = Multiplier.decimal(5, 1)
+    val lowSigma  = decimal(Firm.cesOutput(alpha, k, l, Sigma(2)))
+    val highSigma = decimal(Firm.cesOutput(alpha, k, l, Sigma(50)))
     highSigma.should(be > lowSigma)
   }
 
   it should "be symmetric: swapping K/L with alpha/(1-alpha) gives same result" in {
-    val k       = Multiplier(1.5)
-    val l       = Multiplier(0.8)
-    val normal  = td.toDouble(Firm.cesOutput(alpha, k, l, Sigma(5.0)))
-    val swapped = td.toDouble(Firm.cesOutput(Share(1.0 - td.toDouble(alpha)), l, k, Sigma(5.0)))
+    val k       = Multiplier.decimal(15, 1)
+    val l       = Multiplier.decimal(8, 1)
+    val normal  = decimal(Firm.cesOutput(alpha, k, l, Sigma(5)))
+    val swapped = decimal(Firm.cesOutput(Share.One - alpha, l, k, Sigma(5)))
     normal.shouldBe(swapped +- tol)
   }
 
   it should "be monotonic in K" in {
-    val l     = Multiplier(1.0)
-    val kLow  = td.toDouble(Firm.cesOutput(alpha, Multiplier(0.5), l, Sigma(5.0)))
-    val kMid  = td.toDouble(Firm.cesOutput(alpha, Multiplier(1.0), l, Sigma(5.0)))
-    val kHigh = td.toDouble(Firm.cesOutput(alpha, Multiplier(1.5), l, Sigma(5.0)))
+    val l     = Multiplier(1)
+    val kLow  = decimal(Firm.cesOutput(alpha, Multiplier.decimal(5, 1), l, Sigma(5)))
+    val kMid  = decimal(Firm.cesOutput(alpha, Multiplier(1), l, Sigma(5)))
+    val kHigh = decimal(Firm.cesOutput(alpha, Multiplier.decimal(15, 1), l, Sigma(5)))
     kLow.should(be < kMid)
     kMid.should(be < kHigh)
   }
@@ -70,16 +69,16 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
   private def mkFirm(
       tech: TechState = TechState.Traditional(10),
       sector: Int = 0,
-      capitalStock: PLN = PLN(1_200_000.0),
+      capitalStock: PLN = PLN(1200000),
   ): Firm.State =
     TestFirmState(
       FirmId(0),
-      PLN(50000.0),
+      PLN(50000),
       PLN.Zero,
       tech,
-      Share(0.5),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share(0.3),
+      Share.decimal(3, 1),
       SectorIdx(sector),
       Vector.empty[FirmId],
       bankId = BankId(0),
@@ -108,7 +107,7 @@ class CesProductionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "increase capacity with more capital" in {
-    val poor = Firm.computeCapacity(mkFirm(capitalStock = PLN(100_000.0)))
-    val rich = Firm.computeCapacity(mkFirm(capitalStock = PLN(5_000_000.0)))
+    val poor = Firm.computeCapacity(mkFirm(capitalStock = PLN(100000)))
+    val rich = Firm.computeCapacity(mkFirm(capitalStock = PLN(5000000)))
     rich should be > poor
   }

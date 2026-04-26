@@ -107,21 +107,6 @@ object PriceEquityEconomics:
         Sigma.fromRaw(candidate.toLong)
       }
 
-  private[economics] def evolveSigmas(
-      currentSigmas: Vector[Sigma],
-      baseSigmas: Vector[Double],
-      sectorAdoption: Vector[Double],
-      lambda: Double,
-      capMult: Double,
-  ): Vector[Sigma] =
-    evolveSigmas(
-      currentSigmas,
-      baseSigmas.map(Sigma(_)),
-      sectorAdoption.map(Share(_)),
-      Coefficient(lambda),
-      Multiplier(capMult),
-    )
-
   private[economics] def governmentDemandContribution(govPurchases: PLN)(using p: SimParams): PLN =
     govPurchases * (Share.One - p.fiscal.govInvestShare) * p.fiscal.govCurrentMultiplier +
       govPurchases * p.fiscal.govInvestShare * p.fiscal.govCapitalMultiplier
@@ -152,8 +137,8 @@ object PriceEquityEconomics:
     val hybR              =
       if nLiving > 0 then living2.count(_.tech.isInstanceOf[TechState.Hybrid]).ratioTo(nLiving).toShare
       else Share.Zero
-    val aggInventoryStock = living2.map(_.inventory).sum
-    val aggGreenCapital   = living2.map(_.greenCapital).sum
+    val aggInventoryStock = living2.map(_.inventory).sumPln
+    val aggGreenCapital   = living2.map(_.greenCapital).sumPln
 
     val euMonthly = EuFunds.monthlyTransfer(month)
 
@@ -197,7 +182,7 @@ object PriceEquityEconomics:
     val newInfl  = priceUpd.inflation + firmStep.markupInflation
     val newPrice = priceUpd.priceLevel.applyGrowth(firmStep.markupInflation.monthly.toCoefficient)
 
-    val prevGdp             = w.cachedMonthlyGdpProxy.max(PLN(1.0))
+    val prevGdp             = w.cachedMonthlyGdpProxy.max(PLN(1))
     val deficitToGdp        = fiscalDeficitToGdp(w.gov.deficit.max(PLN.Zero), prevGdp)
     val firmProfitsPnl      = firmStep.sumRealizedPostTaxProfit
     val gdpGrowthForEquity  = gdp.ratioTo(prevGdp).toMultiplier.deviationFromOne

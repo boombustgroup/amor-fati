@@ -58,23 +58,22 @@ class SimConfigPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckPro
   it should "have column sums < 1.0" in {
     val sectorCount = p.io.matrix.head.length
     for j <- 0 until sectorCount do
-      val colSum = p.io.matrix.map(_(j)).sum
+      val colSum = p.io.matrix.map(_(j)).sumShare
       colSum should be < Share.One
   }
 
   "p.io.columnSums" should "match IoMatrix computation" in {
     val sectorCount = p.io.columnSums.length
     for j <- 0 until sectorCount do
-      val expected = p.io.matrix.map(_(j)).sum
+      val expected = p.io.matrix.map(_(j)).sumShare
       p.io.columnSums(j) shouldBe expected
   }
 
   // --- Generated IoMatrix properties ---
 
   "Generated IoMatrix" should "have non-negative entries and column sums < 1.0" in {
-    given Shrink[Vector[Vector[Double]]] = Shrink.shrinkAny
-    forAll(genIoMatrix): (m: Vector[Vector[Double]]) =>
-      val typed       = m.map(_.map(Share(_)))
+    given Shrink[Vector[Vector[Share]]] = Shrink.shrinkAny
+    forAll(genIoMatrix): (typed: Vector[Vector[Share]]) =>
       val sectorCount = typed.length
       for
         i <- 0 until sectorCount

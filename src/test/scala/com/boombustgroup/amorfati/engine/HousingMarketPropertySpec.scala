@@ -204,7 +204,7 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       whenever(mortgage < value && mortgage > pln(principalUnits) + pln(defaultAmtUnits)) {
         val state  = makeRegionalState(value, mortgage)
         val result = HousingMarket.applyFlows(state, mkFlows(pln(interestUnits), pln(principalUnits), pln(defaultAmtUnits)))
-        shouldBeClosePln(result.regions.get.map(_.mortgageStock).sum, result.mortgageStock, hundredPln)
+        shouldBeClosePln(result.regions.get.map(_.mortgageStock).sumPln, result.mortgageStock, hundredPln)
       }
     }
 
@@ -222,8 +222,8 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
       whenever(mortgage < value && mortgage > PLN.Zero) {
         val state  = makeRegionalState(value, mortgage)
         val result = HousingMarket.applyFlows(state, mkFlows(principal = principal, defaultAmount = defaultAmt))
-        result.regions.get.map(_.lastRepayment).sum shouldBe principal
-        result.regions.get.map(_.lastDefault).sum shouldBe defaultAmt
+        result.regions.get.map(_.lastRepayment).sumPln shouldBe principal
+        result.regions.get.map(_.lastDefault).sumPln shouldBe defaultAmt
       }
     }
 
@@ -260,6 +260,6 @@ class HousingMarketPropertySpec extends AnyFlatSpec with Matchers with ScalaChec
         )
         val result         = HousingMarket.applyFlows(stateAfterOrig, mkFlows(principal = principal, defaultAmount = defaultAmt))
         result.mortgageStock shouldBe mortgage + origination - principal - defaultAmt
-        shouldBeClosePln(result.regions.get.map(_.mortgageStock).sum, result.mortgageStock, hundredPln)
+        shouldBeClosePln(result.regions.get.map(_.mortgageStock).sumPln, result.mortgageStock, hundredPln)
       }
     }

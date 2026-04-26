@@ -58,28 +58,28 @@ import com.boombustgroup.amorfati.types.*
   *   effectiveness of FX intervention on exchange rate
   */
 case class MonetaryConfig(
-    initialRate: Rate = Rate(0.0575),
-    targetInfl: Rate = Rate(0.025),
-    neutralRate: Rate = Rate(0.04),
-    taylorAlpha: Coefficient = Coefficient(1.5),
-    taylorBeta: Coefficient = Coefficient(0.8),
-    taylorInertia: Share = Share(0.70),
-    rateFloor: Rate = Rate(0.001),
-    rateCeiling: Rate = Rate(0.15),
-    maxRateChange: Rate = Rate(0.0),
-    nairu: Share = Share(0.05),
-    taylorDelta: Coefficient = Coefficient(0.5),
-    reserveRateMult: Share = Share(0.5),
-    depositFacilitySpread: Rate = Rate(0.01),
-    lombardSpread: Rate = Rate(0.01),
+    initialRate: Rate = Rate.decimal(575, 4),
+    targetInfl: Rate = Rate.decimal(25, 3),
+    neutralRate: Rate = Rate.decimal(4, 2),
+    taylorAlpha: Coefficient = Coefficient.decimal(15, 1),
+    taylorBeta: Coefficient = Coefficient.decimal(8, 1),
+    taylorInertia: Share = Share.decimal(70, 2),
+    rateFloor: Rate = Rate.decimal(1, 3),
+    rateCeiling: Rate = Rate.decimal(15, 2),
+    maxRateChange: Rate = Rate(0),
+    nairu: Share = Share.decimal(5, 2),
+    taylorDelta: Coefficient = Coefficient.decimal(5, 1),
+    reserveRateMult: Share = Share.decimal(5, 1),
+    depositFacilitySpread: Rate = Rate.decimal(1, 2),
+    lombardSpread: Rate = Rate.decimal(1, 2),
     // QE (raw — scaled by gdpRatio in SimParams.defaults)
-    qePace: PLN = PLN(5e9),
-    qeMaxGdpShare: Share = Share(0.30),
+    qePace: PLN = PLN(5000000000L),
+    qeMaxGdpShare: Share = Share.decimal(30, 2),
     // FX intervention (raw — scaled by gdpRatio in SimParams.defaults)
-    fxBand: Share = Share(0.10),
-    fxReserves: PLN = PLN(185e9),
-    fxMaxMonthly: Share = Share(0.03),
-    fxStrength: Coefficient = Coefficient(0.5),
+    fxBand: Share = Share.decimal(10, 2),
+    fxReserves: PLN = PLN(185000000000L),
+    fxMaxMonthly: Share = Share.decimal(3, 2),
+    fxStrength: Coefficient = Coefficient.decimal(5, 1),
 ):
   require(rateFloor < rateCeiling, s"rateFloor ($rateFloor) must be < rateCeiling ($rateCeiling)")
   require(rateFloor >= Rate.Zero, s"rateFloor must be non-negative: $rateFloor")

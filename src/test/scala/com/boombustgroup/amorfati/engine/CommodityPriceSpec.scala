@@ -21,9 +21,9 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
   ) =
     GvcTrade.StepInput(
       prev = prev,
-      sectorOutputs = Vector.fill(6)(PLN(100000.0)),
+      sectorOutputs = Vector.fill(6)(PLN(100000)),
       priceLevel = PriceIndex.Base,
-      exchangeRate = ExchangeRate(4.33),
+      exchangeRate = ExchangeRate.decimal(433, 2),
       autoRatio = Share.Zero,
       month = ExecutionMonth(month),
       rng = RandomStream.seeded(seed * 31 + month),
@@ -47,37 +47,37 @@ class CommodityPriceSpec extends AnyFlatSpec with Matchers:
     val init     = GvcTrade.initial
     val after    = GvcTrade.step(mkInput(init, month = 1))
     val expected = after.foreignPriceIndex * after.commodityPriceIndex
-    after.importCostIndex.bd.toDouble shouldBe (expected.bd.toDouble +- 1e-10)
+    after.importCostIndex.bd shouldBe (expected.bd +- BigDecimal("1e-10"))
   }
 
   it should "evolve commodity differently with different seeds (stochastic)" in {
     val init   = GvcTrade.initial
     val after1 = GvcTrade.step(mkInput(init, month = 1, seed = 1L))
     val after2 = GvcTrade.step(mkInput(init, month = 1, seed = 999L))
-    after1.commodityPriceIndex.bd.toDouble.should(not(be(after2.commodityPriceIndex.bd.toDouble)))
+    after1.commodityPriceIndex.bd.should(not(be(after2.commodityPriceIndex.bd)))
   }
 
   it should "keep commodity close to 1.0 after 1 month with default params" in {
     val init  = GvcTrade.initial
     val after = GvcTrade.step(mkInput(init, month = 1))
     // Default drift is small (~2%/yr), so after 1 month commodity stays near base
-    after.commodityPriceIndex.bd.toDouble shouldBe (1.0 +- 0.1)
+    after.commodityPriceIndex.bd shouldBe (BigDecimal("1.0") +- BigDecimal("0.1"))
   }
 
   "PriceIndex" should "multiply two indices" in {
-    val a = PriceIndex(1.5)
-    val b = PriceIndex(2.0)
-    (a * b).bd.toDouble shouldBe (3.0 +- 1e-10)
+    val a = PriceIndex.decimal(15, 1)
+    val b = PriceIndex(2)
+    (a * b).bd shouldBe (BigDecimal("3.0") +- BigDecimal("1e-10"))
   }
 
   it should "multiply with PLN" in {
-    val idx  = PriceIndex(1.5)
-    val cost = PLN(1000.0)
-    (idx * cost).bd.toDouble shouldBe (1500.0 +- 1e-10)
+    val idx  = PriceIndex.decimal(15, 1)
+    val cost = PLN(1000)
+    (idx * cost).bd shouldBe (BigDecimal("1500.0") +- BigDecimal("1e-10"))
   }
 
   it should "divide two indices to get ratio" in {
-    val a = PriceIndex(3.0)
-    val b = PriceIndex(1.5)
-    a.ratioTo(b).bd.toDouble shouldBe (2.0 +- 1e-10)
+    val a = PriceIndex(3)
+    val b = PriceIndex.decimal(15, 1)
+    a.ratioTo(b).bd shouldBe (BigDecimal("2.0") +- BigDecimal("1e-10"))
   }

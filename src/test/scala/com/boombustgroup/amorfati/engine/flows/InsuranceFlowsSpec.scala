@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.agents.Insurance
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
@@ -14,17 +15,17 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
 
   private val baseInput = InsuranceFlows.Input(
     employed = 80000,
-    wage = PLN(7000.0),
-    unempRate = Share(0.05),
-    currentLifeReserves = PLN(90000000.0),
-    currentNonLifeReserves = PLN(10000000.0),
-    prevGovBondHoldings = PLN(50000000.0),
-    prevCorpBondHoldings = PLN(20000000.0),
+    wage = PLN(7000),
+    unempRate = Share.decimal(5, 2),
+    currentLifeReserves = PLN(90000000),
+    currentNonLifeReserves = PLN(10000000),
+    prevGovBondHoldings = PLN(50000000),
+    prevCorpBondHoldings = PLN(20000000),
     corpBondDefaultLoss = PLN.Zero,
-    prevEquityHoldings = PLN(10000000.0),
-    govBondYield = Rate(0.06),
-    corpBondYield = Rate(0.08),
-    equityReturn = Rate(0.01),
+    prevEquityHoldings = PLN(10000000),
+    govBondYield = Rate.decimal(6, 2),
+    corpBondYield = Rate.decimal(8, 2),
+    equityReturn = Rate.decimal(1, 2),
   )
 
   "InsuranceFlows" should "preserve total wealth at exactly 0L" in {
@@ -58,11 +59,11 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
         Insurance.StepInput(
           opening = opening,
           employed = 80000,
-          wage = PLN(7000.0),
-          unempRate = Share(0.05),
-          govBondYield = Rate(0.06),
-          corpBondYield = Rate(0.08),
-          equityReturn = Rate(0.01),
+          wage = PLN(7000),
+          unempRate = Share.decimal(5, 2),
+          govBondYield = Rate.decimal(6, 2),
+          corpBondYield = Rate.decimal(8, 2),
+          equityReturn = Rate.decimal(1, 2),
           corpBondDefaultLoss = PLN.Zero,
         ),
       )
@@ -87,7 +88,7 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
         baseInput.corpBondDefaultLoss
     val totalReserves      = baseInput.currentLifeReserves + baseInput.currentNonLifeReserves
     val lifeShare          =
-      if totalReserves > PLN.Zero then Share(baseInput.currentLifeReserves / totalReserves) else Share(0.5)
+      if totalReserves > PLN.Zero then shareBD(baseInput.currentLifeReserves / totalReserves) else Share.decimal(5, 1)
     val expectedLifeInv    = expectedInvIncome * lifeShare
     val expectedNonLifeInv = expectedInvIncome - expectedLifeInv
     val batches            = InsuranceFlows.emitBatches(baseInput)
@@ -124,7 +125,7 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "route corporate bond default losses as negative reserve investment income" in {
-    val lossInput       = baseInput.copy(corpBondDefaultLoss = PLN(2000000.0))
+    val lossInput       = baseInput.copy(corpBondDefaultLoss = PLN(2000000))
     val grossInvestment =
       lossInput.prevGovBondHoldings * lossInput.govBondYield.monthly +
         lossInput.prevCorpBondHoldings * lossInput.corpBondYield.monthly +

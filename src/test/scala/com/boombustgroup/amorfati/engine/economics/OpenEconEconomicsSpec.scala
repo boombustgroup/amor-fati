@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.World
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
@@ -37,7 +38,7 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
     domesticCons = s3.domesticCons,
     govPurchases = s4.govPurchases,
     avgDemandMult = s4.avgDemandMult,
-    totalSystemLoans = baseLedgerFinancialState.banks.map(_.firmLoan).sum,
+    totalSystemLoans = baseLedgerFinancialState.banks.map(_.firmLoan).sumPln,
     firmStep = s5,
   )
 
@@ -61,42 +62,39 @@ class OpenEconEconomicsSpec extends AnyFlatSpec with Matchers:
   private val result = runOpenEcon(w)
 
   "OpenEconEconomics (self-contained)" should "produce a valid reference rate" in {
-    ComputationBoundary.toDouble(result.monetary.newRefRate) should be >= 0.0
+    decimal(result.monetary.newRefRate) should be >= BigDecimal("0.0")
   }
 
   it should "keep diaspora inflow growth at baseline in the first execution month" in {
-    import ComputationBoundary.toDouble
 
-    val exchangeRate  = w.forex.exchangeRate.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+    val exchangeRate  = decimal(w.forex.exchangeRate)
     val wap           = w.social.demographics.workingAgePop
-    val base          = toDouble(p.remittance.perCapita) * wap.toDouble
-    val erAdj         = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.remittance.erElasticity))
-    val unempForRemit = toDouble(w.unemploymentRate(s2.employed))
-    val cyclicalAdj   = 1.0 + toDouble(p.remittance.cyclicalSens) * Math.max(0.0, unempForRemit - 0.05)
-    val expected      = PLN(base * erAdj * cyclicalAdj)
+    val base          = decimal(p.remittance.perCapita) * decimal(wap)
+    val erAdj         = powDecimal(exchangeRate / decimal(p.forex.baseExRate), decimal(p.remittance.erElasticity))
+    val unempForRemit = decimal(w.unemploymentRate(s2.employed))
+    val cyclicalAdj   = BigDecimal(1) + decimal(p.remittance.cyclicalSens) * (unempForRemit - BigDecimal("0.05")).max(BigDecimal(0))
+    val expected      = plnBD(base * erAdj * cyclicalAdj)
 
     s6.diasporaInflow shouldBe expected
   }
 
   it should "keep tourism growth at baseline in the first execution month" in {
-    import ComputationBoundary.toDouble
 
-    val exchangeRate   = w.forex.exchangeRate.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD
+    val exchangeRate   = decimal(w.forex.exchangeRate)
     val monthInYear    = s1.m.monthInYear
-    val seasonalFactor = 1.0 + toDouble(p.tourism.seasonality) *
-      Math.cos(2 * Math.PI * (monthInYear - p.tourism.peakMonth) / 12.0)
-    val inboundErAdj   = Math.pow(exchangeRate / toDouble(p.forex.baseExRate), toDouble(p.tourism.erElasticity))
-    val outboundErAdj  = Math.pow(toDouble(p.forex.baseExRate) / exchangeRate, toDouble(p.tourism.erElasticity))
-    val baseGdp        = Math.max(0.0, toDouble(w.cachedMonthlyGdpProxy))
-    val expectedExport = PLN(baseGdp * toDouble(p.tourism.inboundShare) * seasonalFactor * inboundErAdj)
-    val expectedImport = PLN(baseGdp * toDouble(p.tourism.outboundShare) * seasonalFactor * outboundErAdj)
+    val seasonalFactor = BigDecimal(1) + decimal(p.tourism.seasonality) * cosTurns(monthInYear - p.tourism.peakMonth, 12)
+    val inboundErAdj   = powDecimal(exchangeRate / decimal(p.forex.baseExRate), decimal(p.tourism.erElasticity))
+    val outboundErAdj  = powDecimal(decimal(p.forex.baseExRate) / exchangeRate, decimal(p.tourism.erElasticity))
+    val baseGdp        = decimal(w.cachedMonthlyGdpProxy).max(BigDecimal(0))
+    val expectedExport = plnBD(baseGdp * decimal(p.tourism.inboundShare) * seasonalFactor * inboundErAdj)
+    val expectedImport = plnBD(baseGdp * decimal(p.tourism.outboundShare) * seasonalFactor * outboundErAdj)
 
     s6.tourismExport shouldBe expectedExport
     s6.tourismImport shouldBe expectedImport
   }
 
   it should "produce a valid bond yield" in {
-    ComputationBoundary.toDouble(result.monetary.newBondYield) should be >= 0.0
+    decimal(result.monetary.newBondYield) should be >= BigDecimal("0.0")
   }
 
   it should "return corporate bond projection separately from market memory in runStep" in {

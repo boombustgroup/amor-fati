@@ -9,7 +9,7 @@ class EarmarkedFundsSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val wage     = PLN(8000.0)
+  private val wage     = PLN(8000)
   private val employed = 80000
 
   "EarmarkedFunds.step" should "compute FP contributions from payroll" in {
@@ -35,7 +35,7 @@ class EarmarkedFundsSpec extends AnyFlatSpec with Matchers:
 
   it should "produce gov subvention when funds in deficit" in {
     // Large unemployment benefit spend -> FP deficit -> subvention
-    val result = EarmarkedFunds.step(employed, wage, PLN(50e9), 100, 20)
+    val result = EarmarkedFunds.step(employed, wage, PLN(50000000000L), 100, 20)
     result.totalGovSubvention should be > PLN.Zero
   }
 

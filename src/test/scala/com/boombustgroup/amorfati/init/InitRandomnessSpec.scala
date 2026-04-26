@@ -28,5 +28,5 @@ class InitRandomnessSpec extends AnyFlatSpec with Matchers:
     first.all.map(_.seed).distinct should have size first.all.size
     first.all.map(_.seed) should not equal third.all.map(_.seed)
     first.firms.network.newStream().nextLong() shouldBe second.firms.network.newStream().nextLong()
-    first.immigration.initialStock.newStream().nextDouble() shouldBe second.immigration.initialStock.newStream().nextDouble()
+    first.immigration.initialStock.newStream().nextLong() shouldBe second.immigration.initialStock.newStream().nextLong()
   }

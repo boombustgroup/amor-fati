@@ -1,7 +1,7 @@
 package com.boombustgroup.amorfati.agents
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
+import com.boombustgroup.amorfati.fp.FixedPointBase
 import com.boombustgroup.amorfati.types.*
 
 /** National Bank of Poland: Taylor rule, bond yield, QE, FX intervention. */
@@ -11,17 +11,17 @@ object Nbp:
   // Named constants
   // ---------------------------------------------------------------------------
 
-  private val OutputGapCap          = Coefficient(0.05) // ±5 pp unemployment gap cap in Taylor rule
-  private val DebtThreshold         = Share(0.40)       // debt-to-GDP threshold for fiscal risk premium
-  private val FiscalRiskCap         = Rate(0.10)        // maximum fiscal risk premium
-  private val CredPremiumCap        = Rate(0.05)        // max credibility premium (5pp, ~Turkey 2018)
-  private val BondYieldCap          = Rate(0.20)        // absolute yield ceiling (20%, beyond any EM precedent)
-  private val QeCompressionCoeff    = Rate(0.5)         // yield compression per unit of NBP bond/GDP share
-  private val ForeignDemandDiscount = Rate(0.005)       // yield discount when NFA > 0
-  private val QeActivationSlack     = Rate(0.0025)      // rate proximity to floor for QE activation
-  private val QeDeflationThreshold  = Rate(0.01)        // inflation must be this much below target for QE
-  private val ZlbExitBuffer         = Rate(0.0025)      // expectations/inflation should clear target by this margin to exit ZLB mode
-  private val ZlbQeMaxMultiplier    = Multiplier(3.0)   // QE pace can scale up to 3x in a lower-bound regime
+  private val OutputGapCap          = Coefficient.decimal(5, 2) // ±5 pp unemployment gap cap in Taylor rule
+  private val DebtThreshold         = Share.decimal(40, 2)      // debt-to-GDP threshold for fiscal risk premium
+  private val FiscalRiskCap         = Rate.decimal(10, 2)       // maximum fiscal risk premium
+  private val CredPremiumCap        = Rate.decimal(5, 2)        // max credibility premium (5pp, ~Turkey 2018)
+  private val BondYieldCap          = Rate.decimal(20, 2)       // absolute yield ceiling (20%, beyond any EM precedent)
+  private val QeCompressionCoeff    = Rate.decimal(5, 1)        // yield compression per unit of NBP bond/GDP share
+  private val ForeignDemandDiscount = Rate.decimal(5, 3)        // yield discount when NFA > 0
+  private val QeActivationSlack     = Rate.decimal(25, 4)       // rate proximity to floor for QE activation
+  private val QeDeflationThreshold  = Rate.decimal(1, 2)        // inflation must be this much below target for QE
+  private val ZlbExitBuffer         = Rate.decimal(25, 4)       // expectations/inflation should clear target by this margin to exit ZLB mode
+  private val ZlbQeMaxMultiplier    = Multiplier(3)             // QE pace can scale up to 3x in a lower-bound regime
 
   // ---------------------------------------------------------------------------
   // State
@@ -249,10 +249,10 @@ object Nbp:
         val tradeMagnitude = if direction < 0 then maxByReserves.min(reserves) else maxByReserves
         val eurTraded      = if direction < 0 then -tradeMagnitude else tradeMagnitude
         val newReserves    = (reserves + eurTraded).max(PLN.Zero)
-        val tradedPlnValue = PLN.fromRaw(bankerRound(BigInt(eurTraded.abs.toLong) * BigInt(prevER.toLong)))
+        val tradedPlnValue = PLN.fromRaw(FixedPointBase.multiplyRaw(eurTraded.abs.toLong, prevER.toLong))
         val gdpEffect      = if gdp > PLN.Zero then tradedPlnValue.ratioTo(gdp) else Scalar.Zero
         val unsignedShock  = ExchangeRateShock.fromRaw((gdpEffect * p.monetary.fxStrength).toLong)
         val erShock        = if direction < 0 then -unsignedShock else unsignedShock
         // PLN injection: EUR purchase → NBP pays PLN to banks (+), EUR sale → banks pay PLN to NBP (−)
-        val plnInjection   = PLN.fromRaw(bankerRound(BigInt(eurTraded.toLong) * BigInt(prevER.toLong)))
+        val plnInjection   = PLN.fromRaw(FixedPointBase.multiplyRaw(eurTraded.toLong, prevER.toLong))
         FxInterventionResult(erShock, eurTraded, newReserves, plnInjection)

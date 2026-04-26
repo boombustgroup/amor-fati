@@ -23,8 +23,8 @@ import com.boombustgroup.amorfati.random.RandomStream
 object SectoralMobility:
 
   // ---- Calibration constants ----
-  private val MaxWagePenalty         = Share(0.3) // cross-sector wage penalty: up to 30% of friction
-  val FrictionSuccessDiscount: Share = Share(0.5) // friction discount on retraining success probability
+  private val MaxWagePenalty         = Share.decimal(3, 1) // cross-sector wage penalty: up to 30% of friction
+  val FrictionSuccessDiscount: Share = Share.decimal(5, 1) // friction discount on retraining success probability
   private val NumSectors             = 6
 
   case class State(
@@ -43,12 +43,12 @@ object SectoralMobility:
     */
   val DefaultFrictionMatrix: Vector[Vector[Share]] = Vector(
     //                     BPO         Mfg         Ret         Hlt         Pub         Agr
-    Vector(Share(0.0), Share(0.6), Share(0.3), Share(0.8), Share(0.5), Share(0.9)), // BPO
-    Vector(Share(0.6), Share(0.0), Share(0.5), Share(0.7), Share(0.6), Share(0.4)), // Mfg
-    Vector(Share(0.3), Share(0.5), Share(0.0), Share(0.5), Share(0.4), Share(0.6)), // Ret
-    Vector(Share(0.8), Share(0.7), Share(0.5), Share(0.0), Share(0.4), Share(0.8)), // Hlt
-    Vector(Share(0.5), Share(0.6), Share(0.4), Share(0.4), Share(0.0), Share(0.7)), // Pub
-    Vector(Share(0.9), Share(0.4), Share(0.6), Share(0.8), Share(0.7), Share(0.0)), // Agr
+    Vector(Share(0), Share.decimal(6, 1), Share.decimal(3, 1), Share.decimal(8, 1), Share.decimal(5, 1), Share.decimal(9, 1)), // BPO
+    Vector(Share.decimal(6, 1), Share(0), Share.decimal(5, 1), Share.decimal(7, 1), Share.decimal(6, 1), Share.decimal(4, 1)), // Mfg
+    Vector(Share.decimal(3, 1), Share.decimal(5, 1), Share(0), Share.decimal(5, 1), Share.decimal(4, 1), Share.decimal(6, 1)), // Ret
+    Vector(Share.decimal(8, 1), Share.decimal(7, 1), Share.decimal(5, 1), Share(0), Share.decimal(4, 1), Share.decimal(8, 1)), // Hlt
+    Vector(Share.decimal(5, 1), Share.decimal(6, 1), Share.decimal(4, 1), Share.decimal(4, 1), Share(0), Share.decimal(7, 1)), // Pub
+    Vector(Share.decimal(9, 1), Share.decimal(4, 1), Share.decimal(6, 1), Share.decimal(8, 1), Share.decimal(7, 1), Share(0)), // Agr
   )
 
   /** Compute number of vacancies per sector. */
@@ -102,7 +102,7 @@ object SectoralMobility:
     (0 until NumSectors).map { to =>
       if to == from then Multiplier.Zero
       else
-        val wageScore    = wages(to).max(PLN.Zero).ratioTo(PLN(1.0)).toMultiplier
+        val wageScore    = wages(to).max(PLN.Zero).ratioTo(PLN(1)).toMultiplier
         val vacancyScore = Scalar(vacancies(to) + 1).pow(vacancyWeight.toScalar).toMultiplier
         wageScore * vacancyScore * matrix(from)(to).complement
     }.toVector

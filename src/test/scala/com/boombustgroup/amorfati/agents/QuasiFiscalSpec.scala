@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -8,10 +9,9 @@ import org.scalatest.matchers.should.Matchers
 class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
-  private val td  = ComputationBoundary
 
-  private val govCapital = PLN(5e9)
-  private val euCapital  = PLN(2e9)
+  private val govCapital = PLN(5000000000L)
+  private val euCapital  = PLN(2000000000)
 
   private def step(
       stock: QuasiFiscal.StockState = QuasiFiscal.StockState.zero,
@@ -23,14 +23,14 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
 
   "QuasiFiscal.step" should "issue bonds proportional to gov capital spending" in {
     val result = step()
-    td.toDouble(result.state.monthlyIssuance) should be > 0.0
-    td.toDouble(result.stock.bondsOutstanding) should be > 0.0
+    decimal(result.state.monthlyIssuance) should be > BigDecimal("0.0")
+    decimal(result.stock.bondsOutstanding) should be > BigDecimal("0.0")
   }
 
   it should "route NBP purchases when QE active" in {
     val withQe    = step(nbpQeActive = true)
     val withoutQe = step(nbpQeActive = false)
-    td.toDouble(withQe.stock.nbpHoldings) should be > td.toDouble(withoutQe.stock.nbpHoldings)
+    decimal(withQe.stock.nbpHoldings) should be > decimal(withoutQe.stock.nbpHoldings)
     withQe.state.monthlyBankBondIssuance + withQe.state.monthlyNbpBondAbsorption shouldBe withQe.state.monthlyIssuance
   }
 
@@ -41,13 +41,13 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
 
   it should "grow loan portfolio with lending" in {
     val result = step(nbpQeActive = false)
-    td.toDouble(result.stock.loanPortfolio) should be > 0.0
+    decimal(result.stock.loanPortfolio) should be > BigDecimal("0.0")
   }
 
   it should "maintain bond clearing (outstanding = bank + nbp)" in {
     val result  = step(nbpQeActive = true)
-    val holders = td.toDouble(result.stock.bankHoldings) + td.toDouble(result.stock.nbpHoldings)
-    holders shouldBe td.toDouble(result.stock.bondsOutstanding) +- 1.0
+    val holders = decimal(result.stock.bankHoldings) + decimal(result.stock.nbpHoldings)
+    holders shouldBe decimal(result.stock.bondsOutstanding) +- BigDecimal("1.0")
   }
 
   it should "amortize bonds over time" in {
@@ -59,13 +59,13 @@ class QuasiFiscalSpec extends AnyFlatSpec with Matchers:
       euProjectCapital = PLN.Zero,
       nbpQeActive = false,
     )
-    td.toDouble(m2.stock.bondsOutstanding) should be < td.toDouble(m1.stock.bondsOutstanding)
+    decimal(m2.stock.bondsOutstanding) should be < decimal(m1.stock.bondsOutstanding)
     m2.state.monthlyBankBondAmortization + m2.state.monthlyNbpBondAmortization shouldBe m2.state.monthlyBondAmortization
   }
 
   it should "compute ESA 2010 debt as MF + quasi-fiscal" in {
-    val govDebt = PLN(100e9)
-    val qfDebt  = PLN(20e9)
+    val govDebt = PLN(100000000000L)
+    val qfDebt  = PLN(20000000000L)
     val esa     = QuasiFiscal.esa2010Debt(govDebt, qfDebt)
-    td.toDouble(esa) shouldBe 120e9 +- 1.0
+    decimal(esa) shouldBe BigDecimal("120e9") +- BigDecimal("1.0")
   }

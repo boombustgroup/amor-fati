@@ -28,32 +28,32 @@ enum Region(
   /** Centralny: Warszawa + mazowieckie. Highest wages, lowest unemployment,
     * most expensive housing. Services/BPO hub.
     */
-  case Central extends Region("Centralny", Multiplier(1.35), Share(0.03), Multiplier(1.80), Share(0.21))
+  case Central extends Region("Centralny", Multiplier.decimal(135, 2), Share.decimal(3, 2), Multiplier.decimal(180, 2), Share.decimal(21, 2))
 
   /** Południowy: Śląsk + Małopolska. Industry + services mix. Kraków tech hub.
     * Mining restrukturyzacja in Śląsk.
     */
-  case South extends Region("Poludniowy", Multiplier(1.10), Share(0.05), Multiplier(1.20), Share(0.21))
+  case South extends Region("Poludniowy", Multiplier.decimal(110, 2), Share.decimal(5, 2), Multiplier.decimal(120, 2), Share.decimal(21, 2))
 
   /** Wschodni: Lubelskie, Podkarpackie, Podlaskie, Świętokrzyskie. Highest
     * unemployment, lowest wages. Agriculture-heavy. "Ściana wschodnia".
     */
-  case East extends Region("Wschodni", Multiplier(0.80), Share(0.09), Multiplier(0.65), Share(0.14))
+  case East extends Region("Wschodni", Multiplier.decimal(80, 2), Share.decimal(9, 2), Multiplier.decimal(65, 2), Share.decimal(14, 2))
 
   /** Północno-zachodni: Wielkopolskie, Zachodniopomorskie, Lubuskie. Balanced
     * economy, Poznań as regional center, moderate wages.
     */
-  case Northwest extends Region("Polnocno-zachodni", Multiplier(1.00), Share(0.05), Multiplier(0.90), Share(0.16))
+  case Northwest extends Region("Polnocno-zachodni", Multiplier(1), Share.decimal(5, 2), Multiplier.decimal(90, 2), Share.decimal(16, 2))
 
   /** Południowo-zachodni: Dolnośląskie, Opolskie. Wrocław tech hub. Growing
     * services sector, moderate housing costs.
     */
-  case Southwest extends Region("Poludniowo-zachodni", Multiplier(1.05), Share(0.05), Multiplier(1.00), Share(0.12))
+  case Southwest extends Region("Poludniowo-zachodni", Multiplier.decimal(105, 2), Share.decimal(5, 2), Multiplier(1), Share.decimal(12, 2))
 
   /** Północny: Kujawsko-pomorskie, Warmińsko-mazurskie, Pomorskie.
     * Gdańsk/Gdynia port economy. Warmia high unemployment.
     */
-  case North extends Region("Polnocny", Multiplier(0.95), Share(0.07), Multiplier(0.85), Share(0.16))
+  case North extends Region("Polnocny", Multiplier.decimal(95, 2), Share.decimal(7, 2), Multiplier.decimal(85, 2), Share.decimal(16, 2))
 
 object Region:
 
@@ -85,12 +85,19 @@ object Region:
     */
   val frictionMatrix: Vector[Vector[Share]] = Vector(
     //          Central  South  East   NW     SW     North
-    Vector(Share(0.00), Share(0.40), Share(0.60), Share(0.45), Share(0.45), Share(0.50)), // from Central
-    Vector(Share(0.30), Share(0.00), Share(0.50), Share(0.40), Share(0.30), Share(0.45)), // from South
-    Vector(Share(0.25), Share(0.45), Share(0.00), Share(0.55), Share(0.55), Share(0.50)), // from East (easier to Central)
-    Vector(Share(0.35), Share(0.40), Share(0.55), Share(0.00), Share(0.35), Share(0.30)), // from Northwest
-    Vector(Share(0.35), Share(0.30), Share(0.55), Share(0.35), Share(0.00), Share(0.40)), // from Southwest
-    Vector(Share(0.30), Share(0.40), Share(0.50), Share(0.30), Share(0.40), Share(0.00)), // from North
+    Vector(Share(0), Share.decimal(40, 2), Share.decimal(60, 2), Share.decimal(45, 2), Share.decimal(45, 2), Share.decimal(50, 2)), // from Central
+    Vector(Share.decimal(30, 2), Share(0), Share.decimal(50, 2), Share.decimal(40, 2), Share.decimal(30, 2), Share.decimal(45, 2)), // from South
+    Vector(
+      Share.decimal(25, 2),
+      Share.decimal(45, 2),
+      Share(0),
+      Share.decimal(55, 2),
+      Share.decimal(55, 2),
+      Share.decimal(50, 2),
+    ),                                                                                                                              // from East (easier to Central)
+    Vector(Share.decimal(35, 2), Share.decimal(40, 2), Share.decimal(55, 2), Share(0), Share.decimal(35, 2), Share.decimal(30, 2)), // from Northwest
+    Vector(Share.decimal(35, 2), Share.decimal(30, 2), Share.decimal(55, 2), Share.decimal(35, 2), Share(0), Share.decimal(40, 2)), // from Southwest
+    Vector(Share.decimal(30, 2), Share.decimal(40, 2), Share.decimal(50, 2), Share.decimal(30, 2), Share.decimal(40, 2), Share(0)), // from North
   )
 
   /** Migration probability: inverse of friction × wage differential × housing
@@ -122,10 +129,10 @@ object Region:
     */
   val sectorComposition: Vector[Vector[Share]] = Vector(
     // BPO    Mfg    Retail  Health  Public  Agri
-    Vector(Share(0.08), Share(0.12), Share(0.48), Share(0.06), Share(0.20), Share(0.06)), // Central
-    Vector(Share(0.04), Share(0.25), Share(0.40), Share(0.06), Share(0.18), Share(0.07)), // South
-    Vector(Share(0.01), Share(0.15), Share(0.30), Share(0.06), Share(0.23), Share(0.25)), // East
-    Vector(Share(0.03), Share(0.22), Share(0.38), Share(0.06), Share(0.20), Share(0.11)), // Northwest
-    Vector(Share(0.04), Share(0.22), Share(0.40), Share(0.06), Share(0.19), Share(0.09)), // Southwest
-    Vector(Share(0.02), Share(0.18), Share(0.35), Share(0.06), Share(0.22), Share(0.17)), // North
+    Vector(Share.decimal(8, 2), Share.decimal(12, 2), Share.decimal(48, 2), Share.decimal(6, 2), Share.decimal(20, 2), Share.decimal(6, 2)),  // Central
+    Vector(Share.decimal(4, 2), Share.decimal(25, 2), Share.decimal(40, 2), Share.decimal(6, 2), Share.decimal(18, 2), Share.decimal(7, 2)),  // South
+    Vector(Share.decimal(1, 2), Share.decimal(15, 2), Share.decimal(30, 2), Share.decimal(6, 2), Share.decimal(23, 2), Share.decimal(25, 2)), // East
+    Vector(Share.decimal(3, 2), Share.decimal(22, 2), Share.decimal(38, 2), Share.decimal(6, 2), Share.decimal(20, 2), Share.decimal(11, 2)), // Northwest
+    Vector(Share.decimal(4, 2), Share.decimal(22, 2), Share.decimal(40, 2), Share.decimal(6, 2), Share.decimal(19, 2), Share.decimal(9, 2)),  // Southwest
+    Vector(Share.decimal(2, 2), Share.decimal(18, 2), Share.decimal(35, 2), Share.decimal(6, 2), Share.decimal(22, 2), Share.decimal(17, 2)), // North
   )

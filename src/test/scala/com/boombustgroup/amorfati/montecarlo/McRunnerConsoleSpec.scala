@@ -32,13 +32,13 @@ class McRunnerConsoleSpec extends AnyFlatSpec with Matchers:
       seed = 7L,
       totalSeeds = 12,
       elapsedMillis = 3456L,
-      adoption = 0.123,
-      inflation = 0.045,
-      unemployment = 0.067,
+      adoption = MetricValue.fromDecimalDigits(123, 3),
+      inflation = MetricValue.fromDecimalDigits(45, 3),
+      unemployment = MetricValue.fromDecimalDigits(67, 3),
     )
 
     McRunnerConsole.render(seedDone) shouldBe
-      s"\r  Seed   7/12 [${fullBlock * 20}] done (3456ms) | Adopt= 12.3% | pi=  4.5% | Unemp=  6.7%"
+      s"\r  Seed   7/12 [${fullBlock * 20}] done (3456ms) | Adopt=12.3% | pi=4.5% | Unemp=6.7%"
   }
 
   it should "format saved file reporting consistently" in {
@@ -52,7 +52,7 @@ class McRunnerConsoleSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "format total time consistently" in {
-    val totalTime = McRunnerConsole.Event.TotalTime(4.6)
+    val totalTime = McRunnerConsole.Event.TotalTime(4600L)
 
     McRunnerConsole.render(totalTime) shouldBe "\nTotal time: 4.6 seconds"
   }

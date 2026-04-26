@@ -1,12 +1,13 @@
 package com.boombustgroup.amorfati.engine.economics
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
-import com.boombustgroup.amorfati.types.ComputationBoundary
+import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -23,7 +24,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     result.nextState.completedMonth shouldBe CompletedMonth(1)
     w.derivedTotalPopulation.should(be > 0)
     result.nextState.householdAggregates.employed.should(be > 0)
-    w.external.tourismSeasonalFactor.should(not be 0.0)
+    w.external.tourismSeasonalFactor.should(not be Multiplier.Zero)
   }
 
   it should "keep ETS observables at the base price in the first execution month" in {
@@ -32,7 +33,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
     val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
     val w      = result.nextState.world
 
-    w.real.etsPrice.shouldBe(ComputationBoundary.toDouble(p.climate.etsBasePrice) +- 1e-10)
+    decimal(w.real.etsPrice).shouldBe(decimal(p.climate.etsBasePrice) +- BigDecimal("1e-10"))
   }
 
   it should "preserve public-spending semantic aggregates on the assembled world" in {

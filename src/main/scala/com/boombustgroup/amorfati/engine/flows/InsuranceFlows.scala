@@ -17,7 +17,7 @@ object InsuranceFlows:
   val INS_ACCOUNT: Int     = 1
   val MARKETS_ACCOUNT: Int = 2
 
-  private val NonLifeUnempThreshold = 0.05
+  private val NonLifeUnempThreshold: Share = Share.decimal(5, 2)
 
   case class Input(
       employed: Int,
@@ -40,7 +40,7 @@ object InsuranceFlows:
 
     val lifeCl      = lifePrem * p.ins.lifeLossRatio
     val nonLifeBase = nonLifePrem * p.ins.nonLifeLossRatio
-    val stressGap   = (input.unempRate - Share(NonLifeUnempThreshold)).max(Share.Zero)
+    val stressGap   = (input.unempRate - NonLifeUnempThreshold).max(Share.Zero)
     val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 
@@ -50,7 +50,7 @@ object InsuranceFlows:
     val invIncome             = grossInvestmentIncome - input.corpBondDefaultLoss
     val totalReserves         = input.currentLifeReserves + input.currentNonLifeReserves
     val lifeShare             =
-      if totalReserves > PLN.Zero then Share(input.currentLifeReserves / totalReserves) else Share(0.5)
+      if totalReserves > PLN.Zero then Share(input.currentLifeReserves / totalReserves) else Share.decimal(5, 1)
     val lifeInvIncome         = invIncome * lifeShare
     val nonLifeInvIncome      = invIncome - lifeInvIncome
 
@@ -107,7 +107,7 @@ object InsuranceFlows:
 
     val lifeCl      = lifePrem * p.ins.lifeLossRatio
     val nonLifeBase = nonLifePrem * p.ins.nonLifeLossRatio
-    val stressGap   = (input.unempRate - Share(NonLifeUnempThreshold)).max(Share.Zero)
+    val stressGap   = (input.unempRate - NonLifeUnempThreshold).max(Share.Zero)
     val stressAdj   = (stressGap * p.ins.nonLifeUnempSens).toMultiplier
     val nonLifeCl   = nonLifeBase * (Multiplier.One + stressAdj)
 

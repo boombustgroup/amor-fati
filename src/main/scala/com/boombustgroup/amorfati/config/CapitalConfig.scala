@@ -45,21 +45,22 @@ import com.boombustgroup.amorfati.types.*
   */
 case class CapitalConfig(
     // Physical capital (GUS F-01 2024)
-    klRatios: Vector[PLN] = Vector(PLN(120000.0), PLN(250000.0), PLN(80000.0), PLN(200000.0), PLN(150000.0), PLN(180000.0)),
-    depRates: Vector[Rate] = Vector(Rate(0.15), Rate(0.08), Rate(0.10), Rate(0.07), Rate(0.05), Rate(0.08)),
-    importShare: Share = Share(0.35),
-    adjustSpeed: Coefficient = Coefficient(0.10),
-    prodElast: Share = Share(0.30),
-    costReplace: Share = Share(0.50),
+    klRatios: Vector[PLN] = Vector(PLN(120000), PLN(250000), PLN(80000), PLN(200000), PLN(150000), PLN(180000)),
+    depRates: Vector[Rate] = Vector(Rate.decimal(15, 2), Rate.decimal(8, 2), Rate.decimal(10, 2), Rate.decimal(7, 2), Rate.decimal(5, 2), Rate.decimal(8, 2)),
+    importShare: Share = Share.decimal(35, 2),
+    adjustSpeed: Coefficient = Coefficient.decimal(10, 2),
+    prodElast: Share = Share.decimal(30, 2),
+    costReplace: Share = Share.decimal(50, 2),
     // Inventories (GUS 2024)
-    inventoryTargetRatios: Vector[Share] = Vector(Share(0.05), Share(0.25), Share(0.15), Share(0.10), Share(0.02), Share(0.30)),
-    inventoryAdjustSpeed: Coefficient = Coefficient(0.10),
-    inventoryCarryingCost: Rate = Rate(0.06),
-    inventorySpoilageRates: Vector[Rate] = Vector(Rate(0.0), Rate(0.02), Rate(0.05), Rate(0.03), Rate(0.0), Rate(0.10)),
-    inventoryCostFraction: Share = Share(0.50),
-    inventoryLiquidationDisc: Share = Share(0.50),
-    inventoryInitRatio: Share = Share(0.80),
-    inventoryCostReplace: Share = Share(0.10),
+    inventoryTargetRatios: Vector[Share] =
+      Vector(Share.decimal(5, 2), Share.decimal(25, 2), Share.decimal(15, 2), Share.decimal(10, 2), Share.decimal(2, 2), Share.decimal(30, 2)),
+    inventoryAdjustSpeed: Coefficient = Coefficient.decimal(10, 2),
+    inventoryCarryingCost: Rate = Rate.decimal(6, 2),
+    inventorySpoilageRates: Vector[Rate] = Vector(Rate(0), Rate.decimal(2, 2), Rate.decimal(5, 2), Rate.decimal(3, 2), Rate(0), Rate.decimal(10, 2)),
+    inventoryCostFraction: Share = Share.decimal(50, 2),
+    inventoryLiquidationDisc: Share = Share.decimal(50, 2),
+    inventoryInitRatio: Share = Share.decimal(80, 2),
+    inventoryCostReplace: Share = Share.decimal(10, 2),
 ):
   require(klRatios.length == 6, s"klRatios must have 6 sectors: ${klRatios.length}")
   require(depRates.length == 6, s"depRates must have 6 sectors: ${depRates.length}")

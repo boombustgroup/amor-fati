@@ -26,27 +26,8 @@ object types:
   export com.boombustgroup.amorfati.fp.ExchangeRateProvider.{ExchangeRate, given}
   export com.boombustgroup.amorfati.fp.ExchangeRateShockProvider.{ExchangeRateShock, given}
 
-  // Transitional compatibility only. Boundary escapes are being removed from
-  // the typed algebra and should not be treated as part of the target API.
-  export com.boombustgroup.amorfati.fp.{boundaryEscape, ComputationBoundary}
-
-  import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
-
   private inline def scaledDiv(numerator: Long, denominator: Long): Long =
-    if denominator == 0L then 0L
-    else
-      val scaled         = BigInt(numerator) * BigInt(com.boombustgroup.amorfati.fp.FixedPointBase.Scale)
-      val den            = BigInt(denominator)
-      val quotient       = scaled / den
-      val remainder      = (scaled % den).abs
-      val denominatorAbs = den.abs
-      val twiceRemainder = remainder * 2
-      if twiceRemainder < denominatorAbs then quotient.toLong
-      else
-        val resultSign = scaled.signum * den.signum
-        if twiceRemainder > denominatorAbs then (quotient + resultSign).toLong
-        else if quotient % 2 == 0 then quotient.toLong
-        else (quotient + resultSign).toLong
+    FixedPointBase.ratioRaw(numerator, denominator)
 
   private inline def checkedInt(result: Long, operation: String): Int =
     require(
@@ -59,22 +40,37 @@ object types:
   // Defined HERE where all types are opaque — compiler enforces type safety.
   // Each operation explicitly uses .toLong to access the raw value.
 
+  extension (values: IterableOnce[PLN])
+    @targetName("iterableOnceSumPln")
+    def sumPln: PLN =
+      values.iterator.foldLeft(PLN.Zero)(_ + _)
+
+  extension (values: IterableOnce[Rate])
+    @targetName("iterableOnceSumRate")
+    def sumRate: Rate =
+      values.iterator.foldLeft(Rate.Zero)(_ + _)
+
+  extension (values: IterableOnce[Share])
+    @targetName("iterableOnceSumShare")
+    def sumShare: Share =
+      values.iterator.foldLeft(Share.Zero)(_ + _)
+
   // --- PLN × typed ---
   extension (p: PLN)
     @targetName("plnTimesInt")
-    def *(n: Int): PLN              = PLN.fromRaw((BigInt(p.toLong) * BigInt(n.toLong)).toLong)
+    def *(n: Int): PLN              = PLN.fromRaw(java.lang.Math.multiplyExact(p.toLong, n.toLong))
     @targetName("plnTimesLong")
-    def *(n: Long): PLN             = PLN.fromRaw((BigInt(p.toLong) * BigInt(n)).toLong)
+    def *(n: Long): PLN             = PLN.fromRaw(java.lang.Math.multiplyExact(p.toLong, n))
     @targetName("plnTimesRate")
-    def *(r: Rate): PLN             = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(r.toLong)))
+    def *(r: Rate): PLN             = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, r.toLong))
     @targetName("plnTimesShare")
-    def *(s: Share): PLN            = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(s.toLong)))
+    def *(s: Share): PLN            = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, s.toLong))
     @targetName("plnTimesMultiplier")
-    def *(m: Multiplier): PLN       = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): PLN       = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, m.toLong))
     @targetName("plnTimesCoefficient")
-    def *(c: Coefficient): PLN      = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    def *(c: Coefficient): PLN      = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, c.toLong))
     @targetName("plnTimesScalar")
-    def *(s: Scalar): PLN           = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(s.toLong)))
+    def *(s: Scalar): PLN           = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, s.toLong))
     @targetName("plnDivShare")
     def /(s: Share): PLN            = PLN.fromRaw(scaledDiv(p.toLong, s.toLong))
     @targetName("plnDivMultiplier")
@@ -99,13 +95,13 @@ object types:
   // --- Rate × typed ---
   extension (r: Rate)
     @targetName("rateTimesMultiplier")
-    def *(m: Multiplier): Rate       = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): Rate       = Rate.fromRaw(FixedPointBase.multiplyRaw(r.toLong, m.toLong))
     @targetName("rateTimesShare")
-    def *(s: Share): Rate            = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(s.toLong)))
+    def *(s: Share): Rate            = Rate.fromRaw(FixedPointBase.multiplyRaw(r.toLong, s.toLong))
     @targetName("rateTimesCoefficient")
-    def *(c: Coefficient): Rate      = Rate.fromRaw(bankerRound(BigInt(r.toLong) * BigInt(c.toLong)))
+    def *(c: Coefficient): Rate      = Rate.fromRaw(FixedPointBase.multiplyRaw(r.toLong, c.toLong))
     @targetName("rateApplyToCount")
-    def applyTo(n: Int): Int         = checkedInt(bankerRound(BigInt(n.toLong) * BigInt(r.toLong)), "Rate.applyTo")
+    def applyTo(n: Int): Int         = checkedInt(FixedPointBase.multiplyRaw(n.toLong, r.toLong), "Rate.applyTo")
     @targetName("rateToMultiplier")
     def toMultiplier: Multiplier     = Multiplier.fromRaw(r.toLong)
     @targetName("rateToScalar")
@@ -120,11 +116,11 @@ object types:
   // --- Share × typed ---
   extension (s: Share)
     @targetName("shareTimesMultiplier")
-    def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(FixedPointBase.multiplyRaw(s.toLong, m.toLong))
     @targetName("shareTimesCoefficient")
-    def *(c: Coefficient): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(c.toLong)))
+    def *(c: Coefficient): Coefficient = Coefficient.fromRaw(FixedPointBase.multiplyRaw(s.toLong, c.toLong))
     @targetName("shareTimesPln")
-    def *(p: PLN): PLN                 = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(s.toLong)))
+    def *(p: PLN): PLN                 = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, s.toLong))
     @targetName("shareToRate")
     def toRate: Rate                   = Rate.fromRaw(s.toLong)
     @targetName("shareToMultiplier")
@@ -134,13 +130,35 @@ object types:
     @targetName("shareRatioToShare")
     def ratioTo(other: Share): Scalar  = Scalar.fromRaw(scaledDiv(s.toLong, other.toLong))
     @targetName("shareApplyToInt")
-    def applyTo(n: Int): Int           = checkedInt(bankerRound(BigInt(n.toLong) * BigInt(s.toLong)), "Share.applyTo")
+    def applyTo(n: Int): Int           = checkedInt(FixedPointBase.multiplyRaw(n.toLong, s.toLong), "Share.applyTo")
     @targetName("shareCeilApplyToInt")
     def ceilApplyTo(n: Int): Int       =
-      val product = BigInt(n.toLong) * BigInt(s.toLong)
-      val scale   = BigInt(FixedPointBase.Scale)
-      if product >= 0 then checkedInt(((product + scale - 1) / scale).toLong, "Share.ceilApplyTo")
-      else checkedInt((product / scale).toLong, "Share.ceilApplyTo")
+      try
+        val product = java.lang.Math.multiplyExact(n.toLong, s.toLong)
+        if product >= 0L then checkedInt(java.lang.Math.addExact(product, FixedPointBase.Scale - 1L) / FixedPointBase.Scale, "Share.ceilApplyTo")
+        else checkedInt(product / FixedPointBase.Scale, "Share.ceilApplyTo")
+      catch
+        case _: ArithmeticException =>
+          val product = BigInt(n.toLong) * BigInt(s.toLong)
+          val scale   = BigInt(FixedPointBase.Scale)
+          if product >= 0 then checkedInt(((product + scale - 1) / scale).toLong, "Share.ceilApplyTo")
+          else checkedInt((product / scale).toLong, "Share.ceilApplyTo")
+    @targetName("shareFloorApplyToInt")
+    def floorApplyTo(n: Int): Int      =
+      try
+        val product   = java.lang.Math.multiplyExact(n.toLong, s.toLong)
+        val quotient  = product / FixedPointBase.Scale
+        val remainder = product % FixedPointBase.Scale
+        val floored   = if product < 0L && remainder != 0L then quotient - 1L else quotient
+        checkedInt(floored, "Share.floorApplyTo")
+      catch
+        case _: ArithmeticException =>
+          val product   = BigInt(n.toLong) * BigInt(s.toLong)
+          val scale     = BigInt(FixedPointBase.Scale)
+          val quotient  = product / scale
+          val remainder = product % scale
+          val floored   = if product < 0 && remainder != 0 then quotient - 1 else quotient
+          checkedInt(floored.toLong, "Share.floorApplyTo")
     @targetName("shareToScalar")
     def toScalar: Scalar               = Scalar.fromRaw(s.toLong)
     @targetName("shareToComplement")
@@ -150,15 +168,15 @@ object types:
 
   extension (s: Scalar)
     @targetName("scalarTimesPln")
-    def *(p: PLN): PLN                 = PLN.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(p.toLong)))
+    def *(p: PLN): PLN                 = PLN.fromRaw(FixedPointBase.multiplyRaw(s.toLong, p.toLong))
     @targetName("scalarTimesRate")
-    def *(r: Rate): Rate               = Rate.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(r.toLong)))
+    def *(r: Rate): Rate               = Rate.fromRaw(FixedPointBase.multiplyRaw(s.toLong, r.toLong))
     @targetName("scalarTimesShare")
-    def *(sh: Share): Share            = Share.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(sh.toLong)))
+    def *(sh: Share): Share            = Share.fromRaw(FixedPointBase.multiplyRaw(s.toLong, sh.toLong))
     @targetName("scalarTimesMultiplier")
-    def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): Multiplier   = Multiplier.fromRaw(FixedPointBase.multiplyRaw(s.toLong, m.toLong))
     @targetName("scalarTimesCoefficient")
-    def *(c: Coefficient): Coefficient = Coefficient.fromRaw(bankerRound(BigInt(s.toLong) * BigInt(c.toLong)))
+    def *(c: Coefficient): Coefficient = Coefficient.fromRaw(FixedPointBase.multiplyRaw(s.toLong, c.toLong))
     @targetName("scalarToShare")
     def toShare: Share                 = Share.fromRaw(s.toLong)
     @targetName("scalarToRate")
@@ -169,13 +187,19 @@ object types:
     def toCoefficient: Coefficient     = Coefficient.fromRaw(s.toLong)
     @targetName("scalarClampToShare")
     def clampToShare: Share            = Share.fromRaw(scala.math.max(Share.Zero.toLong, scala.math.min(Share.One.toLong, s.toLong)))
+    @targetName("scalarCeilToInt")
+    def ceilToInt: Int                 =
+      if s.toLong <= 0L then 0
+      else if s.toLong > Long.MaxValue - (FixedPointBase.Scale - 1L) then
+        checkedInt(((BigInt(s.toLong) + BigInt(FixedPointBase.Scale - 1L)) / BigInt(FixedPointBase.Scale)).toLong, "Scalar.ceilToInt")
+      else checkedInt((s.toLong + FixedPointBase.Scale - 1L) / FixedPointBase.Scale, "Scalar.ceilToInt")
 
   // --- Multiplier × typed ---
   extension (m: Multiplier)
     @targetName("multTimesShare")
-    def *(s: Share): Multiplier            = Multiplier.fromRaw(bankerRound(BigInt(m.toLong) * BigInt(s.toLong)))
+    def *(s: Share): Multiplier            = Multiplier.fromRaw(FixedPointBase.multiplyRaw(m.toLong, s.toLong))
     @targetName("multTimesPln")
-    def *(p: PLN): PLN                     = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(m.toLong)))
+    def *(p: PLN): PLN                     = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, m.toLong))
     @targetName("multRatio")
     def ratioTo(other: Multiplier): Scalar = Scalar.fromRaw(scaledDiv(m.toLong, other.toLong))
     @targetName("multToRate")
@@ -193,16 +217,16 @@ object types:
     @targetName("multDivideByInt")
     def divideBy(n: Int): Multiplier       = Multiplier.fromRaw(FixedPointBase.divideRaw(m.toLong, n.toLong))
     @targetName("multApplyToCount")
-    def applyTo(n: Int): Int               = checkedInt(bankerRound(BigInt(n.toLong) * BigInt(m.toLong)), "Multiplier.applyTo")
+    def applyTo(n: Int): Int               = checkedInt(FixedPointBase.multiplyRaw(n.toLong, m.toLong), "Multiplier.applyTo")
 
   // --- Coefficient × typed ---
   extension (c: Coefficient)
     @targetName("coefTimesShare")
-    def *(s: Share): Coefficient                             = Coefficient.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(s.toLong)))
+    def *(s: Share): Coefficient                             = Coefficient.fromRaw(FixedPointBase.multiplyRaw(c.toLong, s.toLong))
     @targetName("coefTimesMultiplier")
-    def *(m: Multiplier): Share                              = Share.fromRaw(bankerRound(BigInt(c.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): Share                              = Share.fromRaw(FixedPointBase.multiplyRaw(c.toLong, m.toLong))
     @targetName("coefTimesPln")
-    def *(p: PLN): PLN                                       = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(c.toLong)))
+    def *(p: PLN): PLN                                       = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, c.toLong))
     @targetName("coefToShare")
     def toShare: Share                                       = Share.fromRaw(c.toLong)
     @targetName("coefToMultiplier")
@@ -225,19 +249,19 @@ object types:
   // --- PriceIndex × typed ---
   extension (pi: PriceIndex)
     @targetName("priceIdxTimesRate")
-    def *(r: Rate): PriceIndex                       = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(r.toLong)))
+    def *(r: Rate): PriceIndex                       = PriceIndex.fromRaw(FixedPointBase.multiplyRaw(pi.toLong, r.toLong))
     @targetName("priceIdxDivRate")
     def /(r: Rate): PriceIndex                       = PriceIndex.fromRaw(scaledDiv(pi.toLong, r.toLong))
     @targetName("priceIdxTimesMultiplier")
-    def *(m: Multiplier): PriceIndex                 = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(m.toLong)))
+    def *(m: Multiplier): PriceIndex                 = PriceIndex.fromRaw(FixedPointBase.multiplyRaw(pi.toLong, m.toLong))
     @targetName("priceIdxTimesPln")
-    def *(p: PLN): PLN                               = PLN.fromRaw(bankerRound(BigInt(p.toLong) * BigInt(pi.toLong)))
+    def *(p: PLN): PLN                               = PLN.fromRaw(FixedPointBase.multiplyRaw(p.toLong, pi.toLong))
     @targetName("priceIdxToMultiplier")
     def toMultiplier: Multiplier                     = Multiplier.fromRaw(pi.toLong)
     @targetName("priceIdxRatioToPriceIdx")
     def ratioTo(other: PriceIndex): Scalar           = Scalar.fromRaw(scaledDiv(pi.toLong, other.toLong))
     @targetName("priceIdxApplyGrowth")
-    def applyGrowth(growth: Coefficient): PriceIndex = PriceIndex.fromRaw(bankerRound(BigInt(pi.toLong) * BigInt(FixedPointBase.Scale + growth.toLong)))
+    def applyGrowth(growth: Coefficient): PriceIndex = PriceIndex.fromRaw(FixedPointBase.multiplyRaw(pi.toLong, FixedPointBase.Scale + growth.toLong))
 
   extension (s: Sigma)
     @targetName("sigmaToScalar")
@@ -253,7 +277,7 @@ object types:
     def ratioTo(base: ExchangeRate): Multiplier              = Multiplier.fromRaw(scaledDiv(rate.toLong, base.toLong))
     @targetName("exchangeRateApplyShock")
     def applyShock(shock: ExchangeRateShock): ExchangeRate   =
-      ExchangeRate.fromRaw(bankerRound(BigInt(rate.toLong) * BigInt(FixedPointBase.Scale + shock.toLong)))
+      ExchangeRate.fromRaw(FixedPointBase.multiplyRaw(rate.toLong, FixedPointBase.Scale + shock.toLong))
 
   extension (shock: ExchangeRateShock)
     @targetName("exchangeRateShockToScalar")
@@ -273,7 +297,13 @@ object types:
       else Share.fromRaw(rng.between(lo.toLong, hi.toLong))
 
     def withGaussianNoise(base: Share, stddev: Share, rng: RandomStream): Share =
-      val raw        = base.toLong + scala.math.round(rng.nextGaussian() * stddev.toLong)
+      var sum        = 0L
+      var i          = 0
+      while i < 12 do
+        sum += Share.random(rng).toLong
+        i += 1
+      val noiseRaw   = FixedPointBase.multiplyRaw(sum - 6L * FixedPointBase.Scale, stddev.toLong)
+      val raw        = base.toLong + noiseRaw
       val clampedRaw = scala.math.max(Share.Zero.toLong, scala.math.min(Share.One.toLong, raw))
       Share.fromRaw(clampedRaw)
 

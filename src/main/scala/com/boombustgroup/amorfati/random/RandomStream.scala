@@ -31,19 +31,10 @@ object RandomStream:
     def nextLong(boundExclusive: Long): Long =
       stream.nextLong(boundExclusive)
 
-    def nextDouble(): Double =
-      stream.nextDouble()
-
-    def nextGaussian(): Double =
-      stream.nextGaussian()
-
     def between(minInclusive: Int, maxExclusive: Int): Int =
       stream.between(minInclusive, maxExclusive)
 
     def between(minInclusive: Long, maxExclusive: Long): Long =
-      stream.between(minInclusive, maxExclusive)
-
-    def between(minInclusive: Double, maxExclusive: Double): Double =
       stream.between(minInclusive, maxExclusive)
 
     def shuffle[A](values: Seq[A]): Vector[A] =

@@ -98,8 +98,7 @@ object IntermediateMarket:
         members.indices.foreach: pos =>
           cashAdj(members(pos)) += PLN.fromRaw(allocations(pos))
 
-    // Verify zero-sum (within floating-point tolerance)
-    val totalAdj = cashAdj.sum
+    val totalAdj = cashAdj.toVector.sumPln
     if totalAdj.abs > PLN.fromLong(1) then System.err.println("[IO] WARNING: non-zero-sum cash adjustment exceeded 1 PLN tolerance")
 
     Result(in.firms, sectorCosts.foldLeft(PLN.Zero)(_ + _), cashAdj.toVector)

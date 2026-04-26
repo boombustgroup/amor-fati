@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
-import org.scalacheck.Gen
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -15,14 +15,14 @@ class PublicSectorPropertySpec extends AnyFlatSpec with Matchers with ScalaCheck
     PropertyCheckConfiguration(minSuccessful = 200)
 
   "PPK bond purchase" should "be non-negative" in
-    forAll(Gen.choose(0.0, 1e8)) { contributions =>
-      val ppk = SocialSecurity.PpkState(PLN(contributions))
+    forAll(genDecimal("0.0", "1e8")) { contributions =>
+      val ppk = SocialSecurity.PpkState(plnBD(contributions))
       SocialSecurity.ppkBondPurchase(ppk) should be >= PLN.Zero
     }
 
   "FUS balance identity" should "hold: ΔfusBalance = contributions - pensions" in
-    forAll(Gen.choose(-1e10, 1e10), Gen.choose(0.0, 1e9), Gen.choose(0.0, 1e9)) { (prevBal, contributions, pensions) =>
+    forAll(genDecimal("-1e10", "1e10"), genDecimal("0.0", "1e9"), genDecimal("0.0", "1e9")) { (prevBal, contributions, pensions) =>
       val expectedChange = contributions - pensions
       val newBal         = prevBal + expectedChange
-      (newBal - prevBal) shouldBe (expectedChange +- 0.01)
+      (newBal - prevBal) shouldBe (expectedChange +- BigDecimal("0.01"))
     }

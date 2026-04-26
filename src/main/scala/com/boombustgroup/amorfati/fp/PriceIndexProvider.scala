@@ -8,22 +8,27 @@ object PriceIndexProvider:
   opaque type PriceIndex = Long
 
   object PriceIndex:
-    val Zero: PriceIndex               = 0L
-    val Base: PriceIndex               = Scale
-    def apply(d: Double): PriceIndex   = Math.round(d * Scale)
-    def fromRaw(raw: Long): PriceIndex = raw
+    val Zero: PriceIndex                                           = 0L
+    val Base: PriceIndex                                           = Scale
+    def apply(value: Int): PriceIndex                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): PriceIndex                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): PriceIndex =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fromRaw(raw: Long): PriceIndex                             = raw
 
   extension (p: PriceIndex)
-    inline def toLong: Long                = p
-    def +(other: PriceIndex): PriceIndex   = p + other
-    def -(other: PriceIndex): PriceIndex   = p - other
-    def *(other: PriceIndex): PriceIndex   = bankerRound(BigInt(p) * BigInt(other))
-    def /(other: PriceIndex): Scalar       = if other != 0L then Scalar.fromRaw(divideRaw(p, other)) else Scalar.Zero
-    def max(other: PriceIndex): PriceIndex = math.max(p, other)
-    def min(other: PriceIndex): PriceIndex = math.min(p, other)
-    def >(other: PriceIndex): Boolean      = p > other
-    def <(other: PriceIndex): Boolean      = p < other
-    def >=(other: PriceIndex): Boolean     = p >= other
-    def <=(other: PriceIndex): Boolean     = p <= other
+    inline def toLong: Long                   = p
+    def +(other: PriceIndex): PriceIndex      = p + other
+    def -(other: PriceIndex): PriceIndex      = p - other
+    def *(other: PriceIndex): PriceIndex      = multiplyRaw(p, other)
+    def /(other: PriceIndex): Scalar          = Scalar.fromRaw(ratioRaw(p, other))
+    def max(other: PriceIndex): PriceIndex    = math.max(p, other)
+    def min(other: PriceIndex): PriceIndex    = math.min(p, other)
+    def format(fractionalDigits: Int): String = FixedPointBase.format(p, fractionalDigits)
+    def compact: String                       = FixedPointBase.formatCompact(p)
+    def >(other: PriceIndex): Boolean         = p > other
+    def <(other: PriceIndex): Boolean         = p < other
+    def >=(other: PriceIndex): Boolean        = p >= other
+    def <=(other: PriceIndex): Boolean        = p <= other
 
   given Ordering[PriceIndex] = Ordering.Long

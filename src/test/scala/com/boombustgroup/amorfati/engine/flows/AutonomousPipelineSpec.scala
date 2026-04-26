@@ -1,9 +1,9 @@
 package com.boombustgroup.amorfati.engine.flows
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.tags.Heavy
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,7 +17,6 @@ import org.scalatest.matchers.should.Matchers
 class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
-  private val td             = ComputationBoundary
 
   "FlowSimulation (autonomous)" should "run 12 months with SFC == 0L" in {
     val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
@@ -37,12 +36,12 @@ class AutonomousPipelineSpec extends AnyFlatSpec with Matchers:
   it should "produce evolving economy (GDP changes)" in {
     val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     var state = FlowSimulation.SimState.fromInit(init)
-    val gdps  = scala.collection.mutable.ArrayBuffer[Double]()
+    val gdps  = scala.collection.mutable.ArrayBuffer[BigDecimal]()
 
     (1 to 12).foreach { month =>
       val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
       state = result.nextState
-      gdps += td.toDouble(state.world.cachedMonthlyGdpProxy)
+      gdps += decimal(state.world.cachedMonthlyGdpProxy)
     }
 
     gdps.last should not be gdps.head

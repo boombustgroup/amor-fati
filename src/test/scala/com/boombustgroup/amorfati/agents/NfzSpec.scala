@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.agents
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
@@ -9,9 +10,8 @@ class NfzSpec extends AnyFlatSpec with Matchers:
 
   given SimParams          = SimParams.defaults
   private val p: SimParams = summon[SimParams]
-  private val td           = ComputationBoundary
 
-  private val wage     = PLN(8000.0)
+  private val wage     = PLN(8000)
   private val employed = 80000
 
   "nfzStep" should "compute contributions as wage × employed × 9%" in {
@@ -35,7 +35,7 @@ class NfzSpec extends AnyFlatSpec with Matchers:
 
   it should "produce zero govSubvention when in surplus" in {
     // High employment + high wage + few retirees → surplus
-    val result = SocialSecurity.nfzStep(100000, PLN(20000.0), 100000, 100)
+    val result = SocialSecurity.nfzStep(100000, PLN(20000), 100000, 100)
     result.contributions should be > result.spending
     result.govSubvention shouldBe PLN.Zero
   }
@@ -60,5 +60,5 @@ class NfzSpec extends AnyFlatSpec with Matchers:
     val workingOnly = SocialSecurity.nfzStep(employed, wage, 10000, 0)
     val retiredOnly = SocialSecurity.nfzStep(employed, wage, 0, 10000)
     val ratio       = retiredOnly.spending / workingOnly.spending
-    ratio shouldBe td.toDouble(p.social.nfzAgingElasticity) +- 0.01
+    decimal(ratio) shouldBe decimal(p.social.nfzAgingElasticity) +- BigDecimal("0.01")
   }

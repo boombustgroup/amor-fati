@@ -1,5 +1,6 @@
 package com.boombustgroup.amorfati.accounting
 
+import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.config.SimParams
@@ -9,10 +10,8 @@ class BopSfcSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private val td = ComputationBoundary
-
-  private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): Double =
-    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => td.toDouble(e.actual - e.expected)).getOrElse(0.0)
+  private def errorDelta(result: Either[Vector[Sfc.SfcIdentityError], Unit], id: Sfc.SfcIdentity): BigDecimal =
+    result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => decimal(e.actual - e.expected)).getOrElse(BigDecimal(0))
 
   private def zeroSnap: Sfc.StockState = Sfc.StockState(
     hhSavings = PLN.Zero,
@@ -132,48 +131,48 @@ class BopSfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "pass when NFA change matches CA + valuation" in {
-    val ca        = PLN(50000.0)
-    val valuation = PLN(3000.0)
-    val prev      = baseSnap.copy(nfa = PLN(100000.0))
-    val curr      = baseSnap.copy(nfa = PLN(100000.0) + ca + valuation)
+    val ca        = PLN(50000)
+    val valuation = PLN(3000)
+    val prev      = baseSnap.copy(nfa = PLN(100000))
+    val curr      = baseSnap.copy(nfa = PLN(100000) + ca + valuation)
     val flows     = zeroFlows.copy(currentAccount = ca, valuationEffect = valuation)
     val result    = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "detect error when NFA doesn't match CA + valuation" in {
-    val prev   = baseSnap.copy(nfa = PLN(100000.0))
+    val prev   = baseSnap.copy(nfa = PLN(100000))
     // Bug: NFA unchanged despite positive CA
-    val curr   = baseSnap.copy(nfa = PLN(100000.0))
-    val flows  = zeroFlows.copy(currentAccount = PLN(25000.0), valuationEffect = PLN(0.0))
+    val curr   = baseSnap.copy(nfa = PLN(100000))
+    val flows  = zeroFlows.copy(currentAccount = PLN(25000), valuationEffect = PLN(0))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
-    errorDelta(result, Sfc.SfcIdentity.Nfa) shouldBe -25000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.Nfa) shouldBe BigDecimal("-25000.0") +- BigDecimal("0.01")
   }
 
   it should "handle negative NFA changes (capital outflow)" in {
-    val prev   = baseSnap.copy(nfa = PLN(100000.0))
-    val curr   = baseSnap.copy(nfa = PLN(70000.0))
-    val flows  = zeroFlows.copy(currentAccount = PLN(-30000.0), valuationEffect = PLN(0.0))
+    val prev   = baseSnap.copy(nfa = PLN(100000))
+    val curr   = baseSnap.copy(nfa = PLN(70000))
+    val flows  = zeroFlows.copy(currentAccount = PLN(-30000), valuationEffect = PLN(0))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "include valuation effects in NFA check" in {
-    val prev   = baseSnap.copy(nfa = PLN(100000.0))
+    val prev   = baseSnap.copy(nfa = PLN(100000))
     // CA=-10000, valuation=+15000 → expected ΔNFA = +5000
-    val curr   = baseSnap.copy(nfa = PLN(105000.0))
-    val flows  = zeroFlows.copy(currentAccount = PLN(-10000.0), valuationEffect = PLN(15000.0))
+    val curr   = baseSnap.copy(nfa = PLN(105000))
+    val flows  = zeroFlows.copy(currentAccount = PLN(-10000), valuationEffect = PLN(15000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe Right(())
   }
 
   it should "fail 4th identity without breaking other 3 identities" in {
-    val prev   = baseSnap.copy(nfa = PLN(100000.0))
+    val prev   = baseSnap.copy(nfa = PLN(100000))
     // NFA jumps by 50000 but CA+valuation = 0 → error on identity 4 only
-    val curr   = baseSnap.copy(nfa = PLN(150000.0))
+    val curr   = baseSnap.copy(nfa = PLN(150000))
     val result = Sfc.validateStockExactness(prev, curr, zeroFlows)
     result shouldBe a[Left[?, ?]]
     result.swap.getOrElse(Vector.empty).map(_.identity) should contain only Sfc.SfcIdentity.Nfa
-    errorDelta(result, Sfc.SfcIdentity.Nfa) shouldBe 50000.0 +- 0.01
+    errorDelta(result, Sfc.SfcIdentity.Nfa) shouldBe BigDecimal("50000.0") +- BigDecimal("0.01")
   }

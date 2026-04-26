@@ -10,31 +10,31 @@ class SignalExtractionSpec extends AnyFlatSpec with Matchers:
     val result = SignalExtraction.compute(
       SignalExtraction.Input(
         labor = SignalExtraction.LaborOutcomes(
-          unemploymentRate = Share(0.18),
-          laggedHiringSlack = Share(0.72),
-          startupAbsorptionRate = Share(0.41),
+          unemploymentRate = Share.decimal(18, 2),
+          laggedHiringSlack = Share.decimal(72, 2),
+          startupAbsorptionRate = Share.decimal(41, 2),
         ),
         nominal = SignalExtraction.NominalOutcomes(
-          inflation = Rate(0.03),
-          expectedInflation = Rate(0.025),
+          inflation = Rate.decimal(3, 2),
+          expectedInflation = Rate.decimal(25, 3),
         ),
         demand = SignalExtraction.DemandOutcomes(
-          sectorDemandMult = Vector(Multiplier(1.1), Multiplier(0.9)),
-          sectorDemandPressure = Vector(Multiplier(1.3), Multiplier(0.95)),
-          sectorHiringSignal = Vector(Multiplier(1.2), Multiplier(0.98)),
+          sectorDemandMult = Vector(Multiplier.decimal(11, 1), Multiplier.decimal(9, 1)),
+          sectorDemandPressure = Vector(Multiplier.decimal(13, 1), Multiplier.decimal(95, 2)),
+          sectorHiringSignal = Vector(Multiplier.decimal(12, 1), Multiplier.decimal(98, 2)),
         ),
       ),
     )
 
     result.seedOut shouldBe DecisionSignals(
-      unemploymentRate = Share(0.18),
-      inflation = Rate(0.03),
-      expectedInflation = Rate(0.025),
-      laggedHiringSlack = Share(0.72),
-      startupAbsorptionRate = Share(0.41),
-      sectorDemandMult = Vector(Multiplier(1.1), Multiplier(0.9)),
-      sectorDemandPressure = Vector(Multiplier(1.3), Multiplier(0.95)),
-      sectorHiringSignal = Vector(Multiplier(1.2), Multiplier(0.98)),
+      unemploymentRate = Share.decimal(18, 2),
+      inflation = Rate.decimal(3, 2),
+      expectedInflation = Rate.decimal(25, 3),
+      laggedHiringSlack = Share.decimal(72, 2),
+      startupAbsorptionRate = Share.decimal(41, 2),
+      sectorDemandMult = Vector(Multiplier.decimal(11, 1), Multiplier.decimal(9, 1)),
+      sectorDemandPressure = Vector(Multiplier.decimal(13, 1), Multiplier.decimal(95, 2)),
+      sectorHiringSignal = Vector(Multiplier.decimal(12, 1), Multiplier.decimal(98, 2)),
     )
   }
 
@@ -42,18 +42,18 @@ class SignalExtractionSpec extends AnyFlatSpec with Matchers:
     val result = SignalExtraction.compute(
       SignalExtraction.Input(
         labor = SignalExtraction.LaborOutcomes(
-          unemploymentRate = Share(0.11),
-          laggedHiringSlack = Share(0.66),
-          startupAbsorptionRate = Share(0.55),
+          unemploymentRate = Share.decimal(11, 2),
+          laggedHiringSlack = Share.decimal(66, 2),
+          startupAbsorptionRate = Share.decimal(55, 2),
         ),
         nominal = SignalExtraction.NominalOutcomes(
-          inflation = Rate(-0.01),
-          expectedInflation = Rate(0.02),
+          inflation = Rate.decimal(-1, 2),
+          expectedInflation = Rate.decimal(2, 2),
         ),
         demand = SignalExtraction.DemandOutcomes(
           sectorDemandMult = Vector(Multiplier.One),
-          sectorDemandPressure = Vector(Multiplier(1.15)),
-          sectorHiringSignal = Vector(Multiplier(1.08)),
+          sectorDemandPressure = Vector(Multiplier.decimal(115, 2)),
+          sectorHiringSignal = Vector(Multiplier.decimal(108, 2)),
         ),
       ),
     )
@@ -66,7 +66,7 @@ class SignalExtractionSpec extends AnyFlatSpec with Matchers:
     result.provenance.sectorDemandMult.stage shouldBe MonthTraceStage.DemandEconomics
     result.provenance.sectorDemandPressure.stage shouldBe MonthTraceStage.DemandEconomics
     result.provenance.sectorHiringSignal.stage shouldBe MonthTraceStage.DemandEconomics
-    result.provenance.startupAbsorptionRate.value shouldBe Share(0.55)
+    result.provenance.startupAbsorptionRate.value shouldBe Share.decimal(55, 2)
     result.provenance.startupAbsorptionRate.source shouldBe "WorldAssemblyEconomics.applyStartupStaffing.startupAbsorptionRate"
     result.provenance.sectorDemandPressure.source shouldBe "s4.sectorDemandPressure"
     result.provenance.sectorHiringSignal.source shouldBe "s4.sectorHiringSignal"

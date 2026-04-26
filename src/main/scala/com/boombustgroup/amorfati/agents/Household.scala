@@ -9,7 +9,7 @@ import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.amorfati.util.Distributions
 
-import com.boombustgroup.amorfati.fp.FixedPointBase.bankerRound
+import com.boombustgroup.amorfati.fp.FixedPointBase
 
 // ---- Top-level types (widely referenced, kept flat) ----
 
@@ -53,7 +53,7 @@ object Household:
   private inline def scaledDivRaw(numerator: BigInt, denominator: BigInt): Long =
     if denominator == 0 then 0L
     else
-      val scaled         = numerator * BigInt(com.boombustgroup.amorfati.fp.FixedPointBase.Scale)
+      val scaled         = numerator * BigInt(FixedPointBase.Scale)
       val quotient       = scaled / denominator
       val remainder      = (scaled % denominator).abs
       val denominatorAbs = denominator.abs
@@ -68,34 +68,34 @@ object Household:
   // ---- Named constants ----
 
   // MPC sampling bounds (Beta distribution, NBP household survey)
-  private val MpcFloor   = Share(0.5)
-  private val MpcCeiling = Share(0.98)
+  private val MpcFloor   = Share.decimal(5, 1)
+  private val MpcCeiling = Share.decimal(98, 2)
 
   // Social network precautionary saving
-  private val NeighborDistressThreshold    = Share(0.30) // fraction of neighbors in distress that triggers adj
-  private val NeighborDistressConsAdj      = Share(0.90) // consumption multiplier when distress exceeds threshold
-  private val NeighborDistressRetrainBoost = Share(0.05) // additional retraining prob when neighbors distressed
+  private val NeighborDistressThreshold    = Share.decimal(30, 2) // fraction of neighbors in distress that triggers adj
+  private val NeighborDistressConsAdj      = Share.decimal(90, 2) // consumption multiplier when distress exceeds threshold
+  private val NeighborDistressRetrainBoost = Share.decimal(5, 2)  // additional retraining prob when neighbors distressed
 
   // Labor market
   private val UnemploymentRetrainingThreshold = 6 // months unemployed before eligible for retraining
   private val PostFailedRetrainingMonths      = 7 // months assigned after failed retraining (duration + 1)
 
   // Consumer credit
-  private val DisposableWageThreshold = Share(0.3) // disposable/wage ratio below which HH may borrow
-  private val MinConsumerLoanSize     = PLN(100.0) // minimum loan size (PLN)
-  private val ConsumerDebtInitFrac    = Share(0.3) // init consumer debt as fraction of mortgage draw
+  private val DisposableWageThreshold = Share.decimal(3, 1) // disposable/wage ratio below which HH may borrow
+  private val MinConsumerLoanSize     = PLN(100)            // minimum loan size (PLN)
+  private val ConsumerDebtInitFrac    = Share.decimal(3, 1) // init consumer debt as fraction of mortgage draw
 
   // Init sampling
-  private val GpwEquityInitFrac     = Share(0.05)  // fraction of savings allocated to GPW equity at init
-  private val SectorSkillBonusCoeff = Scalar(0.02) // coefficient for sector-specific skill bonus (log sigma)
-  private val SectorSkillBonusMax   = Scalar(0.1)  // maximum sector-specific skill bonus
+  private val GpwEquityInitFrac     = Share.decimal(5, 2)  // fraction of savings allocated to GPW equity at init
+  private val SectorSkillBonusCoeff = Scalar.decimal(2, 2) // coefficient for sector-specific skill bonus (log sigma)
+  private val SectorSkillBonusMax   = Scalar.decimal(1, 1) // maximum sector-specific skill bonus
 
   // Aggregates
-  private val ImportRatioCap   = Share(0.65) // cap on import ratio applied to goods consumption
-  private val PovertyRate50Pct = Share(0.50) // poverty line at 50% of median income (EU AROP)
-  private val PovertyRate30Pct = Share(0.30) // poverty line at 30% of median income (deep poverty)
-  private val ConsumptionP10   = Share(0.10) // P10 percentile index
-  private val ConsumptionP90   = Share(0.90) // P90 percentile index
+  private val ImportRatioCap   = Share.decimal(65, 2) // cap on import ratio applied to goods consumption
+  private val PovertyRate50Pct = Share.decimal(50, 2) // poverty line at 50% of median income (EU AROP)
+  private val PovertyRate30Pct = Share.decimal(30, 2) // poverty line at 30% of median income (deep poverty)
+  private val ConsumptionP10   = Share.decimal(10, 2) // P10 percentile index
+  private val ConsumptionP90   = Share.decimal(90, 2) // P90 percentile index
 
   // ---- Individual household ----
 
@@ -257,19 +257,18 @@ object Household:
         socialNetwork: Array[Array[Int]],
         rng: RandomStream,
     )(using p: SimParams): SampledHousehold =
-      import ComputationBoundary.toDouble
-      val savings: PLN  = Distributions.lognormalPln(toDouble(p.household.savingsMu), toDouble(p.household.savingsSigma), rng)
+      val savings: PLN  = Distributions.lognormalPln(p.household.savingsMu, p.household.savingsSigma, rng)
       val hasDebt       = p.household.debtFraction.sampleBelow(rng)
-      val debt: PLN     = if hasDebt then Distributions.lognormalPln(toDouble(p.household.debtMu), toDouble(p.household.debtSigma), rng) else PLN.Zero
+      val debt: PLN     = if hasDebt then Distributions.lognormalPln(p.household.debtMu, p.household.debtSigma, rng) else PLN.Zero
       val baseRent: PLN = Distributions.gaussianPlnAtLeast(p.household.rentMean, p.household.rentStd, p.household.rentFloor, rng)
       val rent: PLN     = baseRent * firm.region.housingCostIndex
-      val mpc           = Distributions.betaSample(toDouble(p.household.mpcAlpha), toDouble(p.household.mpcBeta), rng)
+      val mpc           = Distributions.betaSample(p.household.mpcAlpha, p.household.mpcBeta, rng)
       val (edu, skill)  = sampleEducationAndSkill(sectorIdx, rng)
       val wage: PLN     = p.household.baseWage * Region.normalizedWageMultiplier(firm.region) * p.sectorDefs(sectorIdx.toInt).wageMultiplier * skill
       val eqWealth: PLN = if p.equity.hhEquityFrac.sampleBelow(rng) then savings * GpwEquityInitFrac else PLN.Zero
-      val numChildren   = Distributions.poissonSample(toDouble(p.fiscal.social800ChildrenPerHh), rng)
+      val numChildren   = Distributions.poissonSample(p.fiscal.social800ChildrenPerHh, rng)
       val consDebt: PLN =
-        if hasDebt then Distributions.lognormalPln(toDouble(p.household.debtMu), toDouble(p.household.debtSigma), rng) * ConsumerDebtInitFrac else PLN.Zero
+        if hasDebt then Distributions.lognormalPln(p.household.debtMu, p.household.debtSigma, rng) * ConsumerDebtInitFrac else PLN.Zero
       val routineness   = sampleTaskRoutineness(edu, sectorIdx, rng)
 
       SampledHousehold(
@@ -278,7 +277,7 @@ object Household:
           monthlyRent = rent,
           skill = skill,
           healthPenalty = Share.Zero,
-          mpc = Share(mpc).clamp(MpcFloor, MpcCeiling),
+          mpc = mpc.clamp(MpcFloor, MpcCeiling),
           status = HhStatus.Employed(firm.id, sectorIdx, wage),
           socialNeighbors = if hhId < socialNetwork.length then socialNetwork(hhId).map(HhId(_)) else Array.empty[HhId],
           bankId = BankId(0),
@@ -318,9 +317,9 @@ object Household:
       */
     private[agents] def sampleTaskRoutineness(edu: Int, sectorIdx: SectorIdx, rng: RandomStream)(using p: SimParams): Share =
       val eduBase  = p.labor.sbtcEduRoutineness(edu)
-      val sigmaAdj = (Scalar(0.05) * p.sectorDefs(sectorIdx.toInt).sigma.toScalar.log10).toShare
-      val noise    = Scalar.randomBetween(Scalar(-0.025), Scalar(0.025), rng).toShare
-      (eduBase + sigmaAdj + noise).clamp(Share(0.05), Share(0.95))
+      val sigmaAdj = (Scalar.decimal(5, 2) * p.sectorDefs(sectorIdx.toInt).sigma.toScalar.log10).toShare
+      val noise    = Scalar.randomBetween(Scalar.decimal(-25, 3), Scalar.decimal(25, 3), rng).toShare
+      (eduBase + sigmaAdj + noise).clamp(Share.decimal(5, 2), Share.decimal(95, 2))
 
   // ---- Step flow totals (immutable, folded from per-HH results) ----
 
@@ -439,7 +438,7 @@ object Household:
     if monthlyIncome <= PLN.Zero then PLN.Zero
     else
       val afterZus   = monthlyIncome - monthlyIncome * p.social.zusEmployeeRate
-      val annualized = afterZus * Multiplier(12.0)
+      val annualized = afterZus * Multiplier(12)
       val grossTax   =
         if annualized <= p.fiscal.pitBracket1Annual then annualized * p.fiscal.pitRate1
         else
@@ -550,7 +549,7 @@ object Household:
         if !eligible then PLN.Zero
         else
           val totalDbtSvc   = debtService + consumerDebtSvc
-          val existingDti   = if income > PLN.Zero then Share(totalDbtSvc / income) else Share.One
+          val existingDti   = if income > PLN.Zero then (totalDbtSvc / income).toShare else Share.One
           val headroomShare = (p.household.ccMaxDti - existingDti).max(Share.Zero)
           val headroom      = income * headroomShare
           val desired       = headroom.min(p.household.ccMaxLoan)
@@ -972,8 +971,9 @@ object Household:
     var nUnemployed  = 0
     var nRetraining  = 0
     var nBankrupt    = 0
-    var sumSkill     = BigInt(0)
-    var sumHealth    = BigInt(0)
+    var sumSkill     = 0L
+    var sumHealth    = 0L
+    var sumSavings   = 0L
     val incomes      = new Array[Long](n)
     val consumptions = new Array[Long](n)
     val savingsArr   = new Array[Long](n)
@@ -988,18 +988,18 @@ object Household:
         case HhStatus.Employed(_, _, wage) =>
           nEmployed += 1
           incomes(i) = wage.toLong
-          sumSkill += BigInt(hh.skill.toLong)
-          sumHealth += BigInt(hh.healthPenalty.toLong)
+          sumSkill += hh.skill.toLong
+          sumHealth += hh.healthPenalty.toLong
         case HhStatus.Unemployed(months)   =>
           nUnemployed += 1
           incomes(i) = computeBenefit(months).toLong
-          sumSkill += BigInt(hh.skill.toLong)
-          sumHealth += BigInt(hh.healthPenalty.toLong)
+          sumSkill += hh.skill.toLong
+          sumHealth += hh.healthPenalty.toLong
         case HhStatus.Retraining(_, _, _)  =>
           nRetraining += 1
           incomes(i) = 0L
-          sumSkill += BigInt(hh.skill.toLong)
-          sumHealth += BigInt(hh.healthPenalty.toLong)
+          sumSkill += hh.skill.toLong
+          sumHealth += hh.healthPenalty.toLong
         case HhStatus.Bankrupt             =>
           nBankrupt += 1
           incomes(i) = 0L
@@ -1007,8 +1007,9 @@ object Household:
       val rentRaw       = hh.monthlyRent.toLong
       val debtSvcRaw    = (stocks.mortgageLoan * p.household.debtServiceRate).toLong
       val disposableRaw = math.max(0L, incomes(i) - rentRaw - debtSvcRaw)
-      consumptions(i) = bankerRound(BigInt(disposableRaw) * BigInt(hh.mpc.toLong))
+      consumptions(i) = FixedPointBase.multiplyRaw(disposableRaw, hh.mpc.toLong)
       savingsArr(i) = stocks.demandDeposit.toLong
+      sumSavings += savingsArr(i)
       i += 1
 
     val nAlive = n - nBankrupt
@@ -1038,13 +1039,13 @@ object Household:
       reservationWage = reservationWage,
       giniIndividual = giniSorted(incomes),
       giniWealth = giniSorted(savingsArr),
-      meanSavings = if n > 0 then PLN.fromRaw((savingsArr.foldLeft(BigInt(0))((acc, raw) => acc + raw) / n).toLong) else PLN.Zero,
+      meanSavings = if n > 0 then PLN.fromRaw(sumSavings / n) else PLN.Zero,
       medianSavings = if n > 0 then PLN.fromRaw(savingsArr(n / 2)) else PLN.Zero,
       povertyRate50 =
         if n > 0 && medianIncomeRaw > 0L then Share.fraction(lowerBound(incomes, (PLN.fromRaw(medianIncomeRaw) * PovertyRate50Pct).toLong), n) else Share.Zero,
       bankruptcyRate = if n > 0 then Share.fraction(nBankrupt, n) else Share.Zero,
-      meanSkill = if nAlive > 0 then Share.fromRaw((sumSkill / nAlive).toLong) else Share.Zero,
-      meanHealthPenalty = if nAlive > 0 then Share.fromRaw((sumHealth / nAlive).toLong) else Share.Zero,
+      meanSkill = if nAlive > 0 then Share.fromRaw(sumSkill / nAlive) else Share.Zero,
+      meanHealthPenalty = if nAlive > 0 then Share.fromRaw(sumHealth / nAlive) else Share.Zero,
       retrainingAttempts = t.retrainingAttempts,
       retrainingSuccesses = t.retrainingSuccesses,
       consumptionP10 =
@@ -1075,17 +1076,39 @@ object Household:
   /** Gini coefficient for a pre-sorted array (handles negatives by shifting).
     */
   def giniSorted(sorted: Array[Long]): Share =
+    try giniSortedLong(sorted)
+    catch case _: ArithmeticException => giniSortedBig(sorted)
+
+  private def giniSortedLong(sorted: Array[Long]): Share =
     val n           = sorted.length
     if n <= 1 then return Share.Zero
     val minVal      = sorted(0)
+    if minVal == Long.MinValue then throw new ArithmeticException("gini shift overflows Long")
     val shift       = if minVal < 0L then -minVal else 0L
+    var total       = 0L
+    var weightedSum = 0L
+    var i           = 0
+    while i < n do
+      val v      = java.lang.Math.addExact(sorted(i), shift)
+      total = java.lang.Math.addExact(total, v)
+      val weight = 2L * (i.toLong + 1L) - n.toLong - 1L
+      weightedSum = java.lang.Math.addExact(weightedSum, java.lang.Math.multiplyExact(weight, v))
+      i += 1
+    if total <= 0L then Share.Zero
+    else Share.fromRaw(FixedPointBase.ratioRaw(weightedSum, java.lang.Math.multiplyExact(n.toLong, total)))
+
+  private def giniSortedBig(sorted: Array[Long]): Share =
+    val n           = sorted.length
+    if n <= 1 then return Share.Zero
+    val minVal      = sorted(0)
+    val shift       = if minVal < 0L then BigInt(minVal).abs else BigInt(0)
     var total       = BigInt(0)
     var weightedSum = BigInt(0)
     var i           = 0
     while i < n do
-      val v = BigInt(sorted(i) + shift)
+      val v = BigInt(sorted(i)) + shift
       total += v
-      weightedSum += BigInt(2 * (i + 1) - n - 1) * v
+      weightedSum += BigInt(2L * (i.toLong + 1L) - n.toLong - 1L) * v
       i += 1
     if total <= 0 then Share.Zero else Share.fromRaw(scaledDivRaw(weightedSum, BigInt(n) * total))
 

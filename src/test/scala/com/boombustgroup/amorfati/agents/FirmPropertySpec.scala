@@ -58,23 +58,23 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   // --- sigmaThreshold properties ---
 
   "Firm.sigmaThreshold" should "be in [0, 1]" in
-    forAll(genSigma) { (sigma: Double) =>
-      val t = Firm.sigmaThreshold(Sigma(sigma))
+    forAll(genSigma) { (sigma: BigDecimal) =>
+      val t = Firm.sigmaThreshold(sigmaBD(sigma))
       t.bd should be >= BigDecimal(0)
       t.bd should be <= BigDecimal("1.0")
     }
 
   it should "be monotonic in sigma" in
-    forAll(genSigma) { (sigma: Double) =>
-      whenever(sigma > 0.1 && sigma < 99.0) {
-        val t1 = Firm.sigmaThreshold(Sigma(sigma)).bd
-        val t2 = Firm.sigmaThreshold(Sigma(sigma * 2)).bd
+    forAll(genSigma) { (sigma: BigDecimal) =>
+      whenever(sigma > BigDecimal("0.1") && sigma < BigDecimal("99.0")) {
+        val t1 = Firm.sigmaThreshold(sigmaBD(sigma)).bd
+        val t2 = Firm.sigmaThreshold(sigmaBD(sigma * 2)).bd
         t2 should be >= t1
       }
     }
 
   it should "be 1.0 for very large sigma" in {
-    Firm.sigmaThreshold(Sigma(1000.0)).bd shouldBe BigDecimal("1.0")
+    Firm.sigmaThreshold(Sigma(1000)).bd shouldBe BigDecimal("1.0")
   }
 
   // --- aiCapex properties ---
@@ -90,8 +90,8 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
     }
 
   "Firm.computeAiCapex" should "scale with innovationCostFactor" in
-    forAll(genAliveFirm, Gen.choose(1.0, 3.0)) { (firm: Firm.State, factor: Double) =>
-      val scaledFactor = Multiplier(factor)
+    forAll(genAliveFirm, genDecimal("1.0", "3.0")) { (firm: Firm.State, factor: BigDecimal) =>
+      val scaledFactor = multiplierBD(factor)
       val f1           = firm.copy(innovationCostFactor = Multiplier.One)
       val f2           = firm.copy(innovationCostFactor = scaledFactor)
       val expected     = Firm.computeAiCapex(f1).bd * scaledFactor.bd
@@ -102,16 +102,16 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
   // --- capacity(Traditional) scales linearly with workers/initialSize ---
 
   "capacity for Traditional" should "scale linearly with workers/initialSize" in
-    forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) { (sector: Int, innov: Double, digiR: Double) =>
+    forAll(Gen.choose(0, 5), genDecimal("0.5", "2.0"), genDecimal("0.02", "0.98")) { (sector: Int, innov: BigDecimal, digiR: BigDecimal) =>
       // Same initialSize=16, different worker counts: (16/16) / (4/16) = 4.0
       val f1    = TestFirmState(
         FirmId(0),
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(4),
-        Share(0.5),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -128,9 +128,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(16),
-        Share(0.5),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -143,19 +143,19 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         accumulatedLoss = PLN.Zero,
       )
       val ratio = Firm.computeCapacity(f2) / Firm.computeCapacity(f1)
-      ratio shouldBe (4.0 +- 0.01)
+      decimal(ratio) shouldBe (BigDecimal("4.0") +- BigDecimal("0.01"))
     }
 
   it should "scale linearly with initialSize at full employment" in
-    forAll(Gen.choose(0, 5), Gen.choose(0.5, 2.0), Gen.choose(0.02, 0.98)) { (sector: Int, innov: Double, digiR: Double) =>
+    forAll(Gen.choose(0, 5), genDecimal("0.5", "2.0"), genDecimal("0.02", "0.98")) { (sector: Int, innov: BigDecimal, digiR: BigDecimal) =>
       val f1    = TestFirmState(
         FirmId(0),
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(10),
-        Share(0.5),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -172,9 +172,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN.Zero,
         PLN.Zero,
         TechState.Traditional(25),
-        Share(0.5),
-        Multiplier(innov),
-        Share(digiR),
+        Share.decimal(5, 1),
+        multiplierBD(innov),
+        shareBD(digiR),
         SectorIdx(sector),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -187,7 +187,7 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         accumulatedLoss = PLN.Zero,
       )
       val ratio = Firm.computeCapacity(f2) / Firm.computeCapacity(f1)
-      ratio shouldBe (2.5 +- 0.01)
+      decimal(ratio) shouldBe (BigDecimal("2.5") +- BigDecimal("0.01"))
     }
 
   // --- localAutoRatio properties ---
@@ -200,9 +200,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
         PLN(100000),
         PLN.Zero,
         tech,
-        Share(0.5),
+        Share.decimal(5, 1),
         Multiplier.One,
-        Share(0.4),
+        Share.decimal(4, 1),
         SectorIdx(0),
         (0 until 10).filter(_ != i).map(FirmId(_)).toVector,
         bankId = BankId(0),
@@ -227,9 +227,9 @@ class FirmPropertySpec extends AnyFlatSpec with Matchers with ScalaCheckProperty
       PLN(100000),
       PLN.Zero,
       TechState.Traditional(10),
-      Share(0.5),
+      Share.decimal(5, 1),
       Multiplier.One,
-      Share(0.4),
+      Share.decimal(4, 1),
       SectorIdx(0),
       Vector.empty[FirmId],
       bankId = BankId(0),

@@ -38,24 +38,24 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     result.swap.getOrElse(Vector.empty).find(_.identity == id).map(e => (e.actual - e.expected).bd).getOrElse(BigDecimal(0))
 
   private def makeWorld(
-      govDebt: Double = 0.0,
+      govDebt: BigDecimal = BigDecimal("0.0"),
   ): World =
     Generators.testWorld(
-      gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, PLN(govDebt), PLN.Zero),
-      marketWage = PLN(8266.0),
-      reservationWage = PLN(4666.0),
+      gov = FiscalBudget.GovState(PLN.Zero, PLN.Zero, plnBD(govDebt), PLN.Zero),
+      marketWage = PLN(8266),
+      reservationWage = PLN(4666),
     )
 
-  private def makeFirms(n: Int, cash: Double = 50000.0, debt: Double = 0.0): Vector[Firm.State] =
+  private def makeFirms(n: Int, cash: BigDecimal = BigDecimal("50000.0"), debt: BigDecimal = BigDecimal("0.0")): Vector[Firm.State] =
     (0 until n).map { i =>
       TestFirmState(
         FirmId(i),
-        PLN(cash),
-        PLN(debt),
+        plnBD(cash),
+        plnBD(debt),
         TechState.Traditional(10),
-        Share(0.5),
+        Share.decimal(5, 1),
         Multiplier.One,
-        Share(0.3),
+        Share.decimal(3, 1),
         SectorIdx(0),
         Vector.empty[FirmId],
         bankId = BankId(0),
@@ -70,17 +70,17 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     }.toVector
 
   @annotation.nowarn("msg=unused private member") // defaults used by callers
-  private def makeHouseholds(n: Int, savings: Double = 15000.0, debt: Double = 0.0): Vector[Household.State] =
+  private def makeHouseholds(n: Int, savings: BigDecimal = BigDecimal("15000.0"), debt: BigDecimal = BigDecimal("0.0")): Vector[Household.State] =
     (0 until n).map { i =>
       TestHouseholdState(
         HhId(i),
-        PLN(savings),
-        PLN(debt),
-        PLN(1800.0),
-        Share(0.8),
-        Share(0.0),
-        Share(0.82),
-        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266.0)),
+        plnBD(savings),
+        plnBD(debt),
+        PLN(1800),
+        Share.decimal(8, 1),
+        Share(0),
+        Share.decimal(82, 2),
+        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(8266)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -89,7 +89,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       )
     }.toVector
@@ -146,12 +146,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     ),
   )
 
-  private def ledgerForHouseholds(households: Vector[Household.State], savings: Double, debt: Double): LedgerFinancialState =
+  private def ledgerForHouseholds(households: Vector[Household.State], savings: BigDecimal, debt: BigDecimal): LedgerFinancialState =
     zeroLedger.copy(
       households = Vector.fill(households.length)(
         LedgerFinancialState.HouseholdBalances(
-          demandDeposit = PLN(savings),
-          mortgageLoan = PLN(debt),
+          demandDeposit = plnBD(savings),
+          mortgageLoan = plnBD(debt),
           consumerLoan = PLN.Zero,
           equity = PLN.Zero,
         ),
@@ -160,15 +160,15 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   private def ledgerForFirms(
       firms: Vector[Firm.State],
-      cash: Double = 50000.0,
-      debt: Double = 0.0,
+      cash: BigDecimal = BigDecimal("50000.0"),
+      debt: BigDecimal = BigDecimal("0.0"),
       base: LedgerFinancialState = zeroLedger,
   ): LedgerFinancialState =
     base.copy(
       firms = Vector.fill(firms.length)(
         LedgerFinancialState.FirmBalances(
-          cash = PLN(cash),
-          firmLoan = PLN(debt),
+          cash = plnBD(cash),
+          firmLoan = plnBD(debt),
           corpBond = PLN.Zero,
           equity = PLN.Zero,
         ),
@@ -289,8 +289,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
 
   "Sfc.snapshot" should "correctly sum firm cash and debt" in {
     val w     = makeWorld()
-    val firms = makeFirms(5, cash = 10000.0, debt = 5000.0)
-    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, ledgerForFirms(firms, cash = 10000.0, debt = 5000.0))
+    val firms = makeFirms(5, cash = BigDecimal("10000.0"), debt = BigDecimal("5000.0"))
+    val snap  = Sfc.snapshot(w, firms, Vector.empty, Vector.empty, ledgerForFirms(firms, cash = BigDecimal("10000.0"), debt = BigDecimal("5000.0")))
     snap.firmCash.bd shouldBe (BigDecimal("50000.0") +- BigDecimal("0.01"))
     snap.firmDebt.bd shouldBe (BigDecimal("25000.0") +- BigDecimal("0.01"))
   }
@@ -298,10 +298,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "correctly sum household savings and debt" in {
     val w      = makeWorld()
     val firms  = makeFirms(1)
-    val hhs    = makeHouseholds(10, savings = 20000.0, debt = 5000.0)
+    val hhs    = makeHouseholds(10, savings = BigDecimal("20000.0"), debt = BigDecimal("5000.0"))
     val ledger = ledgerForFirms(
       firms,
-      base = ledgerForHouseholds(hhs, savings = 20000.0, debt = 5000.0),
+      base = ledgerForHouseholds(hhs, savings = BigDecimal("20000.0"), debt = BigDecimal("5000.0")),
     )
     val snap   = Sfc.snapshot(w, firms, hhs, Vector.empty, ledger)
     snap.hhSavings.bd shouldBe (BigDecimal("200000.0") +- BigDecimal("0.01"))
@@ -318,16 +318,16 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "capture bank capital from banks and bank stocks from ledger" in {
-    val w      = makeWorld(govDebt = 100000.0)
+    val w      = makeWorld(govDebt = BigDecimal("100000.0"))
     val firms  = makeFirms(1)
-    val banks  = Vector(makeBank(capital = PLN(123456.0)))
+    val banks  = Vector(makeBank(capital = PLN(123456)))
     val ledger = ledgerForFirms(firms).copy(
       banks = Vector(
         LedgerFinancialState.BankBalances(
-          totalDeposits = PLN(789012.0),
-          demandDeposit = PLN(789012.0),
+          totalDeposits = PLN(789012),
+          demandDeposit = PLN(789012),
           termDeposit = PLN.Zero,
-          firmLoan = PLN(50000.0),
+          firmLoan = PLN(50000),
           consumerLoan = PLN.Zero,
           govBondAfs = PLN.Zero,
           govBondHtm = PLN.Zero,
@@ -338,10 +338,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       ),
     )
     val snap   = Sfc.snapshot(w, firms, Vector.empty, banks, ledger)
-    snap.bankCapital shouldBe PLN(123456.0)
-    snap.bankDeposits shouldBe PLN(789012.0)
-    snap.bankLoans shouldBe PLN(50000.0)
-    snap.govDebt shouldBe PLN(100000.0)
+    snap.bankCapital shouldBe PLN(123456)
+    snap.bankDeposits shouldBe PLN(789012)
+    snap.bankLoans shouldBe PLN(50000)
+    snap.govDebt shouldBe PLN(100000)
   }
 
   it should "source ledger-owned public and fund stocks from LedgerFinancialState" in {
@@ -353,46 +353,46 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           termDeposit = PLN.Zero,
           firmLoan = PLN.Zero,
           consumerLoan = PLN.Zero,
-          govBondAfs = PLN(11.0),
-          govBondHtm = PLN(22.0),
+          govBondAfs = PLN(11),
+          govBondHtm = PLN(22),
           reserve = PLN.Zero,
           interbankLoan = PLN.Zero,
           corpBond = PLN.Zero,
         ),
       ),
-      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = PLN(100.0)),
-      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = PLN(20.0)),
-      nbp = LedgerFinancialState.NbpBalances(govBondHoldings = PLN(30.0), foreignAssets = PLN.Zero),
+      government = LedgerFinancialState.GovernmentBalances(govBondOutstanding = PLN(100)),
+      foreign = LedgerFinancialState.ForeignBalances(govBondHoldings = PLN(20)),
+      nbp = LedgerFinancialState.NbpBalances(govBondHoldings = PLN(30), foreignAssets = PLN.Zero),
       funds = zeroLedger.funds.copy(
-        jstCash = PLN(40.0),
-        zusCash = PLN(50.0),
-        nfzCash = PLN(60.0),
-        ppkGovBondHoldings = PLN(17.0),
-        nbfi = zeroLedger.funds.nbfi.copy(govBondHoldings = PLN(18.0), nbfiLoanStock = PLN(70.0)),
+        jstCash = PLN(40),
+        zusCash = PLN(50),
+        nfzCash = PLN(60),
+        ppkGovBondHoldings = PLN(17),
+        nbfi = zeroLedger.funds.nbfi.copy(govBondHoldings = PLN(18), nbfiLoanStock = PLN(70)),
         quasiFiscal = LedgerFinancialState.QuasiFiscalBalances(
-          bondsOutstanding = PLN(90.0),
-          loanPortfolio = PLN(80.0),
-          bankHoldings = PLN(55.0),
-          nbpHoldings = PLN(35.0),
+          bondsOutstanding = PLN(90),
+          loanPortfolio = PLN(80),
+          bankHoldings = PLN(55),
+          nbpHoldings = PLN(35),
         ),
       ),
     )
     val snap   = Sfc.snapshot(zeroWorld, Vector.empty, Vector.empty, Vector(makeBank()), ledger)
 
-    snap.bondsOutstanding shouldBe PLN(100.0)
-    snap.bankBondHoldings shouldBe PLN(33.0)
-    snap.foreignBondHoldings shouldBe PLN(20.0)
-    snap.nbpBondHoldings shouldBe PLN(30.0)
-    snap.jstDeposits shouldBe PLN(40.0)
-    snap.fusBalance shouldBe PLN(50.0)
-    snap.nfzBalance shouldBe PLN(60.0)
-    snap.ppkBondHoldings shouldBe PLN(17.0)
-    snap.tfiGovBondHoldings shouldBe PLN(18.0)
-    snap.nbfiLoanStock shouldBe PLN(70.0)
-    snap.quasiFiscalBondsOutstanding shouldBe PLN(90.0)
-    snap.quasiFiscalLoanPortfolio shouldBe PLN(80.0)
-    snap.quasiFiscalBankHoldings shouldBe PLN(55.0)
-    snap.quasiFiscalNbpHoldings shouldBe PLN(35.0)
+    snap.bondsOutstanding shouldBe PLN(100)
+    snap.bankBondHoldings shouldBe PLN(33)
+    snap.foreignBondHoldings shouldBe PLN(20)
+    snap.nbpBondHoldings shouldBe PLN(30)
+    snap.jstDeposits shouldBe PLN(40)
+    snap.fusBalance shouldBe PLN(50)
+    snap.nfzBalance shouldBe PLN(60)
+    snap.ppkBondHoldings shouldBe PLN(17)
+    snap.tfiGovBondHoldings shouldBe PLN(18)
+    snap.nbfiLoanStock shouldBe PLN(70)
+    snap.quasiFiscalBondsOutstanding shouldBe PLN(90)
+    snap.quasiFiscalLoanPortfolio shouldBe PLN(80)
+    snap.quasiFiscalBankHoldings shouldBe PLN(55)
+    snap.quasiFiscalNbpHoldings shouldBe PLN(35)
   }
 
   // ---- Identity 1: Bank capital ----
@@ -423,7 +423,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Bug: 50% of interest goes to bank instead of 30%
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(10000) * Share(0.5))
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(10000) * Share.decimal(5, 1))
     val flows  = zeroFlows.copy(interestIncome = PLN(10000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     // actual change = +5000, expected = +3000, error = 2000
@@ -579,7 +579,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Bank capital off by 5000 -> exact path must fail.
-    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(5000.0))
+    val curr   = prev.copy(bankCapital = prev.bankCapital + PLN(5000))
     val result = Sfc.validateStockExactness(prev, curr, zeroFlows)
     result shouldBe a[Left[?, ?]]
   }
@@ -591,9 +591,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      bankBondHoldings = PLN(5000.0),
-      nbpBondHoldings = PLN(3000.0),
-      bondsOutstanding = PLN(8000.0),
+      bankBondHoldings = PLN(5000),
+      nbpBondHoldings = PLN(3000),
+      bondsOutstanding = PLN(8000),
     )
     val result = Sfc.validateStockExactness(prev, prev, zeroFlows)
     result shouldBe Right(())
@@ -604,9 +604,9 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      bankBondHoldings = PLN(5000.0),
-      nbpBondHoldings = PLN(3000.0),
-      bondsOutstanding = PLN(10000.0),
+      bankBondHoldings = PLN(5000),
+      nbpBondHoldings = PLN(3000),
+      bondsOutstanding = PLN(10000),
     )
     val result = Sfc.validateStockExactness(prev, prev, zeroFlows)
     result shouldBe a[Left[?, ?]]
@@ -625,10 +625,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      bankBondHoldings = PLN(5000.0),
-      nbpBondHoldings = PLN(3000.0),
-      bondsOutstanding = PLN(10000.0),
-      insuranceGovBondHoldings = PLN(2000.0),
+      bankBondHoldings = PLN(5000),
+      nbpBondHoldings = PLN(3000),
+      bondsOutstanding = PLN(10000),
+      insuranceGovBondHoldings = PLN(2000),
     )
     val result = Sfc.validateStockExactness(prev, prev, zeroFlows)
     // 5000 + 3000 + 0 (ppk) + 2000 (insurance) = 10000 = outstanding
@@ -660,7 +660,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   it should "detect error when interbankNetSum is non-zero" in {
     val prev   =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
-    val curr   = prev.copy(interbankNetSum = PLN(5000.0))
+    val curr   = prev.copy(interbankNetSum = PLN(5000))
     val result = Sfc.validateStockExactness(prev, curr, zeroFlows)
     result shouldBe a[Left[?, ?]]
     errorDelta(result, Sfc.SfcIdentity.InterbankNetting) shouldBe (BigDecimal("5000.0") +- BigDecimal("0.01"))
@@ -687,7 +687,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev         =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Insurance premium > claims -> negative deposit change (drain)
-    val insDepChange = PLN(-500.0)
+    val insDepChange = PLN(-500)
     val curr         = prev.copy(bankDeposits = prev.bankDeposits + insDepChange)
     val flows        = zeroFlows.copy(insNetDepositChange = insDepChange)
     val result       = Sfc.validateStockExactness(prev, curr, flows)
@@ -704,10 +704,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         bankDeposits = PLN(1000000),
         govDebt = PLN(50000),
       )
-    val benefitSpend    = PLN(15000.0)
-    val baseGovSpend    = PLN(30000.0)
+    val benefitSpend    = PLN(15000)
+    val baseGovSpend    = PLN(30000)
     val totalGovSpend   = baseGovSpend + benefitSpend // 45000
-    val govRevenue      = PLN(25000.0)
+    val govRevenue      = PLN(25000)
     val expectedDeficit = totalGovSpend - govRevenue  // 20000
     val curr            = prev.copy(govDebt = prev.govDebt + expectedDeficit)
     val flows           = zeroFlows.copy(govSpending = totalGovSpend, govRevenue = govRevenue)
@@ -855,10 +855,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      mortgageStock = PLN(100000.0),
+      mortgageStock = PLN(100000),
     )
     // origination=20000, principal=3000, default=1000 -> delta = 20000-3000-1000 = 16000
-    val curr   = prev.copy(mortgageStock = PLN(116000.0))
+    val curr   = prev.copy(mortgageStock = PLN(116000))
     val flows  = zeroFlows.copy(
       mortgageOrigination = PLN(20000),
       mortgagePrincipalRepaid = PLN(3000),
@@ -880,10 +880,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      mortgageStock = PLN(100000.0),
+      mortgageStock = PLN(100000),
     )
     // Bug: stock unchanged despite origination
-    val curr   = prev.copy(mortgageStock = PLN(100000.0))
+    val curr   = prev.copy(mortgageStock = PLN(100000))
     val flows  = zeroFlows.copy(mortgageOrigination = PLN(15000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
@@ -895,10 +895,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      mortgageStock = PLN(100000.0),
+      mortgageStock = PLN(100000),
     )
     // origination=2000, principal=5000, default=500 -> delta = 2000-5000-500 = -3500
-    val curr   = prev.copy(mortgageStock = PLN(96500.0))
+    val curr   = prev.copy(mortgageStock = PLN(96500))
     val flows  = zeroFlows.copy(
       mortgageOrigination = PLN(2000),
       mortgagePrincipalRepaid = PLN(5000),
@@ -956,7 +956,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev      =
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // TFI drains deposits: HH buys fund units -> deposit decreases
-    val nbfiDrain = PLN(-800.0)
+    val nbfiDrain = PLN(-800)
     val curr      = prev.copy(bankDeposits = prev.bankDeposits + nbfiDrain)
     val flows     = zeroFlows.copy(nbfiDepositDrain = nbfiDrain)
     val result    = Sfc.validateStockExactness(prev, curr, flows)
@@ -968,7 +968,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       zeroSnap.copy(firmCash = PLN(500000), bankCapital = PLN(200000), bankDeposits = PLN(1000000))
     // Bug: deposits unchanged despite NBFI drain
     val curr   = prev.copy(bankDeposits = prev.bankDeposits)
-    val flows  = zeroFlows.copy(nbfiDepositDrain = PLN(-5000.0))
+    val flows  = zeroFlows.copy(nbfiDepositDrain = PLN(-5000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
     errorDelta(result, Sfc.SfcIdentity.BankDeposits) shouldBe (BigDecimal("5000.0") +- BigDecimal("0.01"))
@@ -981,11 +981,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      bankBondHoldings = PLN(4000.0),
-      nbpBondHoldings = PLN(3000.0),
-      bondsOutstanding = PLN(12000.0),
-      insuranceGovBondHoldings = PLN(2000.0),
-      tfiGovBondHoldings = PLN(3000.0),
+      bankBondHoldings = PLN(4000),
+      nbpBondHoldings = PLN(3000),
+      bondsOutstanding = PLN(12000),
+      insuranceGovBondHoldings = PLN(2000),
+      tfiGovBondHoldings = PLN(3000),
     )
     val result = Sfc.validateStockExactness(prev, prev, zeroFlows)
     // 4000 + 3000 + 0 (ppk) + 2000 (insurance) + 3000 (TFI) = 12000 = outstanding
@@ -997,11 +997,11 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      bankBondHoldings = PLN(4000.0),
-      nbpBondHoldings = PLN(3000.0),
-      bondsOutstanding = PLN(10000.0),
-      insuranceGovBondHoldings = PLN(2000.0),
-      tfiGovBondHoldings = PLN(5000.0),
+      bankBondHoldings = PLN(4000),
+      nbpBondHoldings = PLN(3000),
+      bondsOutstanding = PLN(10000),
+      insuranceGovBondHoldings = PLN(2000),
+      tfiGovBondHoldings = PLN(5000),
     )
     val result = Sfc.validateStockExactness(prev, prev, zeroFlows)
     // 4000 + 3000 + 0 + 2000 + 5000 = 14000 vs 10000 = +4000 error
@@ -1016,10 +1016,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      nbfiLoanStock = PLN(100000.0),
+      nbfiLoanStock = PLN(100000),
     )
     // origination=5000, repayment=2000, default=500 -> delta = 5000-2000-500 = 2500
-    val curr   = prev.copy(nbfiLoanStock = PLN(102500.0))
+    val curr   = prev.copy(nbfiLoanStock = PLN(102500))
     val flows  = zeroFlows.copy(nbfiOrigination = PLN(5000), nbfiRepayment = PLN(2000), nbfiDefaultAmount = PLN(500))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe Right(())
@@ -1037,10 +1037,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      nbfiLoanStock = PLN(100000.0),
+      nbfiLoanStock = PLN(100000),
     )
     // Bug: stock unchanged despite origination
-    val curr   = prev.copy(nbfiLoanStock = PLN(100000.0))
+    val curr   = prev.copy(nbfiLoanStock = PLN(100000))
     val flows  = zeroFlows.copy(nbfiOrigination = PLN(8000))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe a[Left[?, ?]]
@@ -1052,10 +1052,10 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       firmCash = PLN(500000),
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      nbfiLoanStock = PLN(100000.0),
+      nbfiLoanStock = PLN(100000),
     )
     // origination=1000, repayment=4000, default=200 -> delta = 1000-4000-200 = -3200
-    val curr   = prev.copy(nbfiLoanStock = PLN(96800.0))
+    val curr   = prev.copy(nbfiLoanStock = PLN(96800))
     val flows  = zeroFlows.copy(nbfiOrigination = PLN(1000), nbfiRepayment = PLN(4000), nbfiDefaultAmount = PLN(200))
     val result = Sfc.validateStockExactness(prev, curr, flows)
     result shouldBe Right(())
@@ -1067,20 +1067,20 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev   = zeroSnap.copy(
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      quasiFiscalBondsOutstanding = PLN(1000.0),
-      quasiFiscalBankHoldings = PLN(700.0),
-      quasiFiscalNbpHoldings = PLN(300.0),
+      quasiFiscalBondsOutstanding = PLN(1000),
+      quasiFiscalBankHoldings = PLN(700),
+      quasiFiscalNbpHoldings = PLN(300),
     )
     val curr   = prev.copy(
-      quasiFiscalBondsOutstanding = PLN(1700.0),
-      quasiFiscalBankHoldings = PLN(1100.0),
-      quasiFiscalNbpHoldings = PLN(600.0),
+      quasiFiscalBondsOutstanding = PLN(1700),
+      quasiFiscalBankHoldings = PLN(1100),
+      quasiFiscalNbpHoldings = PLN(600),
     )
     val flows  = zeroFlows.copy(
-      quasiFiscalBondIssuance = PLN(1000.0),
-      quasiFiscalBondAmortization = PLN(300.0),
+      quasiFiscalBondIssuance = PLN(1000),
+      quasiFiscalBondAmortization = PLN(300),
       quasiFiscalNbpBondAmortization = PLN.Zero,
-      quasiFiscalNbpAbsorption = PLN(300.0),
+      quasiFiscalNbpAbsorption = PLN(300),
     )
     val result = Sfc.validateStockExactness(prev, curr, flows)
 
@@ -1091,20 +1091,20 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev   = zeroSnap.copy(
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      quasiFiscalBondsOutstanding = PLN(1000.0),
-      quasiFiscalBankHoldings = PLN(700.0),
-      quasiFiscalNbpHoldings = PLN(300.0),
+      quasiFiscalBondsOutstanding = PLN(1000),
+      quasiFiscalBankHoldings = PLN(700),
+      quasiFiscalNbpHoldings = PLN(300),
     )
     val curr   = prev.copy(
-      quasiFiscalBondsOutstanding = PLN(1700.0),
-      quasiFiscalBankHoldings = PLN(1000.0),
-      quasiFiscalNbpHoldings = PLN(700.0),
+      quasiFiscalBondsOutstanding = PLN(1700),
+      quasiFiscalBankHoldings = PLN(1000),
+      quasiFiscalNbpHoldings = PLN(700),
     )
     val flows  = zeroFlows.copy(
-      quasiFiscalBondIssuance = PLN(1000.0),
-      quasiFiscalBondAmortization = PLN(300.0),
+      quasiFiscalBondIssuance = PLN(1000),
+      quasiFiscalBondAmortization = PLN(300),
       quasiFiscalNbpBondAmortization = PLN.Zero,
-      quasiFiscalNbpAbsorption = PLN(300.0),
+      quasiFiscalNbpAbsorption = PLN(300),
     )
     val result = Sfc.validateStockExactness(prev, curr, flows)
 
@@ -1117,12 +1117,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val prev   = zeroSnap.copy(
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
-      quasiFiscalLoanPortfolio = PLN(100.0),
+      quasiFiscalLoanPortfolio = PLN(100),
     )
-    val curr   = prev.copy(quasiFiscalLoanPortfolio = PLN(450.0))
+    val curr   = prev.copy(quasiFiscalLoanPortfolio = PLN(450))
     val flows  = zeroFlows.copy(
-      quasiFiscalLending = PLN(500.0),
-      quasiFiscalRepayment = PLN(150.0),
+      quasiFiscalLending = PLN(500),
+      quasiFiscalRepayment = PLN(150),
     )
     val result = Sfc.validateStockExactness(prev, curr, flows)
 
@@ -1134,8 +1134,8 @@ class SfcSpec extends AnyFlatSpec with Matchers:
       bankCapital = PLN(200000),
       bankDeposits = PLN(1000000),
     )
-    val curr   = prev.copy(bankDeposits = PLN(1000350.0))
-    val flows  = zeroFlows.copy(quasiFiscalDepositChange = PLN(350.0))
+    val curr   = prev.copy(bankDeposits = PLN(1000350))
+    val flows  = zeroFlows.copy(quasiFiscalDepositChange = PLN(350))
     val result = Sfc.validateStockExactness(prev, curr, flows)
 
     result shouldBe Right(())
@@ -1150,7 +1150,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         firmAggregateIndex,
         EntitySector.Government,
         treasuryBudgetIndex,
-        PLN(100.0),
+        PLN(100),
         AssetType.Cash,
         FlowMechanism.FirmCit,
       ),
@@ -1159,7 +1159,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(40.0),
+        PLN(40),
         AssetType.Cash,
         FlowMechanism.GovPurchases,
       ),
@@ -1170,7 +1170,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
           EntitySector.Government,
           AssetType.Cash,
           Sfc.ExecutionIndex(treasuryBudgetIndex),
-        ) -> PLN(60.0),
+        ) -> PLN(60),
       ),
     )
     val result      = Sfc.validate(
@@ -1191,7 +1191,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         firmAggregateIndex,
         EntitySector.Government,
         treasuryBudgetIndex,
-        PLN(100.0),
+        PLN(100),
         AssetType.Cash,
         FlowMechanism.FirmCit,
       ),
@@ -1200,7 +1200,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(40.0),
+        PLN(40),
         AssetType.Cash,
         FlowMechanism.GovPurchases,
       ),
@@ -1216,7 +1216,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
             EntitySector.Government,
             AssetType.Cash,
             Sfc.ExecutionIndex(treasuryBudgetIndex),
-          ) -> PLN(55.0),
+          ) -> PLN(55),
         ),
       ),
       deltaLedgerNet = 0L,
@@ -1226,15 +1226,15 @@ class SfcSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "ignore legacy GovDebt mismatch in runtime exactness when budget cash is correct" in {
-    val prevRuntime = zeroRuntime.copy(world = makeWorld(govDebt = 100.0))
-    val currRuntime = zeroRuntime.copy(world = makeWorld(govDebt = 999.0))
+    val prevRuntime = zeroRuntime.copy(world = makeWorld(govDebt = BigDecimal("100.0")))
+    val currRuntime = zeroRuntime.copy(world = makeWorld(govDebt = BigDecimal("999.0")))
     val batches     = Vector.concat(
       AggregateBatchedEmission.transfer(
         EntitySector.Firms,
         firmAggregateIndex,
         EntitySector.Government,
         treasuryBudgetIndex,
-        PLN(100.0),
+        PLN(100),
         AssetType.Cash,
         FlowMechanism.FirmCit,
       ),
@@ -1243,7 +1243,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(40.0),
+        PLN(40),
         AssetType.Cash,
         FlowMechanism.GovPurchases,
       ),
@@ -1251,7 +1251,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val result      = Sfc.validate(
       prev = prevRuntime,
       curr = currRuntime,
-      flows = zeroFlows.copy(govSpending = PLN(10_000.0), govRevenue = PLN.Zero),
+      flows = zeroFlows.copy(govSpending = PLN(10000), govRevenue = PLN.Zero),
       batches = batches,
       executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
@@ -1259,7 +1259,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
             EntitySector.Government,
             AssetType.Cash,
             Sfc.ExecutionIndex(treasuryBudgetIndex),
-          ) -> PLN(60.0),
+          ) -> PLN(60),
         ),
       ),
       deltaLedgerNet = 0L,
@@ -1274,7 +1274,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         taxpayerCollectionIndex,
         EntitySector.Funds,
         jstFundIndex,
-        PLN(100.0),
+        PLN(100),
         AssetType.Cash,
         FlowMechanism.JstRevenue,
       ),
@@ -1283,7 +1283,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         jstFundIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(40.0),
+        PLN(40),
         AssetType.Cash,
         FlowMechanism.JstSpending,
       ),
@@ -1292,7 +1292,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         householdAggregateIndex,
         EntitySector.Funds,
         zusFundIndex,
-        PLN(100.0),
+        PLN(100),
         AssetType.Cash,
         FlowMechanism.ZusContribution,
       ),
@@ -1301,7 +1301,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         zusFundIndex,
         EntitySector.Households,
         householdAggregateIndex,
-        PLN(70.0),
+        PLN(70),
         AssetType.Cash,
         FlowMechanism.ZusPension,
       ),
@@ -1310,7 +1310,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Funds,
         zusFundIndex,
-        PLN(20.0),
+        PLN(20),
         AssetType.Cash,
         FlowMechanism.ZusGovSubvention,
       ),
@@ -1319,7 +1319,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         householdAggregateIndex,
         EntitySector.Funds,
         nfzFundIndex,
-        PLN(90.0),
+        PLN(90),
         AssetType.Cash,
         FlowMechanism.NfzContribution,
       ),
@@ -1328,7 +1328,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         nfzFundIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(110.0),
+        PLN(110),
         AssetType.Cash,
         FlowMechanism.NfzSpending,
       ),
@@ -1337,7 +1337,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Funds,
         nfzFundIndex,
-        PLN(30.0),
+        PLN(30),
         AssetType.Cash,
         FlowMechanism.NfzGovSubvention,
       ),
@@ -1353,22 +1353,22 @@ class SfcSpec extends AnyFlatSpec with Matchers:
             EntitySector.Government,
             AssetType.Cash,
             Sfc.ExecutionIndex(treasuryBudgetIndex),
-          ) -> PLN(-50.0),
+          ) -> PLN(-50),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(jstFundIndex),
-          ) -> PLN(60.0),
+          ) -> PLN(60),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(zusFundIndex),
-          ) -> PLN(50.0),
+          ) -> PLN(50),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(nfzFundIndex),
-          ) -> PLN(10.0),
+          ) -> PLN(10),
         ),
       ),
       deltaLedgerNet = 0L,
@@ -1383,7 +1383,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Funds,
         zusFundIndex,
-        PLN(20.0),
+        PLN(20),
         AssetType.Cash,
         FlowMechanism.ZusGovSubvention,
       ),
@@ -1392,7 +1392,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         householdAggregateIndex,
         EntitySector.Funds,
         zusFundIndex,
-        PLN(100.0),
+        PLN(100),
         AssetType.Cash,
         FlowMechanism.ZusContribution,
       ),
@@ -1401,7 +1401,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         zusFundIndex,
         EntitySector.Households,
         householdAggregateIndex,
-        PLN(70.0),
+        PLN(70),
         AssetType.Cash,
         FlowMechanism.ZusPension,
       ),
@@ -1409,7 +1409,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
     val result  = Sfc.validate(
       prev = zeroRuntime.copy(world = makeWorld()),
       curr = zeroRuntime.copy(world = makeWorld()),
-      flows = zeroFlows.copy(zusContributions = PLN.Zero, zusPensionPayments = PLN(9999.0)),
+      flows = zeroFlows.copy(zusContributions = PLN.Zero, zusPensionPayments = PLN(9999)),
       batches = batches,
       executionDeltaLedger = Sfc.ExecutionDeltaLedger(
         Map(
@@ -1417,12 +1417,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
             EntitySector.Government,
             AssetType.Cash,
             Sfc.ExecutionIndex(treasuryBudgetIndex),
-          ) -> PLN(-20.0),
+          ) -> PLN(-20),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(zusFundIndex),
-          ) -> PLN(49.0),
+          ) -> PLN(49),
         ),
       ),
       deltaLedgerNet = 0L,
@@ -1438,7 +1438,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         householdAggregateIndex,
         EntitySector.Funds,
         fpFundIndex,
-        PLN(100.0),
+        PLN(100),
         AssetType.Cash,
         FlowMechanism.FpContribution,
       ),
@@ -1447,7 +1447,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         fpFundIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(70.0),
+        PLN(70),
         AssetType.Cash,
         FlowMechanism.FpSpending,
       ),
@@ -1456,7 +1456,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Funds,
         fpFundIndex,
-        PLN(20.0),
+        PLN(20),
         AssetType.Cash,
         FlowMechanism.FpGovSubvention,
       ),
@@ -1465,7 +1465,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         householdAggregateIndex,
         EntitySector.Funds,
         pfronFundIndex,
-        PLN(30.0),
+        PLN(30),
         AssetType.Cash,
         FlowMechanism.PfronContribution,
       ),
@@ -1474,7 +1474,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         pfronFundIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(40.0),
+        PLN(40),
         AssetType.Cash,
         FlowMechanism.PfronSpending,
       ),
@@ -1483,7 +1483,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Funds,
         pfronFundIndex,
-        PLN(15.0),
+        PLN(15),
         AssetType.Cash,
         FlowMechanism.PfronGovSubvention,
       ),
@@ -1492,7 +1492,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         householdAggregateIndex,
         EntitySector.Funds,
         fgspFundIndex,
-        PLN(50.0),
+        PLN(50),
         AssetType.Cash,
         FlowMechanism.FgspContribution,
       ),
@@ -1501,7 +1501,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         fgspFundIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(60.0),
+        PLN(60),
         AssetType.Cash,
         FlowMechanism.FgspSpending,
       ),
@@ -1510,7 +1510,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Funds,
         fgspFundIndex,
-        PLN(25.0),
+        PLN(25),
         AssetType.Cash,
         FlowMechanism.FgspGovSubvention,
       ),
@@ -1526,22 +1526,22 @@ class SfcSpec extends AnyFlatSpec with Matchers:
             EntitySector.Government,
             AssetType.Cash,
             Sfc.ExecutionIndex(treasuryBudgetIndex),
-          ) -> PLN(-60.0),
+          ) -> PLN(-60),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(fpFundIndex),
-          ) -> PLN(50.0),
+          ) -> PLN(50),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(pfronFundIndex),
-          ) -> PLN(5.0),
+          ) -> PLN(5),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(fgspFundIndex),
-          ) -> PLN(15.0),
+          ) -> PLN(15),
         ),
       ),
       deltaLedgerNet = 0L,
@@ -1556,7 +1556,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         householdAggregateIndex,
         EntitySector.Funds,
         fgspFundIndex,
-        PLN(50.0),
+        PLN(50),
         AssetType.Cash,
         FlowMechanism.FgspContribution,
       ),
@@ -1565,7 +1565,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         fgspFundIndex,
         EntitySector.Firms,
         firmServicesIndex,
-        PLN(60.0),
+        PLN(60),
         AssetType.Cash,
         FlowMechanism.FgspSpending,
       ),
@@ -1574,7 +1574,7 @@ class SfcSpec extends AnyFlatSpec with Matchers:
         treasuryBudgetIndex,
         EntitySector.Funds,
         fgspFundIndex,
-        PLN(25.0),
+        PLN(25),
         AssetType.Cash,
         FlowMechanism.FgspGovSubvention,
       ),
@@ -1590,12 +1590,12 @@ class SfcSpec extends AnyFlatSpec with Matchers:
             EntitySector.Government,
             AssetType.Cash,
             Sfc.ExecutionIndex(treasuryBudgetIndex),
-          ) -> PLN(-25.0),
+          ) -> PLN(-25),
           Sfc.ExecutionBalanceKey(
             EntitySector.Funds,
             AssetType.Cash,
             Sfc.ExecutionIndex(fgspFundIndex),
-          ) -> PLN(14.0),
+          ) -> PLN(14),
         ),
       ),
       deltaLedgerNet = 0L,

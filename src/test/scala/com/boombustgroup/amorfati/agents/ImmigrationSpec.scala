@@ -19,13 +19,13 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val hhs = Vector(
       TestHouseholdState(
         HhId(0),
-        PLN(5000.0),
-        PLN(0.0),
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000.0)),
+        PLN(5000),
+        PLN(0),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(0), SectorIdx(1), PLN(6000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -34,7 +34,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
     )
@@ -90,8 +90,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
-      h.skill should be >= Share(0.15)
-      h.skill should be <= Share(0.95)
+      h.skill should be >= Share.decimal(15, 2)
+      h.skill should be <= Share.decimal(95, 2)
     }
   }
 
@@ -99,8 +99,8 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val rng        = RandomStream.seeded(42)
     val immigrants = Immigration.spawnImmigrants(100, 0, rng)
     immigrants.foreach { h =>
-      h.mpc should be >= Share(0.7)
-      h.mpc should be <= Share(0.98)
+      h.mpc should be >= Share.decimal(7, 1)
+      h.mpc should be <= Share.decimal(98, 2)
     }
   }
 
@@ -125,13 +125,13 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val hhs    = Vector(
       TestHouseholdState(
         HhId(0),
-        PLN(1000.0),
+        PLN(1000),
         PLN.Zero,
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -140,18 +140,18 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
       TestHouseholdState(
         HhId(1),
-        PLN(1000.0),
+        PLN(1000),
         PLN.Zero,
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(5000.0)),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(5000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -160,18 +160,18 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
       TestHouseholdState(
         HhId(2),
-        PLN(1000.0),
+        PLN(1000),
         PLN.Zero,
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(2), SectorIdx(0), PLN(5000.0)),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(2), SectorIdx(0), PLN(5000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -180,18 +180,18 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
       TestHouseholdState(
         HhId(3),
-        PLN(1000.0),
+        PLN(1000),
         PLN.Zero,
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(3), SectorIdx(0), PLN(5000.0)),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(3), SectorIdx(0), PLN(5000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -200,7 +200,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
     )
@@ -216,13 +216,13 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val hhs    = Vector(
       TestHouseholdState(
         HhId(0),
-        PLN(1000.0),
+        PLN(1000),
         PLN.Zero,
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -231,18 +231,18 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
       TestHouseholdState(
         HhId(1),
-        PLN(1000.0),
+        PLN(1000),
         PLN.Zero,
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(6000.0)),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(1), SectorIdx(0), PLN(6000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -251,7 +251,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
     )
@@ -263,13 +263,13 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
     val hhs = Vector(
       TestHouseholdState(
         HhId(0),
-        PLN(1000.0),
+        PLN(1000),
         PLN.Zero,
-        PLN(1800.0),
-        Share(0.5),
-        Share(0.0),
-        Share(0.85),
-        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000.0)),
+        PLN(1800),
+        Share.decimal(5, 1),
+        Share(0),
+        Share.decimal(85, 2),
+        HhStatus.Employed(FirmId(0), SectorIdx(0), PLN(6000)),
         Array.empty[HhId],
         bankId = BankId(0),
         equityWealth = PLN.Zero,
@@ -278,7 +278,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
         numDependentChildren = 0,
         consumerDebt = PLN.Zero,
         education = 2,
-        taskRoutineness = Share(0.5),
+        taskRoutineness = Share.decimal(5, 1),
         wageScar = Share.Zero,
       ),
     )
@@ -290,7 +290,7 @@ class ImmigrationSpec extends AnyFlatSpec with Matchers:
   "Immigration.step" should "maintain non-negative immigrant stock" in {
     // Even with large outflow, stock should not go negative
     val prev   = Immigration.State(2, 0, 0, PLN.Zero)
-    val result = Immigration.step(prev, Vector.empty, PLN(8000.0), Share(0.05))
+    val result = Immigration.step(prev, Vector.empty, PLN(8000), Share.decimal(5, 2))
     result.immigrantStock should be >= 0
   }
 

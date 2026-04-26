@@ -36,7 +36,7 @@ Main ──→ McRunner.runZIO(rc)
            │       └── MonthDriver.unfoldSteps(...)
            │
            │     stepSnapshot
-           │       └── McTimeseriesSchema.compute → Array[Double]
+           │       └── McTimeseriesSchema.compute -> Array[MetricValue]
            │
            │     McTimeseriesCsv.writeStreaming(seed.csv)
            │     McTerminalSummarySchema.fromTerminalState

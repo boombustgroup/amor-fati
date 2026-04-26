@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      SBT_OPTS: "-Xmx4G -XX:+UseG1GC"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,8 +27,11 @@ jobs:
       - name: Check formatting
         run: sbt scalafmtCheckAll
 
-      - name: Run unit tests with coverage
+      - name: Run non-heavy unit tests with coverage
         run: sbt coverage "root / Test / test" coverageReport
+
+      - name: Run heavy unit tests without coverage
+        run: sbt -DamorFati.includeHeavyTests=true "root / Test / testOnly * -- -n com.boombustgroup.amorfati.tags.Heavy"
 
       - name: Run integration tests
         run: sbt "integrationTests / Test / test"

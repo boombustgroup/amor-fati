@@ -11,7 +11,7 @@ import com.boombustgroup.amorfati.types.*
 object Jst:
 
   // Fallback effective PIT rate when PIT mechanism disabled
-  private val FallbackPitRate = 0.12
+  private val FallbackPitRate: Share = Share.decimal(12, 2)
 
   case class State(
       debt: PLN,     // cumulative JST debt metric (not yet represented as a holder-tracked instrument)
@@ -46,7 +46,7 @@ object Jst:
     // 1. PIT share: JST gets ~38.46% of PIT collected
     val jstPitIncome =
       if pitRevenue > PLN.Zero then pitRevenue * p.fiscal.jstPitShare
-      else totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
+      else totalWageIncome * (FallbackPitRate * p.fiscal.jstPitShare)
     // 2. CIT share: JST gets ~6.71% of CIT
     val citRevenue   = centralCitRevenue * p.fiscal.jstCitShare
     // 3. Property tax: fixed per firm per year

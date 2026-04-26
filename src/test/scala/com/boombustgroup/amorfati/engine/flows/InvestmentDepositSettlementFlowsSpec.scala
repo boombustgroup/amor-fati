@@ -11,14 +11,14 @@ class InvestmentDepositSettlementFlowsSpec extends AnyFlatSpec with Matchers:
   private given RuntimeLedgerTopology = RuntimeLedgerTopology.nonZeroPopulation
 
   "InvestmentDepositSettlementFlows" should "preserve total wealth at exactly 0L" in {
-    val flows    = InvestmentDepositSettlementFlows.emit(InvestmentDepositSettlementFlows.Input(PLN(250000.0)))
+    val flows    = InvestmentDepositSettlementFlows.emit(InvestmentDepositSettlementFlows.Input(PLN(250000)))
     val balances = Interpreter.applyAll(Map.empty[Int, Long], flows)
 
     Interpreter.totalWealth(balances) shouldBe 0L
   }
 
   it should "emit positive investment net deposits as bank-issued firm deposits" in {
-    val batches = InvestmentDepositSettlementFlows.emitBatches(InvestmentDepositSettlementFlows.Input(PLN(250000.0)))
+    val batches = InvestmentDepositSettlementFlows.emitBatches(InvestmentDepositSettlementFlows.Input(PLN(250000)))
     val batch   = batches.head
 
     batches should have size 1
@@ -26,14 +26,14 @@ class InvestmentDepositSettlementFlowsSpec extends AnyFlatSpec with Matchers:
     batch.asset shouldBe AssetType.DemandDeposit
     batch.from shouldBe EntitySector.Banks
     batch.to shouldBe EntitySector.Firms
-    totalTransferred(batches) shouldBe PLN(250000.0)
+    totalTransferred(batches) shouldBe PLN(250000)
 
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
-    evidence.investNetDepositFlow shouldBe PLN(250000.0)
+    evidence.investNetDepositFlow shouldBe PLN(250000)
   }
 
   it should "emit negative investment net deposits as firm deposit drawdown" in {
-    val batches = InvestmentDepositSettlementFlows.emitBatches(InvestmentDepositSettlementFlows.Input(PLN(-125000.0)))
+    val batches = InvestmentDepositSettlementFlows.emitBatches(InvestmentDepositSettlementFlows.Input(PLN(-125000)))
     val batch   = batches.head
 
     batches should have size 1
@@ -41,10 +41,10 @@ class InvestmentDepositSettlementFlowsSpec extends AnyFlatSpec with Matchers:
     batch.asset shouldBe AssetType.DemandDeposit
     batch.from shouldBe EntitySector.Firms
     batch.to shouldBe EntitySector.Banks
-    totalTransferred(batches) shouldBe PLN(125000.0)
+    totalTransferred(batches) shouldBe PLN(125000)
 
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
-    evidence.investNetDepositFlow shouldBe PLN(-125000.0)
+    evidence.investNetDepositFlow shouldBe PLN(-125000)
   }
 
   it should "emit no batch for a zero investment net deposit flow" in {

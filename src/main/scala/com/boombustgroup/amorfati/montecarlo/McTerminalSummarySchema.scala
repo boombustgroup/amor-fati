@@ -5,7 +5,6 @@ import com.boombustgroup.amorfati.agents.Banking.BankState
 import com.boombustgroup.amorfati.agents.Household
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
-import com.boombustgroup.amorfati.fp.ComputationBoundary
 import com.boombustgroup.amorfati.types.*
 
 import java.io.File
@@ -18,8 +17,6 @@ private[montecarlo] final case class McTerminalSummaryRows(seed: Long, rowsById:
     rowsById.getOrElse(id, Vector.empty)
 
 private[montecarlo] object McTerminalSummarySchema:
-
-  private val td = ComputationBoundary
 
   private case class BankRow(bank: BankState, balances: LedgerFinancialState.BankBalances)
 
@@ -40,32 +37,32 @@ private[montecarlo] object McTerminalSummarySchema:
     ("HH_Unemployed", a => s"${a.unemployed}"),
     ("HH_Retraining", a => s"${a.retraining}"),
     ("HH_Bankrupt", a => s"${a.bankrupt}"),
-    ("MeanSavings", a => f"${td.toDouble(a.meanSavings)}%.2f"),
-    ("MedianSavings", a => f"${td.toDouble(a.medianSavings)}%.2f"),
-    ("Gini_Individual", a => f"${td.toDouble(a.giniIndividual)}%.6f"),
-    ("Gini_Wealth", a => f"${td.toDouble(a.giniWealth)}%.6f"),
-    ("MeanSkill", a => f"${td.toDouble(a.meanSkill)}%.6f"),
-    ("MeanHealthPenalty", a => f"${td.toDouble(a.meanHealthPenalty)}%.6f"),
+    ("MeanSavings", a => a.meanSavings.format(2)),
+    ("MedianSavings", a => a.medianSavings.format(2)),
+    ("Gini_Individual", a => a.giniIndividual.format(6)),
+    ("Gini_Wealth", a => a.giniWealth.format(6)),
+    ("MeanSkill", a => a.meanSkill.format(6)),
+    ("MeanHealthPenalty", a => a.meanHealthPenalty.format(6)),
     ("RetrainingAttempts", a => s"${a.retrainingAttempts}"),
     ("RetrainingSuccesses", a => s"${a.retrainingSuccesses}"),
-    ("ConsumptionP10", a => f"${td.toDouble(a.consumptionP10)}%.2f"),
-    ("ConsumptionP50", a => f"${td.toDouble(a.consumptionP50)}%.2f"),
-    ("ConsumptionP90", a => f"${td.toDouble(a.consumptionP90)}%.2f"),
-    ("BankruptcyRate", a => f"${td.toDouble(a.bankruptcyRate)}%.6f"),
-    ("MeanMonthsToRuin", a => f"${a.meanMonthsToRuin.toLong.toDouble / com.boombustgroup.amorfati.fp.FixedPointBase.ScaleD}%.2f"),
-    ("PovertyRate_50pct", a => f"${td.toDouble(a.povertyRate50)}%.6f"),
-    ("PovertyRate_30pct", a => f"${td.toDouble(a.povertyRate30)}%.6f"),
+    ("ConsumptionP10", a => a.consumptionP10.format(2)),
+    ("ConsumptionP50", a => a.consumptionP50.format(2)),
+    ("ConsumptionP90", a => a.consumptionP90.format(2)),
+    ("BankruptcyRate", a => a.bankruptcyRate.format(6)),
+    ("MeanMonthsToRuin", a => a.meanMonthsToRuin.format(2)),
+    ("PovertyRate_50pct", a => a.povertyRate50.format(6)),
+    ("PovertyRate_30pct", a => a.povertyRate30.format(6)),
   )
 
   private val bankSchema: Vector[(String, BankRow => String)] = Vector(
     ("BankId", row => s"${row.bank.id}"),
-    ("Deposits", row => f"${td.toDouble(row.balances.totalDeposits)}%.2f"),
-    ("Loans", row => f"${td.toDouble(row.balances.firmLoan)}%.2f"),
-    ("Capital", row => f"${td.toDouble(row.bank.capital)}%.2f"),
-    ("NPL", row => f"${td.toDouble(nplRatio(row))}%.6f"),
-    ("CAR", row => f"${td.toDouble(car(row))}%.6f"),
-    ("GovBonds", row => f"${td.toDouble(row.balances.govBondAfs + row.balances.govBondHtm)}%.2f"),
-    ("InterbankNet", row => f"${td.toDouble(row.balances.interbankLoan)}%.2f"),
+    ("Deposits", row => row.balances.totalDeposits.format(2)),
+    ("Loans", row => row.balances.firmLoan.format(2)),
+    ("Capital", row => row.bank.capital.format(2)),
+    ("NPL", row => nplRatio(row).format(6)),
+    ("CAR", row => car(row).format(6)),
+    ("GovBonds", row => (row.balances.govBondAfs + row.balances.govBondHtm).format(2)),
+    ("InterbankNet", row => row.balances.interbankLoan.format(2)),
     ("Failed", row => s"${row.bank.failed}"),
   )
 

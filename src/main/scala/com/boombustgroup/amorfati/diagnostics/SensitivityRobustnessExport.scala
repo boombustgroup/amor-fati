@@ -3,11 +3,10 @@ package com.boombustgroup.amorfati.diagnostics
 import com.boombustgroup.amorfati.config.RobustnessScenarios
 import com.boombustgroup.amorfati.config.RobustnessScenarios.{Scenario, ScenarioSet}
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.montecarlo.{McRunner, McTimeseriesSchema}
+import com.boombustgroup.amorfati.montecarlo.{McRunner, McTimeseriesSchema, MetricValue}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import java.util.Locale
 import scala.util.Try
 
 object SensitivityRobustnessExport:
@@ -29,30 +28,30 @@ object SensitivityRobustnessExport:
       scenarioId: String,
       seed: Long,
       metric: MetricDef,
-      terminal: Double,
-      pathMin: Double,
-      pathMax: Double,
-      pathMean: Double,
+      terminal: MetricValue,
+      pathMin: MetricValue,
+      pathMax: MetricValue,
+      pathMean: MetricValue,
   )
 
   private final case class EnvelopeMetric(
       scenarioId: String,
       metric: MetricDef,
-      terminalMean: Double,
-      terminalMin: Double,
-      terminalMax: Double,
-      pathMin: Double,
-      pathMax: Double,
-      pathMean: Double,
+      terminalMean: MetricValue,
+      terminalMin: MetricValue,
+      terminalMax: MetricValue,
+      pathMin: MetricValue,
+      pathMax: MetricValue,
+      pathMean: MetricValue,
   )
 
   private final case class SensitivityMetric(
       scenarioId: String,
       metric: MetricDef,
-      baselineMean: Double,
-      scenarioMean: Double,
-      delta: Double,
-      deltaPct: Option[Double],
+      baselineMean: MetricValue,
+      scenarioMean: MetricValue,
+      delta: MetricValue,
+      deltaPct: Option[MetricValue],
   )
 
   def main(args: Array[String]): Unit =
@@ -135,7 +134,7 @@ object SensitivityRobustnessExport:
             terminal = values.last,
             pathMin = values.min,
             pathMax = values.max,
-            pathMean = values.sum / values.length.toDouble,
+            pathMean = sumMetricValues(values) / values.length,
           )
 
   private def summarizeEnvelope(seedMetrics: Vector[SeedMetric]): Vector[EnvelopeMetric] =
@@ -149,12 +148,12 @@ object SensitivityRobustnessExport:
         EnvelopeMetric(
           scenarioId = scenarioId,
           metric = metric,
-          terminalMean = terminals.sum / terminals.length.toDouble,
+          terminalMean = sumMetricValues(terminals) / terminals.length,
           terminalMin = terminals.min,
           terminalMax = terminals.max,
           pathMin = metrics.map(_.pathMin).min,
           pathMax = metrics.map(_.pathMax).max,
-          pathMean = metrics.map(_.pathMean).sum / metrics.length.toDouble,
+          pathMean = sumMetricValues(metrics.map(_.pathMean)) / metrics.length,
         )
       }
 
@@ -173,7 +172,7 @@ object SensitivityRobustnessExport:
               baselineMean = base.terminalMean,
               scenarioMean = metric.terminalMean,
               delta = delta,
-              deltaPct = if Math.abs(base.terminalMean) > 1e-12 then Some(delta / Math.abs(base.terminalMean)) else None,
+              deltaPct = if base.terminalMean.toLong != 0L then Some(delta.ratioTo(base.terminalMean.abs)) else None,
             )
 
   private def writeArtifacts(
@@ -249,7 +248,7 @@ object SensitivityRobustnessExport:
           fmt(row.baselineMean),
           fmt(row.scenarioMean),
           signed(row.delta),
-          row.deltaPct.map(p => signed(p * 100.0) + "%").getOrElse("NA"),
+          row.deltaPct.map(p => signed(p * 100) + "%").getOrElse("NA"),
         ),
       )
 
@@ -335,11 +334,14 @@ object SensitivityRobustnessExport:
   private def escapeMarkdown(value: String): String =
     value.replace("|", "\\|")
 
-  private def fmt(value: Double): String =
-    String.format(Locale.US, "%.8f", Double.box(value))
+  private def sumMetricValues(values: IterableOnce[MetricValue]): MetricValue =
+    values.iterator.foldLeft(MetricValue.Zero)(_ + _)
 
-  private def signed(value: Double): String =
-    String.format(Locale.US, "%+.8f", Double.box(value))
+  private def fmt(value: MetricValue): String =
+    value.format(8)
+
+  private def signed(value: MetricValue): String =
+    if value.toLong >= 0L then "+" + fmt(value) else fmt(value)
 
   private def metric(column: String, description: String): MetricDef =
     val ordinal = McTimeseriesSchema.colNames.indexOf(column)

@@ -1,16 +1,25 @@
 package com.boombustgroup.amorfati.fp
 
 import FixedPointBase.*
+import ScalarProvider.*
+import scala.annotation.targetName
 
 /** [0,∞) multiplicative factors (markup, wage mult, labor eff). */
 object MultiplierProvider:
   opaque type Multiplier = Long
 
   object Multiplier:
-    val Zero: Multiplier               = 0L
-    val One: Multiplier                = Scale
-    def apply(d: Double): Multiplier   = Math.round(d * Scale)
-    def fromRaw(raw: Long): Multiplier = raw
+    val Zero: Multiplier                                           = 0L
+    val One: Multiplier                                            = Scale
+    def apply(value: Int): Multiplier                              = fromRaw(value.toLong * Scale)
+    def apply(value: Long): Multiplier                             = fromRaw(value * Scale)
+    def decimal(unscaled: Long, fractionalDigits: Int): Multiplier =
+      fromRaw(decimalRaw(unscaled, fractionalDigits))
+    def fraction(num: Int, den: Int): Multiplier                   =
+      if den == 0 then Zero else fromRaw(ratioRaw(num.toLong, den.toLong))
+    @targetName("fromScalar")
+    def apply(value: Scalar): Multiplier                           = fromRaw(value.toLong)
+    def fromRaw(raw: Long): Multiplier                             = raw
 
   extension (m: Multiplier)
     inline def toLong: Long                               = m
@@ -18,12 +27,14 @@ object MultiplierProvider:
     def abs: Multiplier                                   = math.abs(m)
     def +(other: Multiplier): Multiplier                  = m + other
     def -(other: Multiplier): Multiplier                  = m - other
-    def *(other: Multiplier): Multiplier                  = bankerRound(BigInt(m) * BigInt(other))
-    def /(other: Multiplier): Double                      = if other != 0L then m.toDouble / other.toDouble else 0.0
-    def pow(exponent: ScalarProvider.Scalar): Multiplier  = Multiplier(math.pow(m.toDouble / ScaleD, exponent.toLong.toDouble / ScaleD))
+    def *(other: Multiplier): Multiplier                  = multiplyRaw(m, other)
+    def /(other: Multiplier): ScalarProvider.Scalar       = ScalarProvider.Scalar.fromRaw(ratioRaw(m, other))
+    def pow(exponent: ScalarProvider.Scalar): Multiplier  = Multiplier.fromRaw(FixedPointMath.powRaw(m, exponent.toLong))
     def max(other: Multiplier): Multiplier                = math.max(m, other)
     def min(other: Multiplier): Multiplier                = math.min(m, other)
     def clamp(lo: Multiplier, hi: Multiplier): Multiplier = math.max(lo, math.min(hi, m))
+    def format(fractionalDigits: Int): String             = FixedPointBase.format(m, fractionalDigits)
+    def compact: String                                   = FixedPointBase.formatCompact(m)
     def >(other: Multiplier): Boolean                     = m > other
     def <(other: Multiplier): Boolean                     = m < other
     def >=(other: Multiplier): Boolean                    = m >= other

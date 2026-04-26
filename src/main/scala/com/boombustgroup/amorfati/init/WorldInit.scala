@@ -14,10 +14,7 @@ object WorldInit:
   /** Initialize a complete simulation world from an explicit randomness
     * contract.
     */
-  @boundaryEscape
   def initialize(randomness: InitRandomness.Contract)(using p: SimParams): InitResult =
-    import ComputationBoundary.toDouble
-
     // --- Firms ---
     val initCorporateBonds      = CorporateBondMarket.initial
     val initCorporateBondStocks = CorporateBondMarket.initialStock
@@ -39,10 +36,10 @@ object WorldInit:
 
     // --- Banking sector ---
     // Steady-state consumption estimate: employed × wage × MPC × domestic share
-    val initWageBill     = initEmployed.toDouble * toDouble(p.household.baseWage)
-    val initMpc          = toDouble(p.household.mpcAlpha) / (toDouble(p.household.mpcAlpha) + toDouble(p.household.mpcBeta)) // Beta mean
-    val initConsumption  = PLN(initWageBill * initMpc)
-    val initDomesticCons = initConsumption * Share(1.0 - p.openEcon.importContent.map(toDouble(_)).max)
+    val initWageBill     = p.household.baseWage * initEmployed
+    val initMpc          = p.household.mpcAlpha.toScalar.ratioTo((p.household.mpcAlpha + p.household.mpcBeta).toScalar).clampToShare // Beta mean
+    val initConsumption  = initWageBill * initMpc
+    val initDomesticCons = initConsumption * (Share.One - p.openEcon.importContent.max)
     val initImportCons   = initConsumption - initDomesticCons
 
     val initBankingSector = BankInit.create(firms, firmStocks, households, householdStocks)
@@ -84,7 +81,7 @@ object WorldInit:
       unemployed = initUnemployed,
       retraining = 0,
       bankrupt = 0,
-      totalIncome = PLN(initWageBill),
+      totalIncome = initWageBill,
       consumption = initConsumption,
       domesticConsumption = initDomesticCons,
       importConsumption = initImportCons,
@@ -123,7 +120,7 @@ object WorldInit:
 
     val world0 = World(
       inflation = initInflation,
-      priceLevel = PriceIndex(1.0),
+      priceLevel = PriceIndex(1),
       currentSigmas = p.sectorDefs.map(_.sigma),
       gov = FiscalBudget.GovState(
         taxRevenue = PLN.Zero,
@@ -178,7 +175,7 @@ object WorldInit:
         initInflation,
         initExpectations.expectedInflation,
       ),
-      flows = FlowState(monthlyGdpProxy = PLN(toDouble(p.firm.baseRevenue) * p.pop.firmsCount)),
+      flows = FlowState(monthlyGdpProxy = p.firm.baseRevenue * p.pop.firmsCount),
       regionalWages = Region.all.map(r => r -> (p.household.baseWage * Region.normalizedWageMultiplier(r))).toMap,
     )
 

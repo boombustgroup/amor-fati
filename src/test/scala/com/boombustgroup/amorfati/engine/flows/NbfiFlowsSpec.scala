@@ -17,13 +17,13 @@ class NbfiFlowsSpec extends AnyFlatSpec with Matchers:
       case other                            => fail(s"Expected Broadcast, got $other")
 
   "NbfiFlows" should "preserve total wealth at exactly 0L" in {
-    val flows = NbfiFlows.emit(NbfiFlows.Input(PLN(-125000.0), PLN(300000.0), PLN(100000.0), PLN(50000.0)))
+    val flows = NbfiFlows.emit(NbfiFlows.Input(PLN(-125000), PLN(300000), PLN(100000), PLN(50000)))
 
     Interpreter.totalWealth(Interpreter.applyAll(Map.empty[Int, Long], flows)) shouldBe 0L
   }
 
   it should "emit legacy flat flows with explicit directions" in {
-    val flows = NbfiFlows.emit(NbfiFlows.Input(PLN(-125000.0), PLN(300000.0), PLN(100000.0), PLN(50000.0)))
+    val flows = NbfiFlows.emit(NbfiFlows.Input(PLN(-125000), PLN(300000), PLN(100000), PLN(50000)))
 
     val tfiDrain = flows.filter(_.mechanism == FlowMechanism.TfiDepositDrain.toInt)
     tfiDrain should have size 1
@@ -45,14 +45,14 @@ class NbfiFlowsSpec extends AnyFlatSpec with Matchers:
     defaultAmount.head.from shouldBe NbfiFlows.HH_ACCOUNT
     defaultAmount.head.to shouldBe NbfiFlows.NBFI_ACCOUNT
 
-    val positiveDrain = NbfiFlows.emit(NbfiFlows.Input(PLN(80000.0), PLN.Zero, PLN.Zero, PLN.Zero))
+    val positiveDrain = NbfiFlows.emit(NbfiFlows.Input(PLN(80000), PLN.Zero, PLN.Zero, PLN.Zero))
     positiveDrain should have size 1
     positiveDrain.head.from shouldBe NbfiFlows.BANK_ACCOUNT
     positiveDrain.head.to shouldBe NbfiFlows.HH_ACCOUNT
   }
 
   it should "emit negative TFI deposit drain as household deposit drawdown" in {
-    val batches = NbfiFlows.emitBatches(NbfiFlows.Input(PLN(-125000.0), PLN.Zero, PLN.Zero, PLN.Zero))
+    val batches = NbfiFlows.emitBatches(NbfiFlows.Input(PLN(-125000), PLN.Zero, PLN.Zero, PLN.Zero))
     val batch   = onlyBroadcast(batches)
 
     batch.mechanism shouldBe FlowMechanism.TfiDepositDrain
@@ -61,14 +61,14 @@ class NbfiFlowsSpec extends AnyFlatSpec with Matchers:
     batch.fromIndex shouldBe summon[RuntimeLedgerTopology].households.investors
     batch.to shouldBe EntitySector.Banks
     batch.targetIndices.toVector shouldBe Vector(summon[RuntimeLedgerTopology].banks.aggregate)
-    totalTransferred(batches) shouldBe PLN(125000.0)
+    totalTransferred(batches) shouldBe PLN(125000)
 
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
-    evidence.nbfiDepositDrain shouldBe PLN(-125000.0)
+    evidence.nbfiDepositDrain shouldBe PLN(-125000)
   }
 
   it should "emit positive TFI deposit drain as bank-issued household deposits" in {
-    val batches = NbfiFlows.emitBatches(NbfiFlows.Input(PLN(80000.0), PLN.Zero, PLN.Zero, PLN.Zero))
+    val batches = NbfiFlows.emitBatches(NbfiFlows.Input(PLN(80000), PLN.Zero, PLN.Zero, PLN.Zero))
     val batch   = onlyBroadcast(batches)
 
     batch.mechanism shouldBe FlowMechanism.TfiDepositDrain
@@ -77,14 +77,14 @@ class NbfiFlowsSpec extends AnyFlatSpec with Matchers:
     batch.fromIndex shouldBe summon[RuntimeLedgerTopology].banks.aggregate
     batch.to shouldBe EntitySector.Households
     batch.targetIndices.toVector shouldBe Vector(summon[RuntimeLedgerTopology].households.investors)
-    totalTransferred(batches) shouldBe PLN(80000.0)
+    totalTransferred(batches) shouldBe PLN(80000)
 
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
-    evidence.nbfiDepositDrain shouldBe PLN(80000.0)
+    evidence.nbfiDepositDrain shouldBe PLN(80000)
   }
 
   it should "emit NBFI credit stock movements with explicit mechanisms" in {
-    val batches = NbfiFlows.emitBatches(NbfiFlows.Input(PLN.Zero, PLN(300000.0), PLN(100000.0), PLN(50000.0)))
+    val batches = NbfiFlows.emitBatches(NbfiFlows.Input(PLN.Zero, PLN(300000), PLN(100000), PLN(50000)))
 
     mechanismBatches(batches, FlowMechanism.NbfiOrigination) should have size 1
     mechanismBatches(batches, FlowMechanism.NbfiRepayment) should have size 1
@@ -111,9 +111,9 @@ class NbfiFlowsSpec extends AnyFlatSpec with Matchers:
     defaultAmount.to shouldBe EntitySector.Funds
     defaultAmount.targetIndices.toVector shouldBe Vector(summon[RuntimeLedgerTopology].funds.nbfi)
 
-    totalTransferred(mechanismBatches(batches, FlowMechanism.NbfiOrigination)) shouldBe PLN(300000.0)
-    totalTransferred(mechanismBatches(batches, FlowMechanism.NbfiRepayment)) shouldBe PLN(100000.0)
-    totalTransferred(mechanismBatches(batches, FlowMechanism.NbfiDefault)) shouldBe PLN(50000.0)
+    totalTransferred(mechanismBatches(batches, FlowMechanism.NbfiOrigination)) shouldBe PLN(300000)
+    totalTransferred(mechanismBatches(batches, FlowMechanism.NbfiRepayment)) shouldBe PLN(100000)
+    totalTransferred(mechanismBatches(batches, FlowMechanism.NbfiDefault)) shouldBe PLN(50000)
   }
 
   it should "emit no batch for zero monetary channels" in {

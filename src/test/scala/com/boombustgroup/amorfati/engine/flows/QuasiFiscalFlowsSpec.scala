@@ -23,12 +23,12 @@ class QuasiFiscalFlowsSpec extends AnyFlatSpec with Matchers:
       case other                        => fail(s"Expected Scatter, got $other")
 
   private val input = QuasiFiscalFlows.Input(
-    bankBondIssuance = PLN(700000.0),
-    nbpBondAbsorption = PLN(300000.0),
-    bankBondAmortization = PLN(200000.0),
-    nbpBondAmortization = PLN(100000.0),
-    lending = PLN(500000.0),
-    repayment = PLN(150000.0),
+    bankBondIssuance = PLN(700000),
+    nbpBondAbsorption = PLN(300000),
+    bankBondAmortization = PLN(200000),
+    nbpBondAmortization = PLN(100000),
+    lending = PLN(500000),
+    repayment = PLN(150000),
   )
 
   "QuasiFiscalFlows" should "emit quasi-fiscal bond issuance and amortization through supported holders" in {

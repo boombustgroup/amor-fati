@@ -15,10 +15,11 @@ import com.boombustgroup.ledger.*
   */
 object JstFlows:
 
-  val TAXPAYER_ACCOUNT: Int = 0
-  val JST_ACCOUNT: Int      = 1
-  val SERVICES_ACCOUNT: Int = 2
-  val GOV_ACCOUNT: Int      = 3
+  val TAXPAYER_ACCOUNT: Int          = 0
+  val JST_ACCOUNT: Int               = 1
+  val SERVICES_ACCOUNT: Int          = 2
+  val GOV_ACCOUNT: Int               = 3
+  private val FallbackPitRate: Share = Share.decimal(12, 2)
 
   case class Input(
       centralCitRevenue: PLN,
@@ -38,7 +39,7 @@ object JstFlows:
   private def components(input: Input)(using p: SimParams): Components =
     val jstPitIncome =
       if input.pitRevenue > PLN.Zero then input.pitRevenue * p.fiscal.jstPitShare
-      else input.totalWageIncome * (Share(FallbackPitRate) * p.fiscal.jstPitShare)
+      else input.totalWageIncome * (FallbackPitRate * p.fiscal.jstPitShare)
     val citRevenue   = input.centralCitRevenue * p.fiscal.jstCitShare
     val propertyTax  = input.nFirms * p.fiscal.jstPropertyTax / 12L
     val subvention   = input.gdp * p.fiscal.jstSubventionShare / 12L
@@ -94,5 +95,3 @@ object JstFlows:
     if c.govSubvention > PLN.Zero then flows += Flow(GOV_ACCOUNT, JST_ACCOUNT, c.govSubvention.toLong, FlowMechanism.JstGovSubvention.toInt)
     if c.totalSpending > PLN.Zero then flows += Flow(JST_ACCOUNT, SERVICES_ACCOUNT, c.totalSpending.toLong, FlowMechanism.JstSpending.toInt)
     flows.result()
-
-  private val FallbackPitRate = 0.12

@@ -4,6 +4,7 @@ import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.SimulationMonth.ExecutionMonth
 import com.boombustgroup.amorfati.random.RandomStream
 import com.boombustgroup.amorfati.types.*
+import com.boombustgroup.amorfati.util.Distributions
 
 /** Global Value Chain trade: per-sector exports/imports with partner
   * differentiation.
@@ -21,8 +22,8 @@ import com.boombustgroup.amorfati.types.*
 object GvcTrade:
 
   private val NumPartners           = 2
-  private val AutomationExportBoost = Coefficient(0.15)
-  private val MinErEffect           = Multiplier(0.1)
+  private val AutomationExportBoost = Coefficient.decimal(15, 2)
+  private val MinErEffect           = Multiplier.decimal(1, 1)
 
   case class ForeignFirm(
       id: Int,
@@ -108,7 +109,7 @@ object GvcTrade:
     val monthlyInflation = p.gvc.foreignInflation.monthly
     val newForeignPrice  = in.prev.foreignPriceIndex.applyGrowth(monthlyInflation.toCoefficient)
     val commodityDrift   = p.gvc.commodityDrift.monthly.toCoefficient
-    val commodityNoise   = Coefficient(in.rng.nextGaussian()) * p.gvc.commodityVolatility.toCoefficient
+    val commodityNoise   = Coefficient.fromRaw(Distributions.gaussianNoiseRaw(p.gvc.commodityVolatility.toScalar, in.rng))
     val commodityShock   =
       if p.gvc.commodityShockMonth > 0 && in.month.toInt == p.gvc.commodityShockMonth then p.gvc.commodityShockMag.toCoefficient
       else Coefficient.Zero
