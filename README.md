@@ -40,6 +40,7 @@ That is the hard floor under every experiment in the model. Behavioral rules, po
 - [Core Invariants](#core-invariants)
 - [State Ontology](#state-ontology)
 - [Verified Ledger](#verified-ledger)
+- [Ledger-Derived Matrix Artifacts](#ledger-derived-matrix-artifacts)
 - [Tech Stack](#tech-stack)
 - [License](#license)
 
@@ -98,6 +99,16 @@ The simulation pipeline is anchored to the verified [amor-fati-ledger](https://g
 This is why Amor Fati is useful even when the long-run path is still being calibrated. If a branch generates a bad macro regime, that may be a modeling problem. If the ledger breaks, the simulation itself is wrong.
 
 That distinction matters. A nonlinear ABM can explore unstable, surprising, even pathological futures. But it should never "lose money" in the plumbing.
+
+## Ledger-Derived Matrix Artifacts
+
+The project can regenerate paper-facing symbolic SFC matrices from an executed deterministic simulation step:
+
+```bash
+sbt "sfcMatrices --seed 1 --months 12 --out target/sfc-matrices"
+```
+
+This writes symbolic Balance Sheet Matrix (BSM) and Transactions Flow Matrix (TFM) artifacts in LaTeX and Markdown, plus a symbolic-row to runtime-ledger mapping under `target/`. The workflow, sign conventions, coverage gaps, and review checklist are documented in [docs/sfc-matrix-evidence.md](docs/sfc-matrix-evidence.md).
 
 ## Tech Stack
 
