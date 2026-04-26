@@ -34,6 +34,8 @@ class SfcMatrixRenderersSpec extends AnyFlatSpec with Matchers:
       "symbolic-tfm.md",
       "matrix-mapping.tex",
       "matrix-mapping.md",
+      "stock-flow-reconciliation.tex",
+      "stock-flow-reconciliation.md",
     )
 
     byName("symbolic-bsm.tex") should include("\\begin{tabular}")
@@ -42,6 +44,9 @@ class SfcMatrixRenderersSpec extends AnyFlatSpec with Matchers:
     byName("symbolic-tfm.md") should include("Consumption")
     byName("matrix-mapping.md") should include("Demand deposits")
     byName("matrix-mapping.md") should include("Household consumption")
+    byName("stock-flow-reconciliation.md") should include("Net foreign assets")
+    byName("stock-flow-reconciliation.md") should include("FX valuation")
+    byName("stock-flow-reconciliation.tex") should include("\\begin{longtable}")
   }
 
   it should "parse output format lists and reject unknown formats" in {

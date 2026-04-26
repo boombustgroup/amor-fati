@@ -66,8 +66,8 @@ The current model is expected to generate and expose:
   bank failure and resolution, BFG levy and bail-in, government-bond portfolio
   effects, and credit rationing;
 - accounting artifacts: symbolic Balance Sheet Matrix (BSM), Transactions
-  Flow Matrix (TFM), and runtime mapping generated from an executed simulation
-  step.
+  Flow Matrix (TFM), stock-flow reconciliation evidence, and runtime mapping
+  generated from an executed simulation step.
 
 Empirical validation of these patterns is structured in
 `docs/empirical-validation-report.md`.
@@ -194,8 +194,9 @@ Economics stages compute quantities. Monetary execution is done through
 runtime flows. Each emitted flow has a `FlowMechanism` and an `AssetType`.
 Flows are grouped into `BatchedFlow` values and executed through the ledger.
 
-The SFC matrix evidence workflow generates symbolic BSM and TFM artifacts from
-an executed deterministic step. See `docs/sfc-matrix-evidence.md`.
+The SFC matrix evidence workflow generates symbolic BSM, TFM, stock-flow
+reconciliation, and runtime-mapping artifacts from an executed deterministic
+step. See `docs/sfc-matrix-evidence.md`.
 
 ### Timing Contract
 
@@ -325,7 +326,7 @@ Observation surfaces include:
 - Monte Carlo per-seed CSV time series;
 - household and bank terminal summary CSVs;
 - SFC validation results;
-- ledger-derived symbolic BSM and TFM artifacts;
+- ledger-derived symbolic BSM, TFM, and stock-flow reconciliation artifacts;
 - symbolic-row to runtime-ledger mapping.
 
 ## ODD+D Decision Notes
@@ -366,7 +367,8 @@ The initialized state is produced by `WorldInit.initialize`, using
 Default parameters are hardcoded in `SimParams.defaults`; stock values are
 scaled by `gdpRatio` to map agent-level monthly flows to real Polish macro
 magnitudes. The current initialization does not yet read a formal external data
-bundle. That data bridge is tracked in #437.
+bundle, but the source-to-model bridge for future empirical bundles is
+documented in `docs/data-bridge-national-financial-accounts.md`.
 
 ## 6. Input Data
 
@@ -382,7 +384,9 @@ Current inputs are:
 The model contains many Poland-specific calibration comments and values, but a
 structured calibration register is documented in
 `docs/calibration-register.md`. The reproducible scenario registry is
-documented in `docs/scenario-registry.md`.
+documented in `docs/scenario-registry.md`. External source selection,
+unit/frequency conversion, and national/financial-account crosswalks are
+documented in `docs/data-bridge-national-financial-accounts.md`.
 
 ## 7. Submodels
 
@@ -435,6 +439,7 @@ The matrix evidence workflow adds paper-facing symbolic artifacts:
 
 - Balance Sheet Matrix (BSM);
 - Transactions Flow Matrix (TFM);
+- Stock-Flow Reconciliation and Revaluation Evidence;
 - symbolic-row to runtime-ledger mapping.
 
 Numeric evidence remains in the simulation and Monte Carlo outputs. Symbolic
@@ -443,11 +448,8 @@ outputs.
 
 ## Open Gaps
 
-This document deliberately marks unfinished research-readiness work:
-
-- #436: stock-flow reconciliation and revaluation matrix artifact;
-- #437: data bridge to national and financial accounts.
-
-These gaps do not mean the engine is undocumented or untestable. They mean the
-model is not yet fully packaged as a publication-ready empirical research
-system.
+This document links the research-readiness spine docs. Remaining gaps are
+tracked inside the calibration register, data bridge, empirical validation
+report, and matrix evidence artifact as table-level statuses such as
+`UNKNOWN_SOURCE`, `MISSING_OUTPUT`, `MISSING_DATA_BRIDGE`,
+`BRIDGE_ASSUMPTION`, and `PARTIAL`.

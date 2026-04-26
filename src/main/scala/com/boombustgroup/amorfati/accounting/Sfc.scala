@@ -228,6 +228,22 @@ object Sfc:
       actual: PLN,
   )
 
+  /** Public row-level evidence for exact stock-flow reconciliation. `expected`
+    * is assembled from independent semantic/runtime flow channels, while
+    * `actual` comes from observed opening/closing stocks or level checks.
+    */
+  case class StockFlowReconciliationRow(
+      identity: SfcIdentity,
+      msg: String,
+      expected: PLN,
+      actual: PLN,
+  ):
+    def residual: PLN =
+      actual - expected
+
+    def isValid: Boolean =
+      residual == PLN.Zero
+
   /** Result of SFC validation: Right(()) if all identities hold, Left(errors)
     * otherwise.
     */
@@ -361,6 +377,32 @@ object Sfc:
       curr: StockState,    // stocks at the end of the month (after Simulation.step)
       flows: SemanticFlows, // all flows that occurred during the month
   )(using p: SimParams): SfcResult =
+    val errors = stockFlowReconciliationRows(prev, curr, flows).collect:
+      case row if !row.isValid =>
+        SfcIdentityError(row.identity, row.msg, row.expected, row.actual)
+
+    if errors.isEmpty then Right(()) else Left(errors)
+
+  def stockFlowReconciliationRows(
+      prev: StockState,
+      curr: StockState,
+      flows: SemanticFlows,
+  )(using p: SimParams): Vector[StockFlowReconciliationRow] =
+    stockFlowIdentitySpecs(prev, curr, flows).map: spec =>
+      StockFlowReconciliationRow(spec.id, spec.msg, spec.expected, spec.actual)
+
+  def stockFlowReconciliationRows(
+      prev: RuntimeState,
+      curr: RuntimeState,
+      flows: SemanticFlows,
+  )(using p: SimParams): Vector[StockFlowReconciliationRow] =
+    stockFlowReconciliationRows(snapshot(prev), snapshot(curr), flows)
+
+  private def stockFlowIdentitySpecs(
+      prev: StockState,
+      curr: StockState,
+      flows: SemanticFlows,
+  )(using p: SimParams): Vector[IdentitySpec] =
     import SfcIdentity.*
 
     val quasiFiscalBankBondIssuance     =
@@ -368,7 +410,7 @@ object Sfc:
     val quasiFiscalBankBondAmortization =
       flows.quasiFiscalBondAmortization - flows.quasiFiscalNbpBondAmortization
 
-    val identities: Vector[IdentitySpec] = Vector(
+    Vector(
       // 1. Bank capital: losses + profit retention
       //    PLN is Long-based — addition is exact, no Kahan needed
       IdentitySpec(
@@ -492,12 +534,6 @@ object Sfc:
         actual = curr.quasiFiscalLoanPortfolio - prev.quasiFiscalLoanPortfolio,
       ),
     )
-
-    val errors = identities.collect:
-      case IdentitySpec(id, msg, expected, actual) if actual != expected =>
-        SfcIdentityError(id, msg, expected, actual)
-
-    if errors.isEmpty then Right(()) else Left(errors)
 
   def metricDiagnostics(
       prev: StockState,

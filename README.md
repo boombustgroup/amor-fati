@@ -109,6 +109,8 @@ The detailed behavioral equations and institutional decision rules are documente
 
 The calibration register is documented in [docs/calibration-register.md](docs/calibration-register.md). It records key parameter values, units, implementation owners, empirical targets, transformations, provenance status, and explicit searchable gaps.
 
+The data bridge to national and financial accounts is documented in [docs/data-bridge-national-financial-accounts.md](docs/data-bridge-national-financial-accounts.md). It maps official Polish, EU, and financial-account sources to initialization stocks, calibrated parameters, scenario inputs, validation targets, transformation rules, and prioritized empirical gaps.
+
 The empirical validation report skeleton is documented in [docs/empirical-validation-report.md](docs/empirical-validation-report.md). It maps macro, meso, micro, financial, and external validation targets to Monte Carlo output columns and keeps missing data/output gaps visible.
 
 The sensitivity and robustness workflow is documented in [docs/sensitivity-robustness-workflow.md](docs/sensitivity-robustness-workflow.md). It generates seed envelopes and one-at-a-time parameter-sensitivity artifacts from the Monte Carlo runner.
@@ -123,7 +125,7 @@ The project can regenerate paper-facing symbolic SFC matrices from an executed d
 sbt "sfcMatrices --seed 1 --months 12 --out target/sfc-matrices"
 ```
 
-This writes symbolic Balance Sheet Matrix (BSM) and Transactions Flow Matrix (TFM) artifacts in LaTeX and Markdown, plus a symbolic-row to runtime-ledger mapping under `target/`. The workflow, sign conventions, coverage gaps, and review checklist are documented in [docs/sfc-matrix-evidence.md](docs/sfc-matrix-evidence.md).
+This writes symbolic Balance Sheet Matrix (BSM), Transactions Flow Matrix (TFM), and stock-flow reconciliation/revaluation artifacts in LaTeX and Markdown, plus a symbolic-row to runtime-ledger mapping under `target/`. The workflow, sign conventions, coverage gaps, exact reconciliation rows, and review checklist are documented in [docs/sfc-matrix-evidence.md](docs/sfc-matrix-evidence.md).
 
 ## Tech Stack
 
