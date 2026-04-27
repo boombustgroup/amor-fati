@@ -54,12 +54,21 @@ git fetch upstream
 ```
 
 Keep `main` as the baseline branch and do research work on named local
-branches:
+branches. For a direct clone, refresh from `origin` before creating an
+experiment branch:
+
+```bash
+git checkout main
+git pull --ff-only origin main
+git checkout -b experiment/<short-name>
+```
+
+For a fork, refresh from `upstream` instead:
 
 ```bash
 git checkout main
 git fetch upstream
-git merge upstream/main
+git merge --ff-only upstream/main
 git checkout -b experiment/<short-name>
 ```
 
@@ -274,11 +283,11 @@ Generated local outputs normally belong in ignored paths:
 A practical local loop for model changes:
 
 1. Make a focused mechanism, parameter, or accounting change.
-2. Run the most specific affected spec with `sbt "testOnly ..."`.
-3. Run `sbt test`.
-4. Run a narrow diagnostic if the change touches bankruptcy, labor demand,
+2. Execute the most specific affected spec with `sbt "testOnly ..."`.
+3. Then run `sbt test`.
+4. Perform a narrow diagnostic if the change touches bankruptcy, labor demand,
    inflation, matrices, scenarios, or robustness behavior.
-5. Run heavy and integration tests when the change touches month execution,
+5. Execute heavy and integration tests when the change touches month execution,
    flow simulation, Monte Carlo output, or shared ledger behavior.
 6. Compare generated CSVs or reports under `mc/` or `target/` before committing.
 
