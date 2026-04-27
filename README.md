@@ -27,7 +27,7 @@ The key design principle is simple:
 
 > **Macro stories can be wrong. The ledger cannot.**
 
-This engine is built on top of the separately verified [amor-fati-ledger](https://github.com/boombustgroup/amor-fati-ledger) flow interpreter, vendored here under `modules/ledger`. The practical consequence is that the strongest invariant in the entire project is not "inflation should look smooth" or "GDP should converge nicely after 10 years". It is this:
+This engine is built on top of the separately verified [amor-fati-ledger](https://github.com/boombustgroup/amor-fati-ledger) flow interpreter, checked out as a Git submodule under `modules/ledger`. The practical consequence is that the strongest invariant in the entire project is not "inflation should look smooth" or "GDP should converge nicely after 10 years". It is this:
 
 > **The books must balance to the end of the universe.**
 
@@ -56,6 +56,19 @@ Requirements:
 
 - JDK 21 as the supported baseline, matching CI's Temurin 21 runtime
 - sbt 1.11.6, pinned in `project/build.properties`
+
+Clone the repository with its ledger submodule:
+
+```bash
+git clone --recurse-submodules https://github.com/boombustgroup/amor-fati.git
+cd amor-fati
+```
+
+If the repository was cloned without submodules:
+
+```bash
+git submodule update --init --recursive
+```
 
 Validate the checkout:
 
