@@ -89,11 +89,11 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     reservationWage = PLN(4500),
   )
 
-  private def defaultRuntimeState =
+  private lazy val defaultRuntimeState: FlowSimulation.SimState =
     val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     FlowSimulation.SimState.fromInit(init)
 
-  private def defaultRuntimeStep =
+  private lazy val defaultRuntimeStep: FlowSimulation.StepOutput =
     FlowSimulation.step(defaultRuntimeState, MonthRandomness.Contract.fromSeed(42L))
 
   "World" should "have informalCyclicalAdj defaulting to 0.0" in {

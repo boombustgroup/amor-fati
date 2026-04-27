@@ -24,6 +24,7 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
     val expectedPensions      = PLN(175000000)
     val expectedCashChange    = PLN(-13647680)
 
+    // Assumes SimParams.defaults.social.zusContribRate/zusScale/zusBasePension; literals come from SocialSecurity.PayrollBase.aggregate/zusStep.
     result.contributions shouldBe expectedContributions
     result.pensionPayments shouldBe expectedPensions
     result.contributions should be < result.pensionPayments

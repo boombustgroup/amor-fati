@@ -44,7 +44,7 @@ class JstSpec extends AnyFlatSpec with Matchers:
       pitRevenue,
     )
 
-    Vector(expectedPitShare, expectedCitShare, expectedProperty, expectedSubv, expectedDotacje).foldLeft(PLN.Zero)(_ + _) shouldBe expectedRevenue
+    Seq(expectedPitShare, expectedCitShare, expectedProperty, expectedSubv, expectedDotacje).sumPln shouldBe expectedRevenue
     result.state.revenue shouldBe expectedRevenue
     result.state.spending shouldBe expectedSpending
     result.state.deficit shouldBe expectedDeficit
@@ -83,7 +83,7 @@ class JstSpec extends AnyFlatSpec with Matchers:
       pitRevenue,
     )
 
-    Vector(expectedPitShare, expectedCitShare, expectedProperty, expectedSubv, expectedDotacje).foldLeft(PLN.Zero)(_ + _) shouldBe expectedRevenue
+    Seq(expectedPitShare, expectedCitShare, expectedProperty, expectedSubv, expectedDotacje).sumPln shouldBe expectedRevenue
     result.state.revenue shouldBe expectedRevenue
     result.state.spending shouldBe expectedSpending
     result.state.deficit shouldBe expectedDeficit
