@@ -18,9 +18,25 @@ first.
 No Docker, Nix, or binary release artifact is required for the current local
 workflow.
 
+The runtime depends on `amor-fati-ledger`, checked out as the Git submodule at
+`modules/ledger`. A checkout without that submodule is incomplete.
+
 ## First Run
 
-From the repository root:
+Clone with submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/boombustgroup/amor-fati.git
+cd amor-fati
+```
+
+If the repository was cloned without submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+Then validate the checkout from the repository root:
 
 ```bash
 sbt test
@@ -39,7 +55,7 @@ canonical repository.
 Clone the repository directly:
 
 ```bash
-git clone git@github.com:boombustgroup/amor-fati.git
+git clone --recurse-submodules git@github.com:boombustgroup/amor-fati.git
 cd amor-fati
 ```
 
@@ -47,7 +63,7 @@ Or clone your own fork and keep the canonical repository as `upstream` so you
 can refresh the baseline when needed:
 
 ```bash
-git clone git@github.com:<user>/amor-fati.git
+git clone --recurse-submodules git@github.com:<user>/amor-fati.git
 cd amor-fati
 git remote add upstream git@github.com:boombustgroup/amor-fati.git
 git fetch upstream
@@ -60,6 +76,7 @@ experiment branch:
 ```bash
 git checkout main
 git pull --ff-only origin main
+git submodule update --init --recursive
 git checkout -b experiment/<short-name>
 ```
 
@@ -69,6 +86,7 @@ For a fork, refresh from `upstream` instead:
 git checkout main
 git fetch upstream
 git merge --ff-only upstream/main
+git submodule update --init --recursive
 git checkout -b experiment/<short-name>
 ```
 
