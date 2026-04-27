@@ -25,7 +25,7 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
     given RuntimeLedgerTopology = result.execution.topology
     val flows                   = FlowSimulation.emitAllBatches(result.calculus)
 
-    flows shouldBe result.flows
+    canonicalBatches(flows) shouldBe canonicalBatches(result.flows)
     result.execution.netDelta shouldBe 0L
     totalTransferred(flows) should be > PLN.Zero
   }

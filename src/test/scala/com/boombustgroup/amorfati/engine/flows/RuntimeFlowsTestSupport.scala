@@ -85,3 +85,27 @@ object RuntimeFlowsTestSupport extends Matchers:
         .map(_.amount)
         .sum,
     )
+
+  def canonicalBatches(batches: Vector[BatchedFlow]): Vector[Any] =
+    batches.map:
+      case scatter: BatchedFlow.Scatter     =>
+        (
+          "scatter",
+          scatter.from,
+          scatter.to,
+          scatter.amounts.toVector,
+          scatter.targetIndices.toVector,
+          scatter.asset,
+          scatter.mechanism,
+        )
+      case broadcast: BatchedFlow.Broadcast =>
+        (
+          "broadcast",
+          broadcast.from,
+          broadcast.fromIndex,
+          broadcast.to,
+          broadcast.amounts.toVector,
+          broadcast.targetIndices.toVector,
+          broadcast.asset,
+          broadcast.mechanism,
+        )
