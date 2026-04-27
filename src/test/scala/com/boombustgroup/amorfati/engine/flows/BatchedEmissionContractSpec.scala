@@ -1,14 +1,13 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
+  import RuntimeFlowsTestSupport.*
 
   private given SimParams             = SimParams.defaults
   private given RuntimeLedgerTopology = RuntimeLedgerTopology.zeroPopulation
@@ -28,227 +27,126 @@ class BatchedEmissionContractSpec extends AnyFlatSpec with Matchers:
   private def batchedMechanismTotals(batches: Vector[BatchedFlow]): Map[Int, Long] =
     batches.groupMapReduce(_.mechanism.toInt)(RuntimeLedgerTopology.totalTransferred)(_ + _)
 
+  private case class EmissionPair(flat: Vector[Flow], batched: Vector[BatchedFlow])
+
   "emitBatches" should "preserve mechanism totals across migrated emitters" in {
-    val flatFlows = Vector.concat(
-      ZusFlows.emit(ZusFlows.ZusInput(80000, PLN(7000), 1000)),
-      NfzFlows.emit(NfzFlows.NfzInput.fromDrivers(80000, PLN(7000), 90000, 1000)),
-      PpkFlows.emit(PpkFlows.PpkInput(80000, PLN(7000))),
-      EarmarkedFlows.emit(EarmarkedFlows.Input(80000, PLN(7000), PLN(1000000), 10, 15)),
-      JstFlows.emit(JstFlows.Input(PLN(5000000), PLN(50000000), PLN(100000000), 9000, PLN(3000000))),
-      HouseholdFlows.emit(
-        HouseholdFlows
-          .Input(
-            PLN(40000000),
-            PLN(8000000),
-            PLN(5000000),
-            PLN(3000000),
-            PLN(1000000),
-            PLN(500000),
-            PLN(2000000),
-            PLN(1500000),
-            PLN(200000),
-          ),
-      ),
-      FirmFlows.emit(
-        FirmFlows.Input(
-          PLN(50000000),
-          PLN(8000000),
-          PLN(4000000),
-          PLN(6000000),
-          PLN(3000000),
-          PLN(5000000),
-          PLN(1000000),
-          PLN(7000000),
-          PLN(300000),
-          PLN(800000),
-          PLN(600000),
-          PLN(5000000),
-        ),
-      ),
-      GovBudgetFlows.emit(
-        GovBudgetFlows.Input(
-          vatRevenue = PLN(9000000),
-          exciseRevenue = PLN(3500000),
-          customsDutyRevenue = PLN(2500000),
-          govCurrentSpend = PLN(10000000),
-          debtService = PLN(4000000),
-          unempBenefitSpend = PLN(2000000),
-          socialTransferSpend = PLN(3000000),
-          euCofinancing = PLN(1500000),
-          govCapitalSpend = PLN(2500000),
-          debtServiceRecipients = Some(govDebtRecipients),
-        ),
-      ),
-      InsuranceFlows.emit(
-        InsuranceFlows.Input(
-          employed = 80000,
-          wage = PLN(7000),
-          unempRate = Share.decimal(8, 2),
-          currentLifeReserves = PLN(90000000),
-          currentNonLifeReserves = PLN(30000000),
-          prevGovBondHoldings = PLN(100000000),
-          prevCorpBondHoldings = PLN(50000000),
-          corpBondDefaultLoss = PLN.Zero,
-          prevEquityHoldings = PLN(40000000),
-          govBondYield = Rate.decimal(6, 2),
-          corpBondYield = Rate.decimal(8, 2),
-          equityReturn = Rate.decimal(3, 2),
-        ),
-      ),
-      EquityFlows.emit(EquityFlows.Input(PLN(500000), PLN(200000), PLN(100000), PLN(50000))),
-      CorpBondFlows.emit(CorpBondFlows.Input(PLN(300000), PLN(50000), PLN(1000000), PLN(200000))),
-      MortgageFlows.emit(MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))),
-      OpenEconFlows.emit(
-        OpenEconFlows.Input(
-          exports = PLN(1000000),
-          imports = PLN(700000),
-          tourismExport = PLN(250000),
-          tourismImport = PLN(200000),
-          fdi = PLN(300000),
-          portfolioFlows = PLN(50000),
-          carryTradeFlow = PLN(10000),
-          primaryIncome = PLN(-20000),
-          euFunds = PLN(400000),
-          diasporaInflow = PLN(100000),
-          capitalFlightOutflow = PLN(150000),
-        ),
-      ),
-      BankingFlows.emit(
-        BankingFlows.Input(
-          firmInterestIncome = PLN(130000),
-          firmNplLoss = PLN(20000),
-          mortgageNplLoss = PLN(30000),
-          consumerNplLoss = PLN(10000),
-          govBondIncome = PLN(600000),
-          reserveInterest = PLN(200000),
-          standingFacilityIncome = PLN(100000),
-          interbankInterest = PLN(-50000),
-          corpBondCoupon = PLN(25000),
-          corpBondDefaultLoss = PLN(45000),
-          bfgLevy = PLN(80000),
-          unrealizedBondLoss = PLN(40000),
-          bailInLoss = PLN(30000),
-          nbpRemittance = PLN(50000),
-          fxReserveSettlement = PLN.Zero,
-          standingFacilityBackstop = PLN.Zero,
-        ),
-      ),
+    val zusInput       = ZusFlows.ZusInput(80000, PLN(7000), 1000)
+    val nfzInput       = NfzFlows.NfzInput.fromDrivers(80000, PLN(7000), 90000, 1000)
+    val ppkInput       = PpkFlows.PpkInput(80000, PLN(7000))
+    val earmarkedInput = EarmarkedFlows.Input(80000, PLN(7000), PLN(1000000), 10, 15)
+    val jstInput       = JstFlows.Input(PLN(5000000), PLN(50000000), PLN(100000000), 9000, PLN(3000000))
+    val householdInput = HouseholdFlows.Input(
+      PLN(40000000),
+      PLN(8000000),
+      PLN(5000000),
+      PLN(3000000),
+      PLN(1000000),
+      PLN(500000),
+      PLN(2000000),
+      PLN(1500000),
+      PLN(200000),
+    )
+    val firmInput      = FirmFlows.Input(
+      PLN(50000000),
+      PLN(8000000),
+      PLN(4000000),
+      PLN(6000000),
+      PLN(3000000),
+      PLN(5000000),
+      PLN(1000000),
+      PLN(7000000),
+      PLN(300000),
+      PLN(800000),
+      PLN(600000),
+      PLN(5000000),
+    )
+    val govInput       = GovBudgetFlows.Input(
+      vatRevenue = PLN(9000000),
+      exciseRevenue = PLN(3500000),
+      customsDutyRevenue = PLN(2500000),
+      govCurrentSpend = PLN(10000000),
+      debtService = PLN(4000000),
+      unempBenefitSpend = PLN(2000000),
+      socialTransferSpend = PLN(3000000),
+      euCofinancing = PLN(1500000),
+      govCapitalSpend = PLN(2500000),
+      debtServiceRecipients = Some(govDebtRecipients),
+    )
+    val insuranceInput = InsuranceFlows.Input(
+      employed = 80000,
+      wage = PLN(7000),
+      unempRate = Share.decimal(8, 2),
+      currentLifeReserves = PLN(90000000),
+      currentNonLifeReserves = PLN(30000000),
+      prevGovBondHoldings = PLN(100000000),
+      prevCorpBondHoldings = PLN(50000000),
+      corpBondDefaultLoss = PLN.Zero,
+      prevEquityHoldings = PLN(40000000),
+      govBondYield = Rate.decimal(6, 2),
+      corpBondYield = Rate.decimal(8, 2),
+      equityReturn = Rate.decimal(3, 2),
+    )
+    val equityInput    = EquityFlows.Input(PLN(500000), PLN(200000), PLN(100000), PLN(50000))
+    val corpBondInput  = CorpBondFlows.Input(PLN(300000), PLN(50000), PLN(1000000), PLN(200000))
+    val mortgageInput  = MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))
+    val openEconInput  = OpenEconFlows.Input(
+      exports = PLN(1000000),
+      imports = PLN(700000),
+      tourismExport = PLN(250000),
+      tourismImport = PLN(200000),
+      fdi = PLN(300000),
+      portfolioFlows = PLN(50000),
+      carryTradeFlow = PLN(10000),
+      primaryIncome = PLN(-20000),
+      euFunds = PLN(400000),
+      diasporaInflow = PLN(100000),
+      capitalFlightOutflow = PLN(150000),
+    )
+    val bankingInput   = BankingFlows.Input(
+      firmInterestIncome = PLN(130000),
+      firmNplLoss = PLN(20000),
+      mortgageNplLoss = PLN(30000),
+      consumerNplLoss = PLN(10000),
+      govBondIncome = PLN(600000),
+      reserveInterest = PLN(200000),
+      standingFacilityIncome = PLN(100000),
+      interbankInterest = PLN(-50000),
+      corpBondCoupon = PLN(25000),
+      corpBondDefaultLoss = PLN(45000),
+      bfgLevy = PLN(80000),
+      unrealizedBondLoss = PLN(40000),
+      bailInLoss = PLN(30000),
+      nbpRemittance = PLN(50000),
+      fxReserveSettlement = PLN.Zero,
+      standingFacilityBackstop = PLN.Zero,
     )
 
-    val batchedFlows = Vector.concat(
-      ZusFlows.emitBatches(ZusFlows.ZusInput(80000, PLN(7000), 1000)),
-      NfzFlows.emitBatches(NfzFlows.NfzInput.fromDrivers(80000, PLN(7000), 90000, 1000)),
-      PpkFlows.emitBatches(PpkFlows.PpkInput(80000, PLN(7000))),
-      EarmarkedFlows.emitBatches(EarmarkedFlows.Input(80000, PLN(7000), PLN(1000000), 10, 15)),
-      JstFlows.emitBatches(JstFlows.Input(PLN(5000000), PLN(50000000), PLN(100000000), 9000, PLN(3000000))),
-      HouseholdFlows.emitBatches(
-        HouseholdFlows
-          .Input(
-            PLN(40000000),
-            PLN(8000000),
-            PLN(5000000),
-            PLN(3000000),
-            PLN(1000000),
-            PLN(500000),
-            PLN(2000000),
-            PLN(1500000),
-            PLN(200000),
-          ),
-      ),
-      FirmFlows.emitBatches(
-        FirmFlows.Input(
-          PLN(50000000),
-          PLN(8000000),
-          PLN(4000000),
-          PLN(6000000),
-          PLN(3000000),
-          PLN(5000000),
-          PLN(1000000),
-          PLN(7000000),
-          PLN(300000),
-          PLN(800000),
-          PLN(600000),
-          PLN(5000000),
-        ),
-      ),
-      GovBudgetFlows.emitBatches(
-        GovBudgetFlows.Input(
-          vatRevenue = PLN(9000000),
-          exciseRevenue = PLN(3500000),
-          customsDutyRevenue = PLN(2500000),
-          govCurrentSpend = PLN(10000000),
-          debtService = PLN(4000000),
-          unempBenefitSpend = PLN(2000000),
-          socialTransferSpend = PLN(3000000),
-          euCofinancing = PLN(1500000),
-          govCapitalSpend = PLN(2500000),
-          debtServiceRecipients = Some(govDebtRecipients),
-        ),
-      ),
-      InsuranceFlows.emitBatches(
-        InsuranceFlows.Input(
-          employed = 80000,
-          wage = PLN(7000),
-          unempRate = Share.decimal(8, 2),
-          currentLifeReserves = PLN(90000000),
-          currentNonLifeReserves = PLN(30000000),
-          prevGovBondHoldings = PLN(100000000),
-          prevCorpBondHoldings = PLN(50000000),
-          corpBondDefaultLoss = PLN.Zero,
-          prevEquityHoldings = PLN(40000000),
-          govBondYield = Rate.decimal(6, 2),
-          corpBondYield = Rate.decimal(8, 2),
-          equityReturn = Rate.decimal(3, 2),
-        ),
-      ),
-      EquityFlows.emitBatches(EquityFlows.Input(PLN(500000), PLN(200000), PLN(100000), PLN(50000))),
-      CorpBondFlows.emitBatches(CorpBondFlows.Input(PLN(300000), PLN(50000), PLN(1000000), PLN(200000))),
-      MortgageFlows.emitBatches(MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))),
-      OpenEconFlows.emitBatches(
-        OpenEconFlows.Input(
-          exports = PLN(1000000),
-          imports = PLN(700000),
-          tourismExport = PLN(250000),
-          tourismImport = PLN(200000),
-          fdi = PLN(300000),
-          portfolioFlows = PLN(50000),
-          carryTradeFlow = PLN(10000),
-          primaryIncome = PLN(-20000),
-          euFunds = PLN(400000),
-          diasporaInflow = PLN(100000),
-          capitalFlightOutflow = PLN(150000),
-        ),
-      ),
-      BankingFlows.emitBatches(
-        BankingFlows.Input(
-          firmInterestIncome = PLN(130000),
-          firmNplLoss = PLN(20000),
-          mortgageNplLoss = PLN(30000),
-          consumerNplLoss = PLN(10000),
-          govBondIncome = PLN(600000),
-          reserveInterest = PLN(200000),
-          standingFacilityIncome = PLN(100000),
-          interbankInterest = PLN(-50000),
-          corpBondCoupon = PLN(25000),
-          corpBondDefaultLoss = PLN(45000),
-          bfgLevy = PLN(80000),
-          unrealizedBondLoss = PLN(40000),
-          bailInLoss = PLN(30000),
-          nbpRemittance = PLN(50000),
-          fxReserveSettlement = PLN.Zero,
-          standingFacilityBackstop = PLN.Zero,
-        ),
-      ),
+    val emissions = Vector(
+      EmissionPair(ZusFlows.emit(zusInput), ZusFlows.emitBatches(zusInput)),
+      EmissionPair(NfzFlows.emit(nfzInput), NfzFlows.emitBatches(nfzInput)),
+      EmissionPair(PpkFlows.emit(ppkInput), PpkFlows.emitBatches(ppkInput)),
+      EmissionPair(EarmarkedFlows.emit(earmarkedInput), EarmarkedFlows.emitBatches(earmarkedInput)),
+      EmissionPair(JstFlows.emit(jstInput), JstFlows.emitBatches(jstInput)),
+      EmissionPair(HouseholdFlows.emit(householdInput), HouseholdFlows.emitBatches(householdInput)),
+      EmissionPair(FirmFlows.emit(firmInput), FirmFlows.emitBatches(firmInput)),
+      EmissionPair(GovBudgetFlows.emit(govInput), GovBudgetFlows.emitBatches(govInput)),
+      EmissionPair(InsuranceFlows.emit(insuranceInput), InsuranceFlows.emitBatches(insuranceInput)),
+      EmissionPair(EquityFlows.emit(equityInput), EquityFlows.emitBatches(equityInput)),
+      EmissionPair(CorpBondFlows.emit(corpBondInput), CorpBondFlows.emitBatches(corpBondInput)),
+      EmissionPair(MortgageFlows.emit(mortgageInput), MortgageFlows.emitBatches(mortgageInput)),
+      EmissionPair(OpenEconFlows.emit(openEconInput), OpenEconFlows.emitBatches(openEconInput)),
+      EmissionPair(BankingFlows.emit(bankingInput), BankingFlows.emitBatches(bankingInput)),
     )
+
+    val flatFlows    = emissions.flatMap(_.flat)
+    val batchedFlows = emissions.flatMap(_.batched)
 
     batchedMechanismTotals(batchedFlows) shouldBe flatMechanismTotals(flatFlows)
     batchedFlows.foreach(_ shouldBe a[BatchedFlow.Broadcast])
   }
 
   it should "drive FlowSimulation main path through BatchedFlow" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepFromSeed()
     val flat   = result.execution.topology.toFlatFlows(result.flows)
 
     result.flows should not be empty

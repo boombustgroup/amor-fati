@@ -1,22 +1,20 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.ledger.{AssetOwnershipContract, LedgerFinancialState, RuntimeFlowProjection}
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, EntitySector, ImperativeInterpreter}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
+  import RuntimeFlowsTestSupport.*
 
   private given p: SimParams = SimParams.defaults
 
   "FlowSimulation.step" should "materialize public fund cash from executed runtime deltas" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val state  = stateFromSeed()
+    val result = stepWithSeed(state)
 
     RuntimeFlowProjection.MaterializedPublicFundCashSlots.foreach: fundIndex =>
       AssetOwnershipContract.isSupportedPersistedPair(result.execution.topology, EntitySector.Funds, AssetType.Cash, fundIndex) shouldBe true
@@ -44,8 +42,7 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "include explicit NFZ gov subvention when materializing a deterministic deficit fixture" in {
-    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state    = FlowSimulation.SimState.fromInit(init)
+    val state    = stateFromSeed()
     val topology = RuntimeLedgerTopology.fromState(state)
     val opening  = state.ledgerFinancialState
 
@@ -73,8 +70,7 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "materialize quasi-fiscal bond and loan stocks from executed runtime deltas" in {
-    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state    = FlowSimulation.SimState.fromInit(init)
+    val state    = stateFromSeed()
     val topology = RuntimeLedgerTopology.fromState(state)
     val opening  = state.ledgerFinancialState.copy(
       funds = state.ledgerFinancialState.funds.copy(
@@ -130,8 +126,7 @@ class FlowSimulationRuntimeProjectionSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "leave household mortgage stocks to semantic closing while runtime principal stays shell-only" in {
-    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state    = FlowSimulation.SimState.fromInit(init)
+    val state    = stateFromSeed()
     val topology = RuntimeLedgerTopology.fromState(state)
     val opening  = state.ledgerFinancialState
     val adjusted = opening.households.head.copy(mortgageLoan = opening.households.head.mortgageLoan + PLN(12345))

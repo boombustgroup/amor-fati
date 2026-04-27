@@ -1,8 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -13,9 +11,7 @@ class FlowSimulationNfzRuntimeSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   "FlowSimulation.step" should "align NFZ runtime emission with direct NFZ emission in default CI" in {
-    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state       = FlowSimulation.SimState.fromInit(init)
-    val result      = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result      = stepFromSeed()
     val nfz         = result.nextState.world.social.nfz
     val directFlows = NfzFlows.emit(NfzFlows.NfzInput(nfz))
 
