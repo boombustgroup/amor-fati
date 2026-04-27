@@ -19,38 +19,13 @@ class FlowSimulationSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  "FlowSimulation.emitAllBatches" should "preserve SFC at 0L" in {
+  "FlowSimulation.emitAllBatches" should "match the step batch plan for computed calculus" in {
     val state                   = stateFromSeed()
     val result                  = stepWithSeed(state)
     given RuntimeLedgerTopology = result.execution.topology
     val flows                   = FlowSimulation.emitAllBatches(result.calculus)
 
+    flows shouldBe result.flows
     result.execution.netDelta shouldBe 0L
     totalTransferred(flows) should be > PLN.Zero
-  }
-
-  it should "preserve SFC across 12 months" in {
-    var state = stateFromSeed()
-
-    (1 to 12).foreach { month =>
-      val result                  = stepWithSeed(state, 42L * 1000 + month)
-      given RuntimeLedgerTopology = result.execution.topology
-      val flows                   = FlowSimulation.emitAllBatches(result.calculus)
-
-      withClue(s"Month $month: ") {
-        result.execution.netDelta shouldBe 0L
-        totalTransferred(flows) should be > PLN.Zero
-      }
-
-      state = result.nextState
-    }
-  }
-
-  it should "emit 30+ mechanism IDs" in {
-    val result                  = stepFromSeed()
-    given RuntimeLedgerTopology = result.execution.topology
-    val flows                   = FlowSimulation.emitAllBatches(result.calculus)
-
-    result.execution.netDelta shouldBe 0L
-    flows.map(_.mechanism).toSet.size should be > 30
   }

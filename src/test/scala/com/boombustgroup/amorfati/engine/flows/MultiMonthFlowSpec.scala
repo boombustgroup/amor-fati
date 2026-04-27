@@ -7,9 +7,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /** Multi-month flow verification: FlowSimulation.step() drives state
-  * autonomously.
-  *
-  * Runs 120 months via FlowSimulation.step(). At each month verifies SFC == 0L.
+  * autonomously across a long horizon.
   */
 @Heavy
 class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
@@ -17,8 +15,10 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  "Multi-month flow verification (120 months)" should "preserve SFC at 0L every month" in {
-    var state = stateFromSeed()
+  "Multi-month flow verification (120 months)" should "preserve SFC and basic dynamics every month" in {
+    var state   = stateFromSeed()
+    var gdps    = Vector.empty[PLN]
+    var volumes = Vector.empty[PLN]
 
     (1 to 120).foreach { month =>
       val result = stepWithSeed(state, 42L * 1000 + month)
@@ -26,21 +26,16 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
       withClue(s"SFC violated at month $month: ") {
         result.execution.netDelta shouldBe 0L
       }
+      withClue(s"Employment violated at month $month: ") {
+        result.nextState.householdAggregates.employed should be > 0
+      }
 
-      state = result.nextState
-    }
-  }
-
-  it should "produce increasing total flow volume over time" in {
-    var state   = stateFromSeed()
-    var volumes = Vector.empty[PLN]
-
-    (1 to 120).foreach { month =>
-      val result = stepWithSeed(state, 42L * 1000 + month)
+      gdps = gdps :+ result.nextState.world.cachedMonthlyGdpProxy
       volumes = volumes :+ totalTransferred(result.flows)
-
       state = result.nextState
     }
 
+    gdps.last should not be gdps.head
+    gdps.forall(_ > PLN.Zero) shouldBe true
     volumes.last should be > volumes.head
   }

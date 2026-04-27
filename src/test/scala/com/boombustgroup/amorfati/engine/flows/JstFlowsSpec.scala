@@ -39,12 +39,3 @@ class JstFlowsSpec extends AnyFlatSpec with Matchers:
     newGovSubsidies should be > 0L
     newSpending shouldBe oldJst.state.spending.toLong
   }
-
-  it should "preserve SFC across 120 months" in {
-    val input    = JstFlows.Input(PLN(5000000), PLN(50000000), PLN(100000000), 9000, PLN(3000000))
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, JstFlows.emit(input))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

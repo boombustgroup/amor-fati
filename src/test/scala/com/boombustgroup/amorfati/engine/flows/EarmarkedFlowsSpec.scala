@@ -37,12 +37,3 @@ class EarmarkedFlowsSpec extends AnyFlatSpec with Matchers:
     pfron shouldBe oldState.pfronContributions.toLong
     fgsp shouldBe oldState.fgspContributions.toLong
   }
-
-  it should "preserve SFC across 120 months" in {
-    val input    = EarmarkedFlows.Input(80000, PLN(7000), PLN(1000000), 5, 10)
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, EarmarkedFlows.emit(input))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

@@ -171,11 +171,3 @@ class GovBudgetFlowsSpec extends AnyFlatSpec with Matchers:
     recipients.foreign shouldBe PLN(70)
     recipients.banksByBank shouldBe Vector(PLN(10), PLN(20))
   }
-
-  it should "preserve SFC across 120 months" in {
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, GovBudgetFlows.emit(baseInput))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

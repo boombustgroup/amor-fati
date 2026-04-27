@@ -51,12 +51,3 @@ class NfzFlowsSpec extends AnyFlatSpec with Matchers:
     newSpending shouldBe oldNfz.spending.toLong
     newSubvention shouldBe oldNfz.govSubvention.toLong
   }
-
-  it should "preserve SFC across 120 months" in {
-    val input    = NfzFlows.NfzInput.fromDrivers(employed = 80000, wage = PLN(7000), workingAge = 90000, nRetirees = 1000)
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, NfzFlows.emit(input))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

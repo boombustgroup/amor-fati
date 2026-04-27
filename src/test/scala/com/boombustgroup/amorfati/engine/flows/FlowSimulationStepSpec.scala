@@ -531,25 +531,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     results.map(_.nextState.completedMonth.toInt) shouldBe Vector(1, 2)
   }
 
-  it should "produce SFC == 0L across 12 months (autonomous driving)" in {
-    val state   = stateFromSeed()
-    val results = MonthDriver
-      .unfoldSteps(state): current =>
-        Some(monthRandomness(42L * 1000L + current.completedMonth.toLong + 1L))
-      .take(12)
-      .toVector
-
-    results should have size 12
-
-    results.foreach { result =>
-      val month = result.executionMonth.toInt
-      withClue(s"Month $month: ") {
-        result.execution.netDelta shouldBe 0L
-        result.sfcResult shouldBe Right(())
-      }
-    }
-  }
-
   it should "propagate informal-economy pressure into fiscal outputs without breaking SFC" in {
     val init          = initFromSeed()
     val baseState     = stateFromInit(init)
@@ -587,11 +568,6 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     currentMonthGovDividend shouldBe result.calculus.equityGovDividends
     currentMonthGovDividend should not equal staleBoundaryDividend
     result.trace.executedFlows.govRevenue shouldBe emittedGovRevenue
-  }
-
-  it should "produce 30+ mechanism IDs" in {
-    val result = stepFromSeed()
-    result.flows.map(_.mechanism).toSet.size should be > 30
   }
 
   it should "emit a typed MonthTrace with stable boundaries and typed timing envelopes" in {

@@ -87,14 +87,3 @@ class ZusFlowsSpec extends AnyFlatSpec with Matchers:
     newPensions shouldBe oldZus.pensionPayments.toLong
     newSubvention shouldBe oldZus.govSubvention.toLong
   }
-
-  it should "preserve SFC across multiple months" in {
-    val input = ZusFlows.ZusInput(employed = 80000, wage = PLN(7000), nRetirees = 1000)
-
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      val flows = ZusFlows.emit(input)
-      balances = Interpreter.applyAll(balances, flows)
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

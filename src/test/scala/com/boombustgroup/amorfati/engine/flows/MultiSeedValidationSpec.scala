@@ -21,24 +21,17 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
   private val seeds  = (1L to 10L).toVector
   private val months = 12
 
-  "FlowSimulation.step (multi-seed)" should "produce SFC == 0L for all seeds × months" in
+  "FlowSimulation.step (multi-seed)" should "preserve SFC and basic economic sanity for all seeds × months" in
     seeds.foreach { seed =>
-      var state = stateFromSeed(seed)
+      var state               = stateFromSeed(seed)
+      var firstMechanismCount = 0
 
       (1 to months).foreach { month =>
         val result = stepWithSeed(state, seed * 1000 + month)
+        if month == 1 then firstMechanismCount = result.flows.map(_.mechanism).toSet.size
         withClue(s"Seed $seed, month $month: ") {
           result.execution.netDelta.shouldBe(0L)
         }
-        state = result.nextState
-      }
-    }
-
-  it should "produce realistic employment (3-97%) for all seeds at month 12" in
-    seeds.foreach { seed =>
-      var state = stateFromSeed(seed)
-      (1 to months).foreach { m =>
-        val result = stepWithSeed(state, seed * 1000 + m)
         state = result.nextState
       }
 
@@ -50,26 +43,10 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
         unemp should be >= BigDecimal("0.03")
         unemp should be <= BigDecimal("0.97")
       }
-    }
-
-  it should "produce positive GDP for all seeds" in
-    seeds.foreach { seed =>
-      var state = stateFromSeed(seed)
-      (1 to months).foreach { m =>
-        val result = stepWithSeed(state, seed * 1000 + m)
-        state = result.nextState
-      }
-
       withClue(s"Seed $seed GDP: ") {
         (state.world.cachedMonthlyGdpProxy > PLN.Zero) shouldBe true
       }
-    }
-
-  it should "emit 30+ mechanism IDs for all seeds" in
-    seeds.foreach { seed =>
-      val result = stepFromSeed(seed, seed)
-
       withClue(s"Seed $seed mechanisms: ") {
-        result.flows.map(_.mechanism).toSet.size should be > 30
+        firstMechanismCount should be > 30
       }
     }
