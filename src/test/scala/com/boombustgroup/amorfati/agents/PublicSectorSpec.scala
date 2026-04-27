@@ -10,42 +10,30 @@ import com.boombustgroup.amorfati.types.*
 class PublicSectorSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams = SimParams.defaults
+  private given SimParams = SimParams.defaults
+  private val p           = summon[SimParams]
 
   // =========================================================================
   // ZUS
   // =========================================================================
 
-  "SocialSecurity.zusStep" should "compute contributions from employed × wage × rate" in {
-    val employed = 100000
-    val wage     = BigDecimal("8266.0")
-    val rate     = BigDecimal("0.1952")
-    val scale    = BigDecimal("1.0")
-    val expected = employed * wage * rate * scale
-    expected shouldBe (BigDecimal("161.3e6") +- BigDecimal("1e5"))
+  "SocialSecurity.zusStep" should "compute deficit flows and cash change from payroll" in {
+    val payroll     = SocialSecurity.PayrollBase.aggregate(100000, PLN(8266))
+    val result      = SocialSecurity.zusStep(payroll, nRetirees = 50000)
+    val openingCash = PLN(100000000)
+
+    result.contributions shouldBe payroll.zusContributions
+    result.pensionPayments shouldBe 50000 * p.social.zusBasePension
+    result.govSubvention shouldBe result.pensionPayments - result.contributions
+    SocialSecurity.zusCashChange(result) shouldBe result.contributions - result.pensionPayments
+    SocialSecurity.zusCashAfter(openingCash, result) shouldBe openingCash + SocialSecurity.zusCashChange(result)
   }
 
-  it should "compute pension payments from retirees × basePension" in {
-    val retirees    = 50000
-    val basePension = BigDecimal("3500.0")
-    val expected    = retirees * basePension
-    expected shouldBe BigDecimal("175e6")
-  }
+  it should "compute zero government subvention when FUS is in surplus" in {
+    val result = SocialSecurity.zusStep(employed = 100000, wage = PLN(8266), nRetirees = 1000)
 
-  it should "compute govSubvention when FUS in deficit" in {
-    val contributions = BigDecimal("100e6")
-    val pensions      = BigDecimal("150e6")
-    val deficit       = contributions - pensions // -50M
-    val govSubvention = if deficit < 0 then -deficit else BigDecimal("0.0")
-    govSubvention shouldBe BigDecimal("50e6")
-  }
-
-  it should "have zero govSubvention when FUS in surplus" in {
-    val contributions = BigDecimal("200e6")
-    val pensions      = BigDecimal("100e6")
-    val surplus       = contributions - pensions // +100M
-    val govSubvention = if surplus < 0 then -surplus else BigDecimal("0.0")
-    govSubvention shouldBe BigDecimal("0.0")
+    result.contributions should be > result.pensionPayments
+    result.govSubvention shouldBe PLN.Zero
   }
 
   "SocialSecurity.ZusState.zero" should "have all zero fields" in {
@@ -88,17 +76,4 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
     QuasiFiscal.StockState.zero.loanPortfolio shouldBe PLN.Zero
     QuasiFiscal.StockState.zero.bankHoldings shouldBe PLN.Zero
     QuasiFiscal.StockState.zero.nbpHoldings shouldBe PLN.Zero
-  }
-
-  // =========================================================================
-  // SFC Identity 8: FUS balance
-  // =========================================================================
-
-  "FUS balance identity" should "hold: ΔfusBalance = contributions - pensions" in {
-    val prevBalance    = BigDecimal("100e6")
-    val contributions  = BigDecimal("50e6")
-    val pensions       = BigDecimal("70e6")
-    val expectedChange = contributions - pensions     // -20M
-    val newBalance     = prevBalance + expectedChange // 80M
-    (newBalance - prevBalance) shouldBe (expectedChange +- BigDecimal("0.01"))
   }
