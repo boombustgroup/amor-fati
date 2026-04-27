@@ -11,6 +11,9 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
+  private def defaultInit: WorldInit.InitResult =
+    WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+
   private def runtimeState(result: WorldInit.InitResult): Sfc.RuntimeState =
     val state = FlowSimulation.SimState.fromInit(result)
     Sfc.RuntimeState(state.world, state.firms, state.households, state.banks, state.ledgerFinancialState)
@@ -19,12 +22,12 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     Sfc.snapshot(runtimeState(result))
 
   "InitCheck" should "pass for default init" in:
-    val result = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val result = defaultInit
     val errors = InitCheck.validate(runtimeState(result))
     errors shouldBe empty
 
   it should "have exact bond clearing at raw-unit precision for default init" in:
-    val result   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val result   = defaultInit
     val snapshot = stockSnapshot(result)
     val holdings =
       snapshot.bankBondHoldings + snapshot.nbpBondHoldings + snapshot.foreignBondHoldings +
@@ -33,7 +36,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     holdings shouldBe snapshot.bondsOutstanding
 
   it should "detect tampered bondsOutstanding" in:
-    val result   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val result   = defaultInit
     val snap     = stockSnapshot(result)
     val tampered = snap.copy(bondsOutstanding = snap.bondsOutstanding + PLN(1000))
     val errors   = InitCheck.validate(tampered, result.banks, result.firms, result.households, result.ledgerFinancialState)
@@ -41,7 +44,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     errors.exists(_.identity == "Bond clearing") shouldBe true
 
   it should "detect tampered bank deposits" in:
-    val result         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val result         = defaultInit
     val snap           = stockSnapshot(result)
     val bankBalances   = result.ledgerFinancialState.banks
     val tamperedLedger = result.ledgerFinancialState.copy(
@@ -52,7 +55,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     errors.exists(_.identity.startsWith("Deposit consistency")) shouldBe true
 
   it should "detect tampered firm debt" in:
-    val result         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val result         = defaultInit
     val snap           = stockSnapshot(result)
     val bankBalances   = result.ledgerFinancialState.banks
     val tamperedLedger = result.ledgerFinancialState.copy(
@@ -63,7 +66,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
     errors.exists(_.identity.startsWith("Corp loan consistency")) shouldBe true
 
   it should "detect tampered consumer loans" in:
-    val result         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val result         = defaultInit
     val snap           = stockSnapshot(result)
     val bankBalances   = result.ledgerFinancialState.banks
     val tamperedLedger = result.ledgerFinancialState.copy(

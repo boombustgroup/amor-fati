@@ -1,11 +1,7 @@
 package com.boombustgroup.amorfati.accounting.matrix
 
-import com.boombustgroup.amorfati.accounting.matrix.SfcMatrixEvidence.MatrixEvidenceBundle
 import com.boombustgroup.amorfati.accounting.matrix.SfcMatrixRenderers.OutputFormat
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
-import com.boombustgroup.amorfati.engine.flows.FlowSimulation
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -14,9 +10,7 @@ class SfcMatrixRenderersSpec extends AnyFlatSpec with Matchers:
   private given SimParams = SimParams.defaults
 
   private lazy val bundle =
-    val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(1L))
-    val step = FlowSimulation.step(FlowSimulation.SimState.fromInit(init), MonthRandomness.Contract.fromSeed(1001L))
-    MatrixEvidenceBundle.fromStep(seed = 1L, step = step, commit = "renderer-test")
+    SfcMatrixEvidenceTestSupport.deterministicBundle(commit = "renderer-test")
 
   "SfcMatrixRenderers" should "escape LaTeX labels deterministically" in {
     SfcMatrixRenderers.escapeLatex("A&B_%$#{}~^") should include("\\&")

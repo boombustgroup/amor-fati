@@ -89,6 +89,13 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     reservationWage = PLN(4500),
   )
 
+  private def defaultRuntimeState =
+    val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    FlowSimulation.SimState.fromInit(init)
+
+  private def defaultRuntimeStep =
+    FlowSimulation.step(defaultRuntimeState, MonthRandomness.Contract.fromSeed(42L))
+
   "World" should "have informalCyclicalAdj defaulting to 0.0" in {
     val w = mkMinimalWorld()
     w.mechanisms.informalCyclicalAdj shouldBe Share.Zero
@@ -274,16 +281,16 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // GDP unaffected
   // ==========================================================================
 
-  "GDP formula" should "not include tax evasion (evasion doesn't change GDP)" in {
-    // GDP = domesticCons + runtime gov contribution + euGdpContribution + exports + domesticGFCF + inventoryChange
-    // Tax evasion only reduces government revenue, not GDP
-    // This is a design test: GDP computation doesn't use taxEvasionLoss
-    true shouldBe true // Verified by code inspection
+  "GDP formula" should "keep tax evasion outside the cached GDP proxy" in {
+    val result = defaultRuntimeStep
+    val world  = result.nextState.world
+
+    world.flows.taxEvasionLoss should be > PLN.Zero
+    world.cachedMonthlyGdpProxy shouldBe result.calculus.gdp
   }
 
   "Informal calibration" should "keep default runtime ratios in a plausible envelope over 12 months" in {
-    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    var state = FlowSimulation.SimState.fromInit(init)
+    var state = defaultRuntimeState
 
     val realizedShares = collection.mutable.ArrayBuffer.empty[Share]
     val evasionRatios  = collection.mutable.ArrayBuffer.empty[Share]

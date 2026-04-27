@@ -15,10 +15,13 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
+  private def deterministicStep: FlowSimulation.StepOutput =
+    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val state = FlowSimulation.SimState.fromInit(init)
+    FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+
   "WorldAssemblyEconomics" should "produce valid world after simulation step" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = deterministicStep
     val w      = result.nextState.world
 
     result.nextState.completedMonth shouldBe CompletedMonth(1)
@@ -28,18 +31,14 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep ETS observables at the base price in the first execution month" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = deterministicStep
     val w      = result.nextState.world
 
     decimal(w.real.etsPrice).shouldBe(decimal(p.climate.etsBasePrice) +- BigDecimal("1e-10"))
   }
 
   it should "preserve public-spending semantic aggregates on the assembled world" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = deterministicStep
     val w      = result.nextState.world
 
     w.gov.domesticBudgetDemand shouldBe (w.gov.govCurrentSpend + w.gov.govCapitalSpend)
@@ -58,9 +57,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "carry supported financial stocks through stage-owned ledger updates" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state     = FlowSimulation.SimState.fromInit(init)
-    val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
+    val nextState = deterministicStep.nextState
     val ledger    = nextState.ledgerFinancialState
 
     ledger.households.length shouldBe nextState.households.length
