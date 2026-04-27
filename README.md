@@ -35,6 +35,8 @@ That is the hard floor under every experiment in the model. Behavioral rules, po
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
+- [Operational Documentation](#operational-documentation)
 - [Why](#why)
 - [What Is Technically Distinctive](#what-is-technically-distinctive)
 - [Core Invariants](#core-invariants)
@@ -44,6 +46,37 @@ That is the hard floor under every experiment in the model. Behavioral rules, po
 - [Ledger-Derived Matrix Artifacts](#ledger-derived-matrix-artifacts)
 - [Tech Stack](#tech-stack)
 - [License](#license)
+
+## Quick Start
+
+Amor Fati is currently operated as a source-first research engine: clone the
+repo, run the tests, then run the model or a diagnostic from `sbt`.
+
+Requirements:
+
+- JDK 21 as the supported baseline, matching CI's Temurin 21 runtime
+- sbt 1.11.6, pinned in `project/build.properties`
+
+Validate the checkout:
+
+```bash
+sbt test
+```
+
+Run a one-seed, 12-month local smoke simulation:
+
+```bash
+sbt "runMain com.boombustgroup.amorfati.Main 1 local-smoke --duration 12 --run-id smoke"
+```
+
+This writes generated CSV outputs under `mc/`, which is intentionally ignored
+by git.
+
+## Operational Documentation
+
+Day-to-day commands, test tiers, diagnostics, scenario runs, output locations,
+and troubleshooting notes live in
+[docs/operations.md](docs/operations.md).
 
 ## Why
 
