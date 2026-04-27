@@ -13,18 +13,32 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
 
   private given SimParams = SimParams.defaults
 
+  private lazy val defaultInit: WorldInit.InitResult =
+    WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+
+  private lazy val defaultState: FlowSimulation.SimState =
+    FlowSimulation.SimState.fromInit(defaultInit)
+
+  private lazy val defaultNextState: FlowSimulation.SimState =
+    FlowSimulation.step(defaultState, MonthRandomness.Contract.fromSeed(42L)).nextState
+
+  private def sampleIssuerBalances(init: WorldInit.InitResult) =
+    val firmStates = init.firms.take(2)
+    val firms      = (0 until firmStates.length).map: index =>
+      init.ledgerFinancialState.firms(index).copy(corpBond = PLN.fromLong((index + 1L) * 100L))
+    (firmStates, firms.toVector)
+
   "CorporateBondOwnership" should "initialize issuer liabilities to the market outstanding stock" in {
-    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val issuerStock = CorporateBondOwnership.issuerOutstanding(init.ledgerFinancialState)
-    val holderStock = CorporateBondOwnership.holderOutstanding(FlowSimulation.SimState.fromInit(init).ledgerFinancialState)
+    val ledger      = defaultState.ledgerFinancialState
+    val issuerStock = CorporateBondOwnership.issuerOutstanding(ledger)
+    val holderStock = CorporateBondOwnership.holderOutstanding(ledger)
 
     issuerStock shouldBe holderStock
   }
 
   it should "initialize insurance and NBFI holder stocks from the corporate bond market only" in {
-    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val marketStock = CorporateBondMarket.initialStock
-    val ledger      = init.ledgerFinancialState
+    val ledger      = defaultInit.ledgerFinancialState
     val nbfi        = ledger.funds.nbfi
 
     ledger.insurance.corpBondHoldings shouldBe marketStock.insuranceHoldings
@@ -34,9 +48,7 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep insurance and NBFI holder buckets ledger-owned after a simulation step" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state     = FlowSimulation.SimState.fromInit(init)
-    val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
+    val nextState = defaultNextState
     val ledger    = nextState.ledgerFinancialState
     val stock     = CorporateBondOwnership.stockStateFromLedger(ledger)
     val nbfi      = ledger.funds.nbfi
@@ -55,13 +67,9 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "amortize issuer liabilities pro rata and exactly at aggregate level" in {
-    val init         = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val firmStates   = init.firms.take(2)
-    val firms        = firmStates.zipWithIndex
-      .map: (_, index) =>
-        init.ledgerFinancialState.firms(index).copy(corpBond = PLN.fromLong((index + 1L) * 100L))
-    val amortization = PLN.fromLong(60)
-    val settled      = CorporateBondOwnership.applyAmortization(firms, firmStates, amortization)
+    val (firmStates, firms) = sampleIssuerBalances(defaultInit)
+    val amortization        = PLN.fromLong(60)
+    val settled             = CorporateBondOwnership.applyAmortization(firms, firmStates, amortization)
 
     CorporateBondOwnership.issuerOutstanding(settled) shouldBe CorporateBondOwnership.issuerOutstanding(firms) - amortization
     settled.head.corpBond should be < firms.head.corpBond
@@ -69,12 +77,8 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "clear defaulted issuer liabilities by firm id" in {
-    val init       = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val firmStates = init.firms.take(2)
-    val firms      = firmStates.zipWithIndex
-      .map: (_, index) =>
-        init.ledgerFinancialState.firms(index).copy(corpBond = PLN.fromLong((index + 1L) * 100L))
-    val cleared    = CorporateBondOwnership.clearDefaultedIssuerDebt(firms, Set(firmStates.head.id))
+    val (firmStates, firms) = sampleIssuerBalances(defaultInit)
+    val cleared             = CorporateBondOwnership.clearDefaultedIssuerDebt(firms, Set(firmStates.head.id))
 
     cleared.head.corpBond shouldBe PLN.Zero
     cleared(1).corpBond shouldBe firms(1).corpBond

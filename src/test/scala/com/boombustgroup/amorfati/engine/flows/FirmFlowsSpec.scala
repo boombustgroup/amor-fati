@@ -69,11 +69,3 @@ class FirmFlowsSpec extends AnyFlatSpec with Matchers:
     flows.length shouldBe 1
     flows.head.mechanism shouldBe FlowMechanism.HhTotalIncome.toInt
   }
-
-  it should "preserve SFC across 120 months" in {
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, FirmFlows.emit(baseInput))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

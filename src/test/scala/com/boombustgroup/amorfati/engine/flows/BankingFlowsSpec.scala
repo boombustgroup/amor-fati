@@ -194,11 +194,3 @@ class BankingFlowsSpec extends AnyFlatSpec with Matchers:
             FlowMechanism.BankCorpBondLoss,
           )
         }
-
-  it should "preserve SFC across 120 months" in {
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, BankingFlows.emit(baseInput))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

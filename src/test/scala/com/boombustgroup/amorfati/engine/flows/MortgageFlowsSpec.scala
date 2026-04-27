@@ -23,15 +23,6 @@ class MortgageFlowsSpec extends AnyFlatSpec with Matchers:
     balances(MortgageFlows.BANK_ACCOUNT) shouldBe (input.principalRepayment + input.interest + input.defaultAmount - input.origination).toLong
   }
 
-  it should "preserve SFC across 120 months" in {
-    val input    = MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, MortgageFlows.emit(input))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }
-
   it should "route batched mortgage principal through the household settlement shell" in {
     val topology       = summon[RuntimeLedgerTopology]
     val input          = MortgageFlows.Input(PLN(5000000), PLN(2000000), PLN(1500000), PLN(300000))

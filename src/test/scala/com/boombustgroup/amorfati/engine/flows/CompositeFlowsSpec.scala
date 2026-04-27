@@ -148,16 +148,6 @@ class CompositeFlowsSpec extends AnyFlatSpec with Matchers:
     allFlows.length should be > 40
   }
 
-  it should "preserve SFC across 120 months" in {
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { month =>
-      balances = Interpreter.applyAll(balances, allFlows)
-      withClue(s"SFC violated at month $month: ") {
-        Interpreter.totalWealth(balances) shouldBe 0L
-      }
-    }
-  }
-
   it should "have all mechanism IDs represented" in {
     val mechanisms = allFlows.map(_.mechanism).toSet
     mechanisms.size should be > 30

@@ -11,8 +11,11 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
 
   private given SimParams = SimParams.defaults
 
+  private lazy val defaultInit: WorldInit.InitResult =
+    WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+
   "LedgerFinancialState.refreshHouseholdBalances" should "preserve existing ledger balances and initialize only new households" in {
-    val init              = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val init              = defaultInit
     val existing          = init.households.head
     val existingIndex     = existing.id.toInt
     val previous          = init.ledgerFinancialState.households.updated(
@@ -71,7 +74,7 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
   }
 
   "LedgerFinancialState.refreshFirmPopulationBalances" should "refresh execution stocks while preserving existing corporate bonds" in {
-    val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val init          = defaultInit
     val existingIndex = init.firms.head.id.toInt
     val previous      = init.ledgerFinancialState.firms.updated(
       existingIndex,
@@ -96,7 +99,7 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
   }
 
   "LedgerFinancialState.refreshFirmFinancialBalances" should "update operational balances while preserving corporate bonds" in {
-    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
+    val init     = defaultInit
     val previous = init.ledgerFinancialState.firms.updated(
       0,
       init.ledgerFinancialState.firms.head.copy(corpBond = PLN(456)),

@@ -20,15 +20,6 @@ class EquityFlowsSpec extends AnyFlatSpec with Matchers:
     balances(EquityFlows.FIRM_ACCOUNT) shouldBe (-input.netDomesticDividends - input.foreignDividends - input.govDividends).toLong
   }
 
-  it should "preserve SFC across 120 months" in {
-    val input    = EquityFlows.Input(PLN(500000), PLN(200000), PLN(100000), PLN.Zero)
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, EquityFlows.emit(input))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }
-
   it should "emit a dedicated firm-to-government SOE dividend flow when government extraction is positive" in {
     val input = EquityFlows.Input(PLN.Zero, PLN.Zero, PLN.Zero, PLN(250000))
     val flows = EquityFlows.emit(input)

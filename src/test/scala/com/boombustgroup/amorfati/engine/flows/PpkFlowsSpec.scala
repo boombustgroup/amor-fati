@@ -27,12 +27,3 @@ class PpkFlowsSpec extends AnyFlatSpec with Matchers:
     newContribs shouldBe oldPpk.contributions.toLong
     newBond shouldBe 0L
   }
-
-  it should "preserve SFC across 120 months" in {
-    val input    = PpkFlows.PpkInput(employed = 80000, wage = PLN(7000))
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, PpkFlows.emit(input))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

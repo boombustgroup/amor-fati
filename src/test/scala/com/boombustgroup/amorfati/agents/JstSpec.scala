@@ -1,6 +1,5 @@
 package com.boombustgroup.amorfati.agents
 
-import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import com.boombustgroup.amorfati.types.*
@@ -9,7 +8,7 @@ import com.boombustgroup.amorfati.types.*
 class JstSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
-  given SimParams = SimParams.defaults
+  private given SimParams = SimParams.defaults
 
   "Jst.State.zero" should "have all zero fields" in {
     val z = Jst.State.zero
@@ -19,27 +18,80 @@ class JstSpec extends AnyFlatSpec with Matchers:
     z.deficit shouldBe PLN.Zero
   }
 
-  "Jst.step revenue components" should "compute PIT share correctly" in {
-    // Direct test of the formula: totalWageIncome × 0.12 × JstPitShare
-    val wageIncome       = BigDecimal("1000000000.0")
-    val effectivePitRate = BigDecimal("0.12")
-    val pitShare         = BigDecimal("0.3846")
-    val expectedPit      = wageIncome * effectivePitRate * pitShare
-    expectedPit shouldBe (BigDecimal("1000000000.0") * BigDecimal("0.12") * BigDecimal("0.3846") +- BigDecimal("1.0"))
+  "Jst.step" should "compute revenue components and fiscal identities" in {
+    val openingDeposits   = PLN(100000000)
+    val centralCitRevenue = PLN(5000000)
+    val totalWageIncome   = PLN(50000000)
+    val gdp               = PLN(100000000)
+    val nFirms            = 9000
+    val pitRevenue        = PLN(3000000)
+    val expectedPitShare  = PLN(1153800)
+    val expectedCitShare  = PLN(335500)
+    val expectedProperty  = PLN(3750000)
+    val expectedSubv      = PLN(250000)
+    val expectedDotacje   = PLN.decimal(833333333L, 4)
+    val expectedRevenue   = PLN.decimal(55726333333L, 4)
+    val expectedSpending  = PLN(5684086)
+    val expectedDeficit   = PLN.decimal(1114526667L, 4)
+
+    val result = Jst.step(
+      Jst.State.zero,
+      openingDeposits,
+      centralCitRevenue,
+      totalWageIncome,
+      gdp,
+      nFirms,
+      pitRevenue,
+    )
+
+    Seq(expectedPitShare, expectedCitShare, expectedProperty, expectedSubv, expectedDotacje).sumPln shouldBe expectedRevenue
+    result.state.revenue shouldBe expectedRevenue
+    result.state.spending shouldBe expectedSpending
+    result.state.deficit shouldBe expectedDeficit
+    result.depositChange shouldBe -expectedDeficit
+    result.closingDeposits shouldBe PLN.decimal(998885473333L, 4)
+    result.state.debt shouldBe expectedDeficit
+
+    result.state.deficit shouldBe result.state.spending - result.state.revenue
+    result.depositChange shouldBe result.state.revenue - result.state.spending
+    result.closingDeposits shouldBe openingDeposits + result.depositChange
   }
 
-  it should "compute property tax per firm correctly" in {
-    val nFirms      = 1000
-    val propertyTax = BigDecimal("5000.0") // per firm per year
-    val monthly     = decimal(nFirms) * propertyTax / BigDecimal(12)
-    monthly shouldBe (BigDecimal("1000.0") * BigDecimal("5000.0") / BigDecimal("12.0") +- BigDecimal("1.0"))
-  }
+  it should "use fallback PIT rate when PIT revenue is unavailable" in {
+    val openingDeposits   = PLN(100000000)
+    val centralCitRevenue = PLN(5000000)
+    val totalWageIncome   = PLN(50000000)
+    val gdp               = PLN(100000000)
+    val nFirms            = 9000
+    val pitRevenue        = PLN.Zero
+    val expectedPitShare  = PLN(2310000)
+    val expectedCitShare  = PLN(335500)
+    val expectedProperty  = PLN(3750000)
+    val expectedSubv      = PLN(250000)
+    val expectedDotacje   = PLN.decimal(833333333L, 4)
+    val expectedRevenue   = PLN.decimal(67288333333L, 4)
+    val expectedSpending  = PLN(6863410)
+    val expectedDeficit   = PLN.decimal(1345766667L, 4)
 
-  "Jst.step deficit" should "be positive when spending mult > 1" in {
-    // With spending multiplier 1.02, deficit = revenue × 0.02
-    val revenue      = BigDecimal("100000000.0")
-    val spendingMult = BigDecimal("1.02")
-    val deficit      = revenue * spendingMult - revenue
-    deficit should be > BigDecimal("0.0")
-    deficit shouldBe (revenue * BigDecimal("0.02") +- BigDecimal("1.0"))
+    val result = Jst.step(
+      Jst.State.zero,
+      openingDeposits,
+      centralCitRevenue,
+      totalWageIncome,
+      gdp,
+      nFirms,
+      pitRevenue,
+    )
+
+    Seq(expectedPitShare, expectedCitShare, expectedProperty, expectedSubv, expectedDotacje).sumPln shouldBe expectedRevenue
+    result.state.revenue shouldBe expectedRevenue
+    result.state.spending shouldBe expectedSpending
+    result.state.deficit shouldBe expectedDeficit
+    result.depositChange shouldBe -expectedDeficit
+    result.closingDeposits shouldBe PLN.decimal(998654233333L, 4)
+    result.state.debt shouldBe expectedDeficit
+
+    result.state.deficit shouldBe result.state.spending - result.state.revenue
+    result.depositChange shouldBe result.state.revenue - result.state.spending
+    result.closingDeposits shouldBe openingDeposits + result.depositChange
   }

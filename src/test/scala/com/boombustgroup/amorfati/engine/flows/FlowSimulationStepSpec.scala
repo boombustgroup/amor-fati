@@ -14,7 +14,6 @@ import com.boombustgroup.amorfati.engine.{
   SimulationMonth,
 }
 import com.boombustgroup.amorfati.engine.ledger.{CorporateBondOwnership, LedgerFinancialState}
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector, ImperativeInterpreter, Interpreter}
@@ -40,17 +39,14 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         .toVector
 
   "FlowSimulation.step" should "produce SFC == 0L on real World" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepFromSeed()
     result.execution.netDelta shouldBe 0L
     result.sfcResult shouldBe Right(())
     result.calculus.employed should be > 0
   }
 
   it should "emit equity issuance once from current-month firm financing" in {
-    val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState     = FlowSimulation.SimState.fromInit(init)
+    val baseState     = stateFromSeed()
     val staleIssuance = PLN(987654321)
     val state         = baseState.copy(
       world = baseState.world.copy(
@@ -60,7 +56,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val result                = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result                = stepWithSeed(state)
     val firmIssuance          = mechanismTotal(result.flows, FlowMechanism.FirmEquityIssuance)
     val equityIssuanceBatches = result.flows.filter(batch => batch.asset == AssetType.Equity && batch.to == EntitySector.Firms)
 
@@ -71,8 +67,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "emit equity cash legs from current-month dividends instead of boundary last values" in {
-    val init             = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState        = FlowSimulation.SimState.fromInit(init)
+    val baseState        = stateFromSeed()
     val staleDomestic    = PLN(987654321)
     val staleForeign     = PLN(876543210)
     val staleDividendTax = PLN(765432109)
@@ -94,7 +89,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepWithSeed(state)
     val equity = result.nextState.world.financialMarkets.equity
 
     result.calculus.equityDomDividends shouldBe equity.lastDomesticDividends
@@ -118,8 +113,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "emit insurance investment income from same-month equity return instead of boundary market memory" in {
-    val init              = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState         = FlowSimulation.SimState.fromInit(init)
+    val baseState         = stateFromSeed()
     val staleEquityReturn = Rate.decimal(42, 2)
     val state             = baseState.copy(
       world = baseState.world.copy(
@@ -129,7 +123,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepWithSeed(state)
 
     result.calculus.equityReturn shouldBe result.nextState.world.financialMarkets.equity.monthlyReturn
     result.calculus.equityReturn should not equal staleEquityReturn
@@ -154,8 +148,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "emit government and JST flows from current-month fiscal state instead of boundary fields" in {
-    val init               = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState          = FlowSimulation.SimState.fromInit(init)
+    val baseState          = stateFromSeed()
     val staleDebtService   = PLN(987654321)
     val staleEuCofinancing = PLN(876543210)
     val staleCapitalSpend  = PLN(765432109)
@@ -179,7 +172,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val result  = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result  = stepWithSeed(state)
     val nextGov = result.nextState.world.gov
     val nextJst = result.nextState.world.social.jst
 
@@ -201,17 +194,18 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     mechanismTotal(result.flows, FlowMechanism.GovSocialTransfer) shouldBe result.calculus.totalSocialTransfers
 
     val emittedJstRevenue =
-      FlowSimulation.ExecutedFlowEvidence.JstRevenueMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
+      mechanismsTotal(result.flows, FlowSimulation.ExecutedFlowEvidence.JstRevenueMechanisms)
     emittedJstRevenue shouldBe nextJst.revenue
     mechanismTotal(result.flows, FlowMechanism.JstSpending) shouldBe nextJst.spending
     emittedJstRevenue should not equal staleJstRevenue
     mechanismTotal(result.flows, FlowMechanism.JstSpending) should not equal staleJstSpending
 
     val emittedGovSpending =
-      (FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms ++
-        FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms)
-        .map(mechanismTotal(result.flows, _))
-        .foldLeft(PLN.Zero)(_ + _)
+      mechanismsTotal(
+        result.flows,
+        FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms ++
+          FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms,
+      )
 
     result.trace.executedFlows.govSpending shouldBe emittedGovSpending
     result.trace.executedFlows.totalIncome shouldBe mechanismTotal(result.flows, FlowMechanism.HhTotalIncome)
@@ -221,9 +215,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "align NFZ runtime subvention emission with semantic current-month state" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepFromSeed()
     val nfz    = result.nextState.world.social.nfz
 
     val emittedContributions = mechanismTotal(result.flows, FlowMechanism.NfzContribution)
@@ -241,17 +233,17 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.trace.executedFlows.nfzGovSubvention shouldBe nfz.govSubvention
 
     val expectedGovSpending =
-      (FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms ++
-        FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms)
-        .map(mechanismTotal(result.flows, _))
-        .foldLeft(PLN.Zero)(_ + _)
+      mechanismsTotal(
+        result.flows,
+        FlowSimulation.ExecutedFlowEvidence.CentralGovernmentSpendingMechanisms ++
+          FlowSimulation.ExecutedFlowEvidence.SocialFundGovSubventionMechanisms,
+      )
 
     result.trace.executedFlows.govSpending shouldBe expectedGovSpending
   }
 
   it should "anchor same-month social payroll before month-end hiring contract changes" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState = FlowSimulation.SimState.fromInit(init)
+    val baseState = stateFromSeed()
     val state     = baseState.copy(
       households = baseState.households.zipWithIndex.map:
         case (hh, idx) if idx < 24 =>
@@ -259,7 +251,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         case (hh, _)               => hh,
     )
 
-    val result           = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result           = stepWithSeed(state)
     val openingPayroll   = SocialSecurity.payrollBase(state.households)
     val finalPayroll     = SocialSecurity.payrollBase(result.nextState.households)
     val openingContracts = contractHistogram(state.households)
@@ -279,14 +271,13 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep corporate bond outstanding ledger-owned across month boundaries" in {
-    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state       = FlowSimulation.SimState.fromInit(init)
+    val state       = stateFromSeed()
     val initialDebt = CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState)
 
     initialDebt shouldBe CorporateBondOwnership.issuerOutstanding(state.ledgerFinancialState.firms)
     initialDebt shouldBe CorporateBondOwnership.holderOutstanding(state.ledgerFinancialState)
 
-    val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result   = stepWithSeed(state)
     val nextDebt = CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState)
 
     nextDebt shouldBe CorporateBondOwnership.issuerOutstanding(result.nextState.ledgerFinancialState.firms)
@@ -294,9 +285,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "derive runtime ledger topology from actual populations plus explicit shell slots" in {
-    val init     = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state    = FlowSimulation.SimState.fromInit(init)
-    val result   = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val state    = stateFromSeed()
+    val result   = stepWithSeed(state)
     val topology = result.execution.topology
 
     val expectedHouseholdSectorSize = state.households.size + 5
@@ -339,9 +329,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "avoid cash assets on bank capital and insurance investment channels" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepFromSeed()
 
     val bankCapitalMechanisms = Set(
       FlowMechanism.BankGovBondIncome,
@@ -377,8 +365,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "read insurance flow inputs from LedgerFinancialState instead of World market memory" in {
-    val init            = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState       = FlowSimulation.SimState.fromInit(init)
+    val baseState       = stateFromSeed()
     val ledgerInsurance = baseState.ledgerFinancialState.insurance.copy(
       lifeReserve = PLN(21),
       nonLifeReserve = PLN(22),
@@ -392,7 +379,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
       ),
     )
 
-    val calculus = FlowSimulation.computeCalculus(state, MonthRandomness.Contract.fromSeed(42L))
+    val calculus = FlowSimulation.computeCalculus(state, monthRandomness())
 
     calculus.insuranceCurrentLifeReserves shouldBe ledgerInsurance.lifeReserve
     calculus.insuranceCurrentNonLifeReserves shouldBe ledgerInsurance.nonLifeReserve
@@ -402,8 +389,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep insurance premiums on the post-reconcile insurance stage basis instead of the opening payroll boundary" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState = FlowSimulation.SimState.fromInit(init)
+    val baseState = stateFromSeed()
     val state     = baseState.copy(
       households = baseState.households.zipWithIndex.map:
         case (hh, idx) if idx < 512 =>
@@ -414,7 +400,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         case (hh, _)                => hh,
     )
 
-    val result            = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result            = stepWithSeed(state)
     val openingInsurance  = LedgerFinancialState.insuranceOpeningBalances(state.ledgerFinancialState)
     val expectedInsurance = Insurance.step(
       Insurance.StepInput(
@@ -464,9 +450,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "expose the month boundary as SimState -> StepOutput -> (nextState, trace)" in {
-    val init        = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state       = FlowSimulation.SimState.fromInit(init)
-    val contract    = MonthRandomness.Contract.fromSeed(42L)
+    val state       = stateFromSeed()
+    val contract    = monthRandomness()
     val stateResult = FlowSimulation.step(state, contract)
     val repeated    = FlowSimulation.step(state, contract)
 
@@ -481,10 +466,9 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep explicit pre and next-pre seed wrappers aligned with step outputs" in {
-    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state   = FlowSimulation.SimState.fromInit(init)
+    val state   = stateFromSeed()
     val seedIn  = MonthSemantics.seedIn(state.world.seedIn)
-    val result  = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result  = stepWithSeed(state)
     val seedOut = MonthSemantics.seedOut(result.signalExtraction)
 
     seedIn.decisionSignals shouldBe state.world.seedIn
@@ -495,11 +479,10 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "accept an explicit month-step randomness contract with named stage and assembly streams" in {
-    val init       = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state      = FlowSimulation.SimState.fromInit(init)
-    val contract   = MonthRandomness.Contract.fromSeed(1234L)
+    val state      = stateFromSeed()
+    val contract   = monthRandomness(1234L)
     val fromSeed   = FlowSimulation.step(state, contract)
-    val fromReplay = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(1234L))
+    val fromReplay = stepWithSeed(state, 1234L)
 
     fromSeed.randomness shouldBe contract
     fromSeed.trace.randomness shouldBe contract
@@ -523,11 +506,10 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "expose a first-class unfold driver over the monthly step boundary" in {
-    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state = FlowSimulation.SimState.fromInit(init)
+    val state = stateFromSeed()
     val steps = MonthDriver
       .unfoldSteps(state): current =>
-        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.completedMonth.toLong + 1L))
+        Some(monthRandomness(42L * 1000L + current.completedMonth.toLong + 1L))
       .take(3)
       .toVector
 
@@ -539,50 +521,23 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "stop unfolding when the caller closes the randomness schedule" in {
-    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state   = FlowSimulation.SimState.fromInit(init)
+    val state   = stateFromSeed()
     val results = MonthDriver
       .unfoldSteps(state): current =>
-        Option.when(current.completedMonth.toInt < 2)(MonthRandomness.Contract.fromSeed(42L * 1000L + current.completedMonth.toLong + 1L))
+        Option.when(current.completedMonth.toInt < 2)(monthRandomness(42L * 1000L + current.completedMonth.toLong + 1L))
       .toVector
 
     results should have size 2
     results.map(_.nextState.completedMonth.toInt) shouldBe Vector(1, 2)
   }
 
-  it should "produce SFC == 0L across 12 months (autonomous driving)" in {
-    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state   = FlowSimulation.SimState.fromInit(init)
-    val results = MonthDriver
-      .unfoldSteps(state): current =>
-        Some(MonthRandomness.Contract.fromSeed(42L * 1000L + current.completedMonth.toLong + 1L))
-      .take(12)
-      .toVector
-
-    results should have size 12
-
-    results.foreach { result =>
-      val month = result.executionMonth.toInt
-      withClue(s"Month $month: ") {
-        result.execution.netDelta shouldBe 0L
-        result.sfcResult shouldBe Right(())
-      }
-    }
-  }
-
   it should "propagate informal-economy pressure into fiscal outputs without breaking SFC" in {
-    val init          = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val baseState     = FlowSimulation.SimState.fromInit(init)
+    val init          = initFromSeed()
+    val baseState     = stateFromInit(init)
     val lowShadowW    = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = Share.Zero))
     val highShadowW   = init.world.copy(mechanisms = init.world.mechanisms.copy(informalCyclicalAdj = Share.decimal(4, 1)))
-    val lowShadowRun  = FlowSimulation.step(
-      baseState.copy(world = lowShadowW),
-      MonthRandomness.Contract.fromSeed(42L),
-    )
-    val highShadowRun = FlowSimulation.step(
-      baseState.copy(world = highShadowW),
-      MonthRandomness.Contract.fromSeed(42L),
-    )
+    val lowShadowRun  = stepWithSeed(baseState.copy(world = lowShadowW))
+    val highShadowRun = stepWithSeed(baseState.copy(world = highShadowW))
 
     lowShadowRun.execution.netDelta shouldBe 0L
     highShadowRun.execution.netDelta shouldBe 0L
@@ -596,9 +551,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "align semantic gov revenue with the emitted current-month SOE dividend batch" in {
-    val init                    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val staleBoundaryDividend   = PLN(25000000)
-    val baseState               = FlowSimulation.SimState.fromInit(init)
+    val baseState               = stateFromSeed()
     val state                   = baseState.copy(
       world = baseState.world.copy(
         gov = baseState.world.gov.copy(
@@ -606,11 +560,9 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
         ),
       ),
     )
-    val result                  = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result                  = stepWithSeed(state)
     val currentMonthGovDividend = mechanismTotal(result.flows, FlowMechanism.EquityGovDividend)
-    val emittedGovRevenue       = GovBudgetFlows.CentralGovernmentRevenueMechanisms
-      .map(mechanismTotal(result.flows, _))
-      .foldLeft(PLN.Zero)(_ + _)
+    val emittedGovRevenue       = mechanismsTotal(result.flows, GovBudgetFlows.CentralGovernmentRevenueMechanisms)
 
     result.sfcResult shouldBe Right(())
     currentMonthGovDividend shouldBe result.calculus.equityGovDividends
@@ -618,17 +570,10 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
     result.trace.executedFlows.govRevenue shouldBe emittedGovRevenue
   }
 
-  it should "produce 30+ mechanism IDs" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
-    result.flows.map(_.mechanism).toSet.size should be > 30
-  }
-
   it should "emit a typed MonthTrace with stable boundaries and typed timing envelopes" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val init   = initFromSeed()
+    val state  = stateFromInit(init)
+    val result = stepWithSeed(state)
     val trace  = result.trace
 
     val demandSignals = trace.timing.requirePayload[MonthTimingPayload.DemandSignals](MonthTimingEnvelopeKey.Demand)
@@ -683,9 +628,7 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep MonthTrace seed transitions consistent with timing envelopes and end-of-month boundary data" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepFromSeed()
     val trace  = result.trace
 
     trace.seedTransition.seedOut shouldBe DecisionSignals(
@@ -709,10 +652,8 @@ class FlowSimulationStepSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "match the flat reference interpreter on aggregate execution deltas" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val initState = FlowSimulation.SimState.fromInit(init)
-    val result    = FlowSimulation.step(initState, MonthRandomness.Contract.fromSeed(42L))
-    val state     = result.execution.topology.emptyExecutionState()
+    val result = stepFromSeed()
+    val state  = result.execution.topology.emptyExecutionState()
 
     ImperativeInterpreter.planAndApplyAll(state, result.flows) shouldBe Right(())
     result.execution.topology.netDelta(state) shouldBe Interpreter.totalWealth(

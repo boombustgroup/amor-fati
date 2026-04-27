@@ -1,8 +1,6 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import com.boombustgroup.ledger.EntitySector
 import org.scalatest.flatspec.AnyFlatSpec
@@ -14,9 +12,7 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
   private given p: SimParams = SimParams.defaults
 
   "FlowSimulation.step" should "source executed semantic flow evidence from emitted mechanisms in default CI" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = stepFromSeed()
 
     val expectedCentralGovernmentSpendingMechanisms = Vector(
       FlowMechanism.GovPurchases,
@@ -42,10 +38,8 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
     FlowSimulation.ExecutedFlowEvidence.JstRevenueMechanisms shouldBe expectedJstRevenueMechanisms
 
     val govSpendingMechanisms              = expectedCentralGovernmentSpendingMechanisms ++ expectedSocialFundGovSubventionMechanisms
-    val emittedGovSpending                 =
-      govSpendingMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
-    val emittedJstRevenue                  =
-      expectedJstRevenueMechanisms.map(mechanismTotal(result.flows, _)).foldLeft(PLN.Zero)(_ + _)
+    val emittedGovSpending                 = mechanismsTotal(result.flows, govSpendingMechanisms)
+    val emittedJstRevenue                  = mechanismsTotal(result.flows, expectedJstRevenueMechanisms)
     val emittedInvestmentDepositSettlement =
       signedMechanismTotal(result.flows, FlowMechanism.InvestmentDepositSettlement, EntitySector.Banks, EntitySector.Firms)
     val emittedNbfiDepositDrain            =
@@ -104,17 +98,14 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "route deterministic NBFI and TFI calculus values into executed evidence" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
-
-    val calculus                = result.calculus.copy(
+    val (baseCalculus, topology) = calculusTopologyFromSeed()
+    val calculus                 = baseCalculus.copy(
       nbfiDepositDrain = PLN(-777000),
       nbfiOrigination = PLN(555000),
       nbfiRepayment = PLN(333000),
       nbfiDefaultAmount = PLN(111000),
     )
-    given RuntimeLedgerTopology = result.execution.topology
+    given RuntimeLedgerTopology  = topology
 
     val batches  = FlowSimulation.emitAllBatches(calculus)
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
@@ -126,11 +117,8 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "route deterministic quasi-fiscal calculus values into executed evidence" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
-
-    val calculus                = result.calculus.copy(
+    val (baseCalculus, topology) = calculusTopologyFromSeed()
+    val calculus                 = baseCalculus.copy(
       qfBankBondIssuance = PLN(700000),
       qfNbpBondAbsorption = PLN(300000),
       qfBankBondAmortization = PLN(200000),
@@ -138,7 +126,7 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
       qfLending = PLN(500000),
       qfRepayment = PLN(150000),
     )
-    given RuntimeLedgerTopology = result.execution.topology
+    given RuntimeLedgerTopology  = topology
 
     val batches  = FlowSimulation.emitAllBatches(calculus)
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)

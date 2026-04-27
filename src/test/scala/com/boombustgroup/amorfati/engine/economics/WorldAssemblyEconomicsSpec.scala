@@ -2,11 +2,9 @@ package com.boombustgroup.amorfati.engine.economics
 
 import com.boombustgroup.amorfati.FixedPointSpecSupport.*
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
 import com.boombustgroup.amorfati.engine.SimulationMonth.CompletedMonth
-import com.boombustgroup.amorfati.engine.flows.FlowSimulation
+import com.boombustgroup.amorfati.engine.flows.{FlowSimulation, RuntimeFlowsTestSupport}
 import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,10 +13,11 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
+  private lazy val deterministicStep: FlowSimulation.StepOutput =
+    RuntimeFlowsTestSupport.stepFromSeed()
+
   "WorldAssemblyEconomics" should "produce valid world after simulation step" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = deterministicStep
     val w      = result.nextState.world
 
     result.nextState.completedMonth shouldBe CompletedMonth(1)
@@ -28,18 +27,14 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "keep ETS observables at the base price in the first execution month" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = deterministicStep
     val w      = result.nextState.world
 
     decimal(w.real.etsPrice).shouldBe(decimal(p.climate.etsBasePrice) +- BigDecimal("1e-10"))
   }
 
   it should "preserve public-spending semantic aggregates on the assembled world" in {
-    val init   = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state  = FlowSimulation.SimState.fromInit(init)
-    val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))
+    val result = deterministicStep
     val w      = result.nextState.world
 
     w.gov.domesticBudgetDemand shouldBe (w.gov.govCurrentSpend + w.gov.govCapitalSpend)
@@ -58,9 +53,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "carry supported financial stocks through stage-owned ledger updates" in {
-    val init      = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    val state     = FlowSimulation.SimState.fromInit(init)
-    val nextState = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L)).nextState
+    val nextState = deterministicStep.nextState
     val ledger    = nextState.ledgerFinancialState
 
     ledger.households.length shouldBe nextState.households.length

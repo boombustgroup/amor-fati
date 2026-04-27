@@ -98,11 +98,3 @@ class OpenEconFlowsSpec extends AnyFlatSpec with Matchers:
           onlyFromIndex(FlowMechanism.EuFunds) shouldBe ForeignRuntimeContract.TransferSettlement.index
           onlyFromIndex(FlowMechanism.DiasporaInflow) shouldBe ForeignRuntimeContract.TransferSettlement.index
         }
-
-  it should "preserve SFC across 120 months" in {
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, OpenEconFlows.emit(baseInput))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

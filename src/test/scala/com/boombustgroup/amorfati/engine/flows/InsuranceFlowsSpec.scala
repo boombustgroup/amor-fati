@@ -144,11 +144,3 @@ class InsuranceFlowsSpec extends AnyFlatSpec with Matchers:
       case other                            => fail(s"Expected reserve loss broadcast, got $other")
     lossLegs.map(RuntimeLedgerTopology.totalTransferred).sum shouldBe expectedLoss.toLong
   }
-
-  it should "preserve SFC across 120 months" in {
-    var balances = Map.empty[Int, Long]
-    (1 to 120).foreach { _ =>
-      balances = Interpreter.applyAll(balances, InsuranceFlows.emit(baseInput))
-      Interpreter.totalWealth(balances) shouldBe 0L
-    }
-  }

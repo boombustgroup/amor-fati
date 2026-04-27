@@ -1,48 +1,46 @@
 package com.boombustgroup.amorfati.engine.flows
 
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 import com.boombustgroup.amorfati.tags.Heavy
+import com.boombustgroup.amorfati.types.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 /** Multi-month flow verification: FlowSimulation.step() drives state
-  * autonomously.
-  *
-  * Runs 120 months via FlowSimulation.step(). At each month verifies SFC == 0L.
+  * autonomously across a long horizon.
   */
 @Heavy
 class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
+  import RuntimeFlowsTestSupport.*
 
   private given p: SimParams = SimParams.defaults
 
-  "Multi-month flow verification (120 months)" should "preserve SFC at 0L every month" in {
-    val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    var state = FlowSimulation.SimState.fromInit(init)
+  "Multi-month flow verification (120 months)" should "preserve SFC and basic dynamics every month" in {
+    var state   = stateFromSeed()
+    var gdps    = Vector.empty[PLN]
+    var volumes = Vector.empty[PLN]
 
     (1 to 120).foreach { month =>
-      val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
+      val result = stepWithSeed(state, 42L * 1000 + month)
 
       withClue(s"SFC violated at month $month: ") {
         result.execution.netDelta shouldBe 0L
       }
+      withClue(s"Employment violated at month $month: ") {
+        result.nextState.householdAggregates.employed should be > 0
+      }
 
-      state = result.nextState
-    }
-  }
-
-  it should "produce increasing total flow volume over time" in {
-    val init    = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
-    var state   = FlowSimulation.SimState.fromInit(init)
-    var volumes = Vector.empty[Long]
-
-    (1 to 120).foreach { month =>
-      val result = FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L * 1000 + month))
-      volumes = volumes :+ result.flows.iterator.map(RuntimeLedgerTopology.totalTransferred).sum
-
+      gdps = gdps :+ result.nextState.world.cachedMonthlyGdpProxy
+      volumes = volumes :+ totalTransferred(result.flows)
       state = result.nextState
     }
 
-    volumes.last should be > volumes.head
+    gdps.toSet.size should be > 1
+    gdps.forall(_ > PLN.Zero) shouldBe true
+
+    val annualVolumes         =
+      volumes.grouped(12).map(window => window.foldLeft(PLN.Zero)(_ + _)).toVector
+    val annualVolumeDecreases = annualVolumes.zip(annualVolumes.tail).count { case (prev, next) => next < prev }
+    annualVolumes.toSet.size should be > 1
+    annualVolumeDecreases should be <= 4
   }

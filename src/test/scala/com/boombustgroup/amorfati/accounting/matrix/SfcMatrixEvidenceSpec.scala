@@ -3,9 +3,7 @@ package com.boombustgroup.amorfati.accounting.matrix
 import com.boombustgroup.amorfati.accounting.matrix.SfcMatrixEvidence.*
 import com.boombustgroup.amorfati.accounting.Sfc
 import com.boombustgroup.amorfati.config.SimParams
-import com.boombustgroup.amorfati.engine.MonthRandomness
-import com.boombustgroup.amorfati.engine.flows.{FlowMechanism, FlowSimulation}
-import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
+import com.boombustgroup.amorfati.engine.flows.FlowMechanism
 import com.boombustgroup.ledger.{AssetType, BatchedFlow, EntitySector}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -15,11 +13,10 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
   private given SimParams = SimParams.defaults
 
   private lazy val step =
-    val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(1L))
-    FlowSimulation.step(FlowSimulation.SimState.fromInit(init), MonthRandomness.Contract.fromSeed(1001L))
+    SfcMatrixEvidenceTestSupport.deterministicStep()
 
   private lazy val bundle =
-    MatrixEvidenceBundle.fromStep(seed = 1L, step = step, commit = "test")
+    SfcMatrixEvidenceTestSupport.bundleFrom(step, seed = SfcMatrixEvidenceTestSupport.EvidenceSeed, commit = "test")
 
   "BsmEvidence" should "derive opening and closing matrices from ledger-owned state" in {
     val closing = bundle.closingBsm
