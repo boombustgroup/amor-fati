@@ -98,15 +98,14 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "route deterministic NBFI and TFI calculus values into executed evidence" in {
-    val result = stepFromSeed()
-
-    val calculus                = result.calculus.copy(
+    val (baseCalculus, topology) = calculusTopologyFromSeed()
+    val calculus                 = baseCalculus.copy(
       nbfiDepositDrain = PLN(-777000),
       nbfiOrigination = PLN(555000),
       nbfiRepayment = PLN(333000),
       nbfiDefaultAmount = PLN(111000),
     )
-    given RuntimeLedgerTopology = result.execution.topology
+    given RuntimeLedgerTopology  = topology
 
     val batches  = FlowSimulation.emitAllBatches(calculus)
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)
@@ -118,9 +117,8 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
   }
 
   it should "route deterministic quasi-fiscal calculus values into executed evidence" in {
-    val result = stepFromSeed()
-
-    val calculus                = result.calculus.copy(
+    val (baseCalculus, topology) = calculusTopologyFromSeed()
+    val calculus                 = baseCalculus.copy(
       qfBankBondIssuance = PLN(700000),
       qfNbpBondAbsorption = PLN(300000),
       qfBankBondAmortization = PLN(200000),
@@ -128,7 +126,7 @@ class FlowSimulationExecutedEvidenceSpec extends AnyFlatSpec with Matchers:
       qfLending = PLN(500000),
       qfRepayment = PLN(150000),
     )
-    given RuntimeLedgerTopology = result.execution.topology
+    given RuntimeLedgerTopology  = topology
 
     val batches  = FlowSimulation.emitAllBatches(calculus)
     val evidence = FlowSimulation.ExecutedFlowEvidence.from(batches)

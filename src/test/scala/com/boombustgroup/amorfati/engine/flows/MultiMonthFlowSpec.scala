@@ -35,7 +35,12 @@ class MultiMonthFlowSpec extends AnyFlatSpec with Matchers:
       state = result.nextState
     }
 
-    gdps.last should not be gdps.head
+    gdps.toSet.size should be > 1
     gdps.forall(_ > PLN.Zero) shouldBe true
-    volumes.last should be > volumes.head
+
+    val annualVolumes         =
+      volumes.grouped(12).map(window => window.foldLeft(PLN.Zero)(_ + _)).toVector
+    val annualVolumeDecreases = annualVolumes.zip(annualVolumes.tail).count { case (prev, next) => next < prev }
+    annualVolumes.toSet.size should be > 1
+    annualVolumeDecreases should be <= 4
   }

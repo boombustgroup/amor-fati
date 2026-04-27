@@ -15,7 +15,7 @@ class WorldAssemblyEconomicsSpec extends AnyFlatSpec with Matchers:
 
   private given p: SimParams = SimParams.defaults
 
-  private def deterministicStep: FlowSimulation.StepOutput =
+  private lazy val deterministicStep: FlowSimulation.StepOutput =
     val init  = WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
     val state = FlowSimulation.SimState.fromInit(init)
     FlowSimulation.step(state, MonthRandomness.Contract.fromSeed(42L))

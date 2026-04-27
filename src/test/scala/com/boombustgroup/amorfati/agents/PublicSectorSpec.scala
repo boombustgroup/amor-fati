@@ -11,22 +11,28 @@ class PublicSectorSpec extends AnyFlatSpec with Matchers:
 
   import com.boombustgroup.amorfati.config.SimParams
   private given SimParams = SimParams.defaults
-  private val p           = summon[SimParams]
 
   // =========================================================================
   // ZUS
   // =========================================================================
 
   "SocialSecurity.zusStep" should "compute deficit flows and cash change from payroll" in {
-    val payroll     = SocialSecurity.PayrollBase.aggregate(100000, PLN(8266))
-    val result      = SocialSecurity.zusStep(payroll, nRetirees = 50000)
-    val openingCash = PLN(100000000)
+    val payroll               = SocialSecurity.PayrollBase.aggregate(100000, PLN(8266))
+    val result                = SocialSecurity.zusStep(payroll, nRetirees = 50000)
+    val openingCash           = PLN(100000000)
+    val expectedContributions = PLN(161352320)
+    val expectedPensions      = PLN(175000000)
+    val expectedCashChange    = PLN(-13647680)
 
-    result.contributions shouldBe payroll.zusContributions
-    result.pensionPayments shouldBe 50000 * p.social.zusBasePension
+    result.contributions shouldBe expectedContributions
+    result.pensionPayments shouldBe expectedPensions
+    result.contributions should be < result.pensionPayments
     result.govSubvention shouldBe result.pensionPayments - result.contributions
+    result.govSubvention shouldBe PLN(13647680)
     SocialSecurity.zusCashChange(result) shouldBe result.contributions - result.pensionPayments
+    SocialSecurity.zusCashChange(result) shouldBe expectedCashChange
     SocialSecurity.zusCashAfter(openingCash, result) shouldBe openingCash + SocialSecurity.zusCashChange(result)
+    SocialSecurity.zusCashAfter(openingCash, result) shouldBe PLN(86352320)
   }
 
   it should "compute zero government subvention when FUS is in surplus" in {

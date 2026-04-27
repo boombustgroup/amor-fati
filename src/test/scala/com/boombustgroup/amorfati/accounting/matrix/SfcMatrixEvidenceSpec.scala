@@ -16,7 +16,7 @@ class SfcMatrixEvidenceSpec extends AnyFlatSpec with Matchers:
     SfcMatrixEvidenceTestSupport.deterministicStep()
 
   private lazy val bundle =
-    SfcMatrixEvidenceTestSupport.bundleFrom(step, commit = "test")
+    SfcMatrixEvidenceTestSupport.bundleFrom(step, seed = SfcMatrixEvidenceTestSupport.EvidenceSeed, commit = "test")
 
   "BsmEvidence" should "derive opening and closing matrices from ledger-owned state" in {
     val closing = bundle.closingBsm

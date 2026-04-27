@@ -13,21 +13,20 @@ class CorporateBondOwnershipSpec extends AnyFlatSpec with Matchers:
 
   private given SimParams = SimParams.defaults
 
-  private def defaultInit: WorldInit.InitResult =
+  private lazy val defaultInit: WorldInit.InitResult =
     WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
 
-  private def defaultState: FlowSimulation.SimState =
+  private lazy val defaultState: FlowSimulation.SimState =
     FlowSimulation.SimState.fromInit(defaultInit)
 
-  private def defaultNextState: FlowSimulation.SimState =
+  private lazy val defaultNextState: FlowSimulation.SimState =
     FlowSimulation.step(defaultState, MonthRandomness.Contract.fromSeed(42L)).nextState
 
   private def sampleIssuerBalances(init: WorldInit.InitResult) =
     val firmStates = init.firms.take(2)
-    val firms      = firmStates.zipWithIndex
-      .map: (_, index) =>
-        init.ledgerFinancialState.firms(index).copy(corpBond = PLN.fromLong((index + 1L) * 100L))
-    (firmStates, firms)
+    val firms      = (0 until firmStates.length).map: index =>
+      init.ledgerFinancialState.firms(index).copy(corpBond = PLN.fromLong((index + 1L) * 100L))
+    (firmStates, firms.toVector)
 
   "CorporateBondOwnership" should "initialize issuer liabilities to the market outstanding stock" in {
     val ledger      = defaultState.ledgerFinancialState

@@ -11,7 +11,7 @@ class LedgerFinancialStateSpec extends AnyFlatSpec with Matchers:
 
   private given SimParams = SimParams.defaults
 
-  private def defaultInit: WorldInit.InitResult =
+  private lazy val defaultInit: WorldInit.InitResult =
     WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
 
   "LedgerFinancialState.refreshHouseholdBalances" should "preserve existing ledger balances and initialize only new households" in {

@@ -281,12 +281,14 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
   // GDP unaffected
   // ==========================================================================
 
-  "GDP formula" should "keep tax evasion outside the cached GDP proxy" in {
+  "GDP formula" should "keep tax evasion loss outside the cached PriceEquityEconomics GDP proxy" in {
     val result = defaultRuntimeStep
     val world  = result.nextState.world
 
     world.flows.taxEvasionLoss should be > PLN.Zero
+    result.calculus.domesticConsumption should be > PLN.Zero
     world.cachedMonthlyGdpProxy shouldBe result.calculus.gdp
+    world.cachedMonthlyGdpProxy should not equal (result.calculus.gdp - world.flows.taxEvasionLoss)
   }
 
   "Informal calibration" should "keep default runtime ratios in a plausible envelope over 12 months" in {

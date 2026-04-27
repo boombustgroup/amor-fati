@@ -11,7 +11,7 @@ class InitCheckSpec extends AnyFlatSpec with Matchers:
 
   given SimParams = SimParams.defaults
 
-  private def defaultInit: WorldInit.InitResult =
+  private lazy val defaultInit: WorldInit.InitResult =
     WorldInit.initialize(InitRandomness.Contract.fromSeed(42L))
 
   private def runtimeState(result: WorldInit.InitResult): Sfc.RuntimeState =

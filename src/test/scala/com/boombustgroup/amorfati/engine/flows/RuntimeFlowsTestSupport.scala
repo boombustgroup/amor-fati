@@ -54,9 +54,20 @@ object RuntimeFlowsTestSupport extends Matchers:
     cashMechanismTotal(mechanismBatches(batches, mechanism))
 
   def mechanismsTotal(batches: Vector[BatchedFlow], mechanisms: Iterable[MechanismId]): PLN =
-    mechanisms.iterator
-      .map(mechanismTotal(batches, _))
-      .foldLeft(PLN.Zero)(_ + _)
+    val mechanismSet = mechanisms.toSet
+    PLN.fromRaw(
+      batches.iterator
+        .filter(batch => mechanismSet.contains(batch.mechanism))
+        .map(RuntimeLedgerTopology.totalTransferred)
+        .sum,
+    )
+
+  def calculusTopologyFromSeed(
+      initSeed: Long = DefaultSeed,
+      monthSeed: Long = DefaultSeed,
+  )(using SimParams): (FlowSimulation.MonthlyCalculus, RuntimeLedgerTopology) =
+    val state = stateFromSeed(initSeed)
+    (FlowSimulation.computeCalculus(state, monthRandomness(monthSeed)), RuntimeLedgerTopology.fromState(state))
 
   def signedMechanismTotal(
       batches: Vector[BatchedFlow],

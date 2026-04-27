@@ -8,17 +8,17 @@ import com.boombustgroup.amorfati.init.{InitRandomness, WorldInit}
 
 private[matrix] object SfcMatrixEvidenceTestSupport:
 
-  private val EvidenceSeed      = 1L
-  private val EvidenceMonthSeed = 1001L
+  private[matrix] val EvidenceSeed = 1L
+  private val EvidenceMonthSeed    = 1001L
 
   def deterministicStep()(using SimParams): FlowSimulation.StepOutput =
     val init = WorldInit.initialize(InitRandomness.Contract.fromSeed(EvidenceSeed))
     FlowSimulation.step(FlowSimulation.SimState.fromInit(init), MonthRandomness.Contract.fromSeed(EvidenceMonthSeed))
 
   def deterministicBundle(commit: String)(using SimParams): MatrixEvidenceBundle =
-    bundleFrom(deterministicStep(), commit)
+    bundleFrom(deterministicStep(), seed = EvidenceSeed, commit = commit)
 
-  def bundleFrom(step: FlowSimulation.StepOutput, commit: String)(using SimParams): MatrixEvidenceBundle =
-    MatrixEvidenceBundle.fromStep(seed = EvidenceSeed, step = step, commit = commit)
+  def bundleFrom(step: FlowSimulation.StepOutput, seed: Long, commit: String)(using SimParams): MatrixEvidenceBundle =
+    MatrixEvidenceBundle.fromStep(seed = seed, step = step, commit = commit)
 
 end SfcMatrixEvidenceTestSupport

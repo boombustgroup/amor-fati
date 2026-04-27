@@ -23,12 +23,17 @@ class MultiSeedValidationSpec extends AnyFlatSpec with Matchers:
 
   "FlowSimulation.step (multi-seed)" should "preserve SFC and basic economic sanity for all seeds × months" in
     seeds.foreach { seed =>
-      var state               = stateFromSeed(seed)
-      var firstMechanismCount = 0
+      var state = stateFromSeed(seed)
 
-      (1 to months).foreach { month =>
+      val firstMonthResult    = stepWithSeed(state, seed * 1000 + 1)
+      val firstMechanismCount = firstMonthResult.flows.map(_.mechanism).toSet.size
+      withClue(s"Seed $seed, month 1: ") {
+        firstMonthResult.execution.netDelta.shouldBe(0L)
+      }
+      state = firstMonthResult.nextState
+
+      (2 to months).foreach { month =>
         val result = stepWithSeed(state, seed * 1000 + month)
-        if month == 1 then firstMechanismCount = result.flows.map(_.mechanism).toSet.size
         withClue(s"Seed $seed, month $month: ") {
           result.execution.netDelta.shouldBe(0L)
         }
