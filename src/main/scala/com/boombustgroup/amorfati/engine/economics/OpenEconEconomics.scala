@@ -235,12 +235,7 @@ object OpenEconEconomics:
       firms: Vector[Firm.State],
       sectorMultiplier: Int => Multiplier,
   )(using p: SimParams): Vector[PLN] =
-    val livingBySector = firms.iterator.filter(Firm.isAlive).toVector.groupBy(_.sector.toInt)
-    Vector.tabulate(sectorCount): s =>
-      livingBySector
-        .getOrElse(s, Vector.empty)
-        .foldLeft(PLN.Zero): (acc, f) =>
-          acc + (priceLevel * (Firm.computeCapacity(f) * sectorMultiplier(f.sector.toInt)))
+    GdpAccounting.realizedSectorOutputs(priceLevel, sectorCount, firms, sectorMultiplier)
 
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
     GvcTrade.step(

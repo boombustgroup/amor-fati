@@ -77,6 +77,8 @@ The primary numeric surface is
 `src/main/scala/com/boombustgroup/amorfati/montecarlo/McTimeseriesSchema.scala`.
 Terminal cross-sections come from
 `src/main/scala/com/boombustgroup/amorfati/montecarlo/McTerminalSummarySchema.scala`.
+Time-series macro PLN aggregates are emitted in Poland scale. Validation work
+should not manually divide CSV values by `gdpRatio`.
 
 | Validation target | Empirical comparator | Model output mapping | Suggested statistic | Current status |
 | --- | --- | --- | --- | --- |

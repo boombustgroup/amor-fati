@@ -66,9 +66,8 @@ class SignalTimingRegressionSpec extends AnyFlatSpec with Matchers:
       w = world,
       month = s1.m,
       wageGrowth = s2.wageGrowth,
-      domesticCons = s3.domesticCons,
-      govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
+      sectorMults = s4.sectorMults,
       totalSystemLoans = ledgerFinancialState.banks.map(_.firmLoan).sumPln,
       firmStep = s5,
     )
