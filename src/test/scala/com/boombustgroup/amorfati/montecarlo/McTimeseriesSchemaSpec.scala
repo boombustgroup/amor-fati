@@ -269,10 +269,17 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "Unemp_North",
   )
 
-  private def computeRow(world: World, ledgerFinancialState: LedgerFinancialState = initState.ledgerFinancialState): Array[MetricValue] =
+  private def computeRow(
+      world: World,
+      ledgerFinancialState: LedgerFinancialState = initState.ledgerFinancialState,
+      preserveSectorOutputs: Boolean = false,
+  ): Array[MetricValue] =
+    val effectiveWorld =
+      if preserveSectorOutputs || world.flows.sectorOutputs.nonEmpty then world
+      else world.copy(flows = world.flows.copy(sectorOutputs = Vector.fill(summon[SimParams].sectorDefs.length)(PLN.Zero)))
     McTimeseriesSchema.compute(
       executionMonth = ExecutionMonth.First,
-      world = world,
+      world = effectiveWorld,
       firms = init.firms,
       households = init.households,
       banks = init.banks,
@@ -334,6 +341,15 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
       computeRow(init.world.copy(flows = init.world.flows.copy(sectorOutputs = Vector(PLN(1)))))
 
     err.getMessage.should(include("FlowState.sectorOutputs"))
+  }
+
+  it should "reject missing sector output payloads before output indexing" in {
+    val err = intercept[IllegalArgumentException]:
+      computeRow(init.world.copy(flows = init.world.flows.copy(sectorOutputs = Vector.empty)), preserveSectorOutputs = true)
+
+    err.getMessage.should(include("FlowState.sectorOutputs"))
+    err.getMessage.should(include(s"${summon[SimParams].sectorDefs.length} entries"))
+    err.getMessage.should(include("got 0"))
   }
 
   it should "source ledger-owned household, public, and fund stock columns from LedgerFinancialState" in {

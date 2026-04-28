@@ -167,7 +167,7 @@ object OpenEconEconomics:
       bankFinancialStocks,
       bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId),
     )
-    val sectorOutputs       = runStepSectorOutputs(in)
+    val sectorOutputs       = in.s7.realizedSectorOutputs
     val external            = runStepExternalSector(in, sectorOutputs)
     val rateAndExp          = runStepRateAndExpectations(in, external.newForex)
     val interbank           = runStepInterbankFlows(in.w, in.banks, bankFinancialStocks)
@@ -225,9 +225,6 @@ object OpenEconEconomics:
         nbfiDepositDrain = nbfi.state.lastDepositDrain,
       ),
     )
-
-  private def runStepSectorOutputs(in: StepInput)(using p: SimParams): Vector[PLN] =
-    aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.s5.ioFirms, in.s4.sectorMults.apply)
 
   private[economics] def aggregateSectorOutputs(
       priceLevel: PriceIndex,

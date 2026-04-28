@@ -89,7 +89,7 @@ should not manually divide CSV values by `gdpRatio`.
 | Credit/GDP | NBP credit aggregates to GDP | `CreditToGdpGap`, `ConsumerLoans`, `MortgageToGdp`, `MortgageStock`, `NbfiLoanStock`; terminal `_banks.csv` field `Loans` | Credit/GDP level, gap, household/firm split | `PARTIAL_OUTPUT` |
 | Public debt/GDP | MF public debt, ESA2010 general-government debt | `DebtToGdp`, `Esa2010DebtToGdp`, `GovDebt`, `QfBondsOutstanding`, `BondsOutstanding` | Terminal debt/GDP and path against thresholds | `READY_FOR_BASELINE` |
 | Current account | NBP balance of payments | `CurrentAccount`, `TradeBalance_OE`, `Exports_OE`, `TotalImports_OE`, `NetRemittances`, `NetTourismBalance`, `FDI` | Annualized current-account/GDP and component signs | `PARTIAL_OUTPUT` |
-| Firm-size distribution | GUS/REGON firm-size distribution | Terminal `_firms.csv` fields `FirmSize_Micro`, `FirmSize_Small`, `FirmSize_Medium`, `FirmSize_Large` and share fields | Survival-weighted terminal firm-size distribution | `READY_FOR_BASELINE` |
+| Firm-size distribution | GUS/REGON firm-size distribution | Terminal `_firms.csv` fields `FirmSize_Micro`, `FirmSize_Small`, `FirmSize_Medium`, `FirmSize_Large` and share fields | Terminal firm-size distribution (living firms only) | `READY_FOR_BASELINE` |
 | Bankruptcies | GUS / Ministry of Justice corporate insolvencies, consumer bankruptcy statistics | `FirmDeaths`, `FirmBirths`, `NetEntry`, `BankFailures`; terminal `_hh.csv` fields `HH_Bankrupt`, `BankruptcyRate`, `MeanMonthsToRuin` | Firm exit rate, household bankruptcy rate, bank failures | `PARTIAL_OUTPUT` |
 | Bank capital and liquidity | KNF banking-sector CAR, LCR, NSFR, NPL | `MinBankCAR`, `MinBankLCR`, `MinBankNSFR`, `NPL`, `MaxBankNPL`; terminal `_banks.csv` fields `CAR`, `NPL`, `Capital`, `Deposits`, `Loans` | Minimum and distributional stress indicators | `READY_FOR_BASELINE` |
 | Inequality | GUS household surveys, EU-SILC, OECD income/wealth indicators | Terminal `_hh.csv` fields `Gini_Individual`, `Gini_Wealth`, `ConsumptionP10`, `ConsumptionP50`, `ConsumptionP90`, `PovertyRate_50pct`, `PovertyRate_30pct` | Terminal Gini, poverty rates, consumption percentile ratios | `MISSING_DATA_BRIDGE` |
@@ -136,7 +136,7 @@ and NBFI credit. Current outputs cover several pieces but do not yet provide a
 single total-credit-to-GDP series.
 
 Firm-size distribution and sectoral output now have direct output surfaces.
-Use terminal `_firms.csv` fields for survival-weighted firm-size shares and
+Use terminal `_firms.csv` fields for living-firm-only terminal size shares and
 per-seed `*_Output` columns for sector output shares or growth.
 
 Inequality validation is terminal-only for now. The household summary already

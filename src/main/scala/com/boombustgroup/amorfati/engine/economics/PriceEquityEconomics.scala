@@ -27,6 +27,7 @@ object PriceEquityEconomics:
       euCofin: PLN,
       euProjectCapital: PLN,
       gdp: PLN,
+      realizedSectorOutputs: Vector[PLN],
       newMacropru: Macroprudential.State,
       newSigmas: Vector[Sigma],
       newInfl: Rate,
@@ -128,6 +129,12 @@ object PriceEquityEconomics:
       totalSystemLoans: PLN,
       firmStep: FirmEconomics.StepOutput,
   )(using p: SimParams): Output =
+    val expectedSectorCount = p.sectorDefs.length
+    if sectorMults.length != expectedSectorCount then
+      throw IllegalArgumentException(
+        s"PriceEquityEconomics.compute requires sectorMults to have $expectedSectorCount entries, got ${sectorMults.length}",
+      )
+
     val living2           = firmStep.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length
     val autoR             =
@@ -148,7 +155,7 @@ object PriceEquityEconomics:
     val investmentImports  = firmStep.sumGrossInvestment * p.capital.importShare + firmStep.sumGreenInvestment * p.climate.greenImportShare
     val aggInventoryChange = firmStep.sumInventoryChange
     val realizedOutputs    =
-      GdpAccounting.realizedSectorOutputs(w.priceLevel, p.sectorDefs.length, firmStep.ioFirms, s => sectorMults(s))
+      GdpAccounting.realizedSectorOutputs(w.priceLevel, expectedSectorCount, firmStep.ioFirms, s => sectorMults(s))
     val gdp                =
       GdpAccounting.outputBasedMonthlyGdp(realizedOutputs, aggInventoryChange)
 
@@ -215,6 +222,7 @@ object PriceEquityEconomics:
       euCofin,
       euProjectCapital,
       gdp,
+      realizedOutputs,
       newMacropru,
       newSigmas,
       newInfl,

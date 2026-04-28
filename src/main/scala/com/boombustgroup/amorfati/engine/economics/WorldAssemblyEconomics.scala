@@ -276,7 +276,7 @@ object WorldAssemblyEconomics:
       fofResidual: PLN,
       informal: InformalResult,
       obs: Observables,
-  )(using p: SimParams): World =
+  ): World =
     val social = SocialState(
       jst = in.s9.newJst,
       zus = in.s2.newZus,
@@ -355,10 +355,10 @@ object WorldAssemblyEconomics:
       )
 
   /** Construct the FlowState for this step. */
-  private def buildFlowState(in: StepInput, informal: InformalResult)(using p: SimParams): FlowState =
+  private def buildFlowState(in: StepInput, informal: InformalResult): FlowState =
     FlowState(
       monthlyGdpProxy = in.s7.gdp,
-      sectorOutputs = OpenEconEconomics.aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.s5.ioFirms, in.s4.sectorMults.apply),
+      sectorOutputs = in.s7.realizedSectorOutputs,
       ioFlows = in.s5.totalIoPaid,
       fdiProfitShifting = in.s5.sumProfitShifting,
       fdiRepatriation = in.s5.sumFdiRepatriation,

@@ -101,11 +101,10 @@ object McTimeseriesSchema:
     lazy val annualizedGdp: PLN                                                                     = monthlyGdp * 12
     lazy val sectorOutputs: Vector[PLN]                                                             =
       world.flows.sectorOutputs match
-        case outputs if outputs.isEmpty                       => Vector.fill(p.sectorDefs.length)(PLN.Zero)
         case outputs if outputs.length == p.sectorDefs.length => outputs
         case outputs                                          =>
           throw IllegalArgumentException(
-            s"McTimeseriesSchema requires FlowState.sectorOutputs to be empty or have ${p.sectorDefs.length} entries, got ${outputs.length}",
+            s"McTimeseriesSchema requires FlowState.sectorOutputs to have ${p.sectorDefs.length} entries, got ${outputs.length}",
           )
     lazy val sectorAuto: Vector[Share]                                                              = sectorColumns.map { sector =>
       val sectorIdx = sectorIndexByName(sector.expectedSectorName)
@@ -122,6 +121,9 @@ object McTimeseriesSchema:
       if p.gdpRatio > Scalar.Zero then p.gdpRatio.toMultiplier else Multiplier.One
 
     def polandScale(value: PLN): PLN = value / polandScaleFactor
+
+    def runtimeSectorIndex(name: String): Int =
+      sectorIndexByName.getOrElse(name, throw IllegalStateException(s"Missing runtime sector named '$name' in SimParams.sectorDefs"))
 
     def sectorSigma(idx: Int): Sigma                                        = world.currentSigmas(idx)
     def housingRegionHpi(market: HousingConfig.RegionalMarket): MetricValue =
@@ -174,8 +176,8 @@ object McTimeseriesSchema:
   private def sectoralGroup: Vector[ColumnDef] =
     val autoColumns   = sectorColumns.zipWithIndex.map: (sector, idx) =>
       ColumnDef(sector.autoColName, ctx => ctx.sectorAuto(idx))
-    val outputColumns = sectorColumns.zipWithIndex.map: (sector, idx) =>
-      ColumnDef.macroPln(sector.outputColName, ctx => ctx.sectorOutputs(idx))
+    val outputColumns = sectorColumns.map: sector =>
+      ColumnDef.macroPln(sector.outputColName, ctx => ctx.sectorOutputs(ctx.runtimeSectorIndex(sector.expectedSectorName)))
     val sigmaColumns  = sectorColumns.zipWithIndex.map: (sector, idx) =>
       ColumnDef(sector.sigmaColName, ctx => ctx.sectorSigma(idx))
 

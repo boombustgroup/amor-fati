@@ -312,5 +312,6 @@ class InformalEconomySpec extends AnyFlatSpec with Matchers:
     avgShare should be >= Share.decimal(24, 2)
     avgShare should be <= Share.decimal(30, 2)
     avgRatio should be >= Share.decimal(3, 3)
-    avgRatio should be <= Share.decimal(4, 2)
+    avgRatio should be <= Share.decimal(32, 3)
+    avgRatio shouldBe Share.decimal(31, 3)
   }
