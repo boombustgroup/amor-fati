@@ -37,9 +37,8 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
       w = world,
       month = s1.m,
       wageGrowth = s2.wageGrowth,
-      domesticCons = s3.domesticCons,
-      govPurchases = s4.govPurchases,
       avgDemandMult = s4.avgDemandMult,
+      sectorMults = s4.sectorMults,
       totalSystemLoans = init.ledgerFinancialState.banks.map(_.firmLoan).sumPln,
       firmStep = firmStep,
     )
@@ -77,4 +76,64 @@ class PriceEquityEconomicsSpec extends AnyFlatSpec with Matchers:
     highDeficit.stateOwnedGovDividends should be > lowDeficit.stateOwnedGovDividends
     highDeficit.dividendTax shouldBe lowDeficit.dividendTax
     highDeficit.netDomesticDividends shouldBe lowDeficit.netDomesticDividends
+  }
+
+  it should "anchor GDP proxy to realized output instead of unmet expenditure demand" in {
+    val base           = runPriceStep(w, s5)
+    val inflatedDemand = PriceEquityEconomics.compute(
+      w = w.copy(forex = w.forex.copy(exports = w.forex.exports * 10)),
+      month = s1.m,
+      wageGrowth = s2.wageGrowth,
+      avgDemandMult = s4.avgDemandMult,
+      sectorMults = s4.sectorMults,
+      totalSystemLoans = init.ledgerFinancialState.banks.map(_.firmLoan).sumPln,
+      firmStep = s5,
+    )
+
+    inflatedDemand.gdp shouldBe base.gdp
+  }
+
+  it should "fail fast when sectorMults does not match the configured sector count" in {
+    val err = intercept[IllegalArgumentException]:
+      PriceEquityEconomics.compute(
+        w = w,
+        month = s1.m,
+        wageGrowth = s2.wageGrowth,
+        avgDemandMult = s4.avgDemandMult,
+        sectorMults = s4.sectorMults.dropRight(1),
+        totalSystemLoans = init.ledgerFinancialState.banks.map(_.firmLoan).sumPln,
+        firmStep = s5,
+      )
+
+    err.getMessage should include("sectorMults")
+    err.getMessage should include(s"${summon[SimParams].sectorDefs.length}")
+    err.getMessage should include(s"${s4.sectorMults.length - 1}")
+  }
+
+  it should "fail fast when realized output aggregation sees an invalid firm sector" in {
+    val invalidFirmStep = s5.copy(
+      ioFirms = s5.ioFirms.updated(0, s5.ioFirms.head.copy(sector = SectorIdx(summon[SimParams].sectorDefs.length))),
+    )
+
+    val err = intercept[IllegalArgumentException]:
+      runPriceStep(w, invalidFirmStep)
+
+    err.getMessage should include("Invalid sector id")
+  }
+
+  it should "keep the first-month Poland-scale GDP proxy near the 2024 calibration baseline" in {
+    val result       = runPriceStep(w, s5)
+    val annualPoland = (result.gdp * 12) / summon[SimParams].gdpRatio.toMultiplier
+    val baseline     = summon[SimParams].pop.realGdp
+    val ratio        = decimal(annualPoland.ratioTo(baseline))
+
+    ratio should be >= BigDecimal("0.85")
+    ratio should be <= BigDecimal("1.15")
+  }
+
+  it should "keep GDP proxy close to realized sector output" in {
+    val result         = runPriceStep(w, s5)
+    val realizedOutput = GdpAccounting.outputBasedMonthlyGdp(result.realizedSectorOutputs, result.aggInventoryChange)
+
+    decimal(result.gdp.ratioTo(realizedOutput)) shouldBe BigDecimal("1.0") +- BigDecimal("0.05")
   }

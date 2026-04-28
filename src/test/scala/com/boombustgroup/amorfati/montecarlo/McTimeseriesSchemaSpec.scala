@@ -32,6 +32,8 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "NPL",
     "RefRate",
     "PriceLevel",
+    "MonthlyGdpProxy",
+    "AnnualizedGdpProxy",
     "AutoRatio",
     "HybridRatio",
     "BPO_Auto",
@@ -40,6 +42,12 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "Health_Auto",
     "Public_Auto",
     "Agri_Auto",
+    "BPO_Output",
+    "Manuf_Output",
+    "Retail_Output",
+    "Health_Output",
+    "Public_Output",
+    "Agri_Output",
     "BPO_Sigma",
     "Manuf_Sigma",
     "Retail_Sigma",
@@ -261,10 +269,17 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "Unemp_North",
   )
 
-  private def computeRow(world: World, ledgerFinancialState: LedgerFinancialState = initState.ledgerFinancialState): Array[MetricValue] =
+  private def computeRow(
+      world: World,
+      ledgerFinancialState: LedgerFinancialState = initState.ledgerFinancialState,
+      preserveSectorOutputs: Boolean = false,
+  ): Array[MetricValue] =
+    val effectiveWorld =
+      if preserveSectorOutputs || world.flows.sectorOutputs.nonEmpty then world
+      else world.copy(flows = world.flows.copy(sectorOutputs = Vector.fill(summon[SimParams].sectorDefs.length)(PLN.Zero)))
     McTimeseriesSchema.compute(
       executionMonth = ExecutionMonth.First,
-      world = world,
+      world = effectiveWorld,
       firms = init.firms,
       households = init.households,
       banks = init.banks,
@@ -277,8 +292,11 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     idx.should(be >= 0)
     row(idx)
 
+  private def polandScale(value: PLN): MetricValue =
+    MetricValue.fromRaw((value / summon[SimParams].gdpRatio.toMultiplier).toLong)
+
   "McTimeseriesSchema" should "expose the stable schema contract" in {
-    McTimeseriesSchema.nCols shouldBe 240
+    McTimeseriesSchema.nCols shouldBe 248
     McTimeseriesSchema.colNames.toVector shouldBe expectedColNames
   }
 
@@ -296,6 +314,42 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
 
     valueAt(updatedRow, "Manuf_Sigma") shouldBe MetricValue(17)
     valueAt(updatedRow, "BPO_Sigma") shouldBe valueAt(computeRow(init.world), "BPO_Sigma")
+  }
+
+  it should "emit Poland-scale GDP proxy and sector output columns" in {
+    val sectorOutputs = Vector(PLN(10), PLN(20), PLN(30), PLN(40), PLN(50), PLN(60))
+    val world         = init.world.copy(
+      flows = init.world.flows.copy(
+        monthlyGdpProxy = PLN(123),
+        sectorOutputs = sectorOutputs,
+      ),
+    )
+    val row           = computeRow(world)
+
+    valueAt(row, "MonthlyGdpProxy") shouldBe polandScale(PLN(123))
+    valueAt(row, "AnnualizedGdpProxy") shouldBe polandScale(PLN(1476))
+    valueAt(row, "BPO_Output") shouldBe polandScale(PLN(10))
+    valueAt(row, "Manuf_Output") shouldBe polandScale(PLN(20))
+    valueAt(row, "Retail_Output") shouldBe polandScale(PLN(30))
+    valueAt(row, "Health_Output") shouldBe polandScale(PLN(40))
+    valueAt(row, "Public_Output") shouldBe polandScale(PLN(50))
+    valueAt(row, "Agri_Output") shouldBe polandScale(PLN(60))
+  }
+
+  it should "reject malformed sector output vectors before output indexing" in {
+    val err = intercept[IllegalArgumentException]:
+      computeRow(init.world.copy(flows = init.world.flows.copy(sectorOutputs = Vector(PLN(1)))))
+
+    err.getMessage.should(include("FlowState.sectorOutputs"))
+  }
+
+  it should "reject missing sector output payloads before output indexing" in {
+    val err = intercept[IllegalArgumentException]:
+      computeRow(init.world.copy(flows = init.world.flows.copy(sectorOutputs = Vector.empty)), preserveSectorOutputs = true)
+
+    err.getMessage.should(include("FlowState.sectorOutputs"))
+    err.getMessage.should(include(s"${summon[SimParams].sectorDefs.length} entries"))
+    err.getMessage.should(include("got 0"))
   }
 
   it should "source ledger-owned household, public, and fund stock columns from LedgerFinancialState" in {
@@ -322,22 +376,22 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     )
     val row    = computeRow(init.world, ledger)
 
-    valueAt(row, "HhEquityWealth") shouldBe MetricValue(initState.ledgerFinancialState.households.length) * 11
-    valueAt(row, "MortgageStock") shouldBe MetricValue(initState.ledgerFinancialState.households.length) * 12
-    valueAt(row, "BondsOutstanding") shouldBe MetricValue(123)
-    valueAt(row, "BankBondHoldings") shouldBe MetricValue(initState.ledgerFinancialState.banks.length) * 30
-    valueAt(row, "ForeignBondHoldings") shouldBe MetricValue(45)
-    valueAt(row, "NbpBondHoldings") shouldBe MetricValue(67)
-    valueAt(row, "QfBondsOutstanding") shouldBe MetricValue(96)
-    valueAt(row, "QfLoanPortfolio") shouldBe MetricValue(97)
-    valueAt(row, "QfNbpHoldings") shouldBe MetricValue(98)
-    valueAt(row, "JstDeposits") shouldBe MetricValue(89)
-    valueAt(row, "FusBalance") shouldBe MetricValue(90)
-    valueAt(row, "NfzBalance") shouldBe MetricValue(91)
-    valueAt(row, "PpkBondHoldings") shouldBe MetricValue(92)
-    valueAt(row, "FpBalance") shouldBe MetricValue(93)
-    valueAt(row, "PfronBalance") shouldBe MetricValue(94)
-    valueAt(row, "FgspBalance") shouldBe MetricValue(95)
+    valueAt(row, "HhEquityWealth") shouldBe polandScale(PLN(11) * initState.ledgerFinancialState.households.length)
+    valueAt(row, "MortgageStock") shouldBe polandScale(PLN(12) * initState.ledgerFinancialState.households.length)
+    valueAt(row, "BondsOutstanding") shouldBe polandScale(PLN(123))
+    valueAt(row, "BankBondHoldings") shouldBe polandScale(PLN(30) * initState.ledgerFinancialState.banks.length)
+    valueAt(row, "ForeignBondHoldings") shouldBe polandScale(PLN(45))
+    valueAt(row, "NbpBondHoldings") shouldBe polandScale(PLN(67))
+    valueAt(row, "QfBondsOutstanding") shouldBe polandScale(PLN(96))
+    valueAt(row, "QfLoanPortfolio") shouldBe polandScale(PLN(97))
+    valueAt(row, "QfNbpHoldings") shouldBe polandScale(PLN(98))
+    valueAt(row, "JstDeposits") shouldBe polandScale(PLN(89))
+    valueAt(row, "FusBalance") shouldBe polandScale(PLN(90))
+    valueAt(row, "NfzBalance") shouldBe polandScale(PLN(91))
+    valueAt(row, "PpkBondHoldings") shouldBe polandScale(PLN(92))
+    valueAt(row, "FpBalance") shouldBe polandScale(PLN(93))
+    valueAt(row, "PfronBalance") shouldBe polandScale(PLN(94))
+    valueAt(row, "FgspBalance") shouldBe polandScale(PLN(95))
   }
 
   it should "map regional HPI columns by market identity and preserve schema order" in {

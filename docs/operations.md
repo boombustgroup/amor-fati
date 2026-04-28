@@ -140,7 +140,13 @@ The main runner writes generated CSV files under `mc/`:
 mc/<prefix>_<run-id>_<months>m_seed001.csv
 mc/<prefix>_<run-id>_<months>m_hh.csv
 mc/<prefix>_<run-id>_<months>m_banks.csv
+mc/<prefix>_<run-id>_<months>m_firms.csv
 ```
+
+Per-seed time-series CSV files emit macro PLN aggregates in Poland scale, ready
+for empirical analysis. The internal `gdpRatio` scaling factor is not emitted
+as a CSV column; it remains a model-computation boundary. Agent-level prices,
+wages, indexes, rates, shares, and counts remain in their native units.
 
 `mc/` is ignored by git. Keep committed research-facing artifacts under `docs/`
 only when the command explicitly targets a committed documentation path.

@@ -167,7 +167,7 @@ object OpenEconEconomics:
       bankFinancialStocks,
       bankId => CorporateBondOwnership.bankHolderFor(in.ledgerFinancialState, bankId),
     )
-    val sectorOutputs       = runStepSectorOutputs(in)
+    val sectorOutputs       = in.s7.realizedSectorOutputs
     val external            = runStepExternalSector(in, sectorOutputs)
     val rateAndExp          = runStepRateAndExpectations(in, external.newForex)
     val interbank           = runStepInterbankFlows(in.w, in.banks, bankFinancialStocks)
@@ -226,21 +226,13 @@ object OpenEconEconomics:
       ),
     )
 
-  private def runStepSectorOutputs(in: StepInput)(using p: SimParams): Vector[PLN] =
-    aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.s5.ioFirms, in.s4.sectorMults.apply)
-
-  private def aggregateSectorOutputs(
+  private[economics] def aggregateSectorOutputs(
       priceLevel: PriceIndex,
       sectorCount: Int,
       firms: Vector[Firm.State],
       sectorMultiplier: Int => Multiplier,
   )(using p: SimParams): Vector[PLN] =
-    val livingBySector = firms.iterator.filter(Firm.isAlive).toVector.groupBy(_.sector.toInt)
-    Vector.tabulate(sectorCount): s =>
-      livingBySector
-        .getOrElse(s, Vector.empty)
-        .foldLeft(PLN.Zero): (acc, f) =>
-          acc + (priceLevel * (Firm.computeCapacity(f) * sectorMultiplier(f.sector.toInt)))
+    GdpAccounting.realizedSectorOutputs(priceLevel, sectorCount, firms, sectorMultiplier)
 
   private def runStepGvc(in: StepInput, sectorOutputs: Vector[PLN])(using p: SimParams): GvcTrade.State =
     GvcTrade.step(

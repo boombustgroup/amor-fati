@@ -358,6 +358,7 @@ object WorldAssemblyEconomics:
   private def buildFlowState(in: StepInput, informal: InformalResult): FlowState =
     FlowState(
       monthlyGdpProxy = in.s7.gdp,
+      sectorOutputs = in.s7.realizedSectorOutputs,
       ioFlows = in.s5.totalIoPaid,
       fdiProfitShifting = in.s5.sumProfitShifting,
       fdiRepatriation = in.s5.sumFdiRepatriation,

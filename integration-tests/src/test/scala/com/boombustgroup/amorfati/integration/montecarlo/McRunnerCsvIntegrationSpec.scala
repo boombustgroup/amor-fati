@@ -26,6 +26,8 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
     "Seed;HH_Employed;HH_Unemployed;HH_Retraining;HH_Bankrupt;MeanSavings;MedianSavings;Gini_Individual;Gini_Wealth;MeanSkill;MeanHealthPenalty;RetrainingAttempts;RetrainingSuccesses;ConsumptionP10;ConsumptionP50;ConsumptionP90;BankruptcyRate;MeanMonthsToRuin;PovertyRate_50pct;PovertyRate_30pct"
   private val ExpectedBankHeader =
     "Seed;BankId;Deposits;Loans;Capital;NPL;CAR;GovBonds;InterbankNet;Failed"
+  private val ExpectedFirmHeader =
+    "Seed;Firm_Living;FirmSize_Micro;FirmSize_Small;FirmSize_Medium;FirmSize_Large;FirmSize_MicroShare;FirmSize_SmallShare;FirmSize_MediumShare;FirmSize_LargeShare"
 
   private def rc =
     McRunConfig(
@@ -102,7 +104,8 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
       val expectedFileNames = (
         Seeds.map(seed => seedFileName(seed, rc)) :+
           s"${filePrefix(rc)}_hh.csv" :+
-          s"${filePrefix(rc)}_banks.csv"
+          s"${filePrefix(rc)}_banks.csv" :+
+          s"${filePrefix(rc)}_firms.csv"
       ).toSet
 
       Using.resource(Files.list(outputDir)): stream =>
@@ -137,6 +140,16 @@ class McRunnerCsvIntegrationSpec extends AnyFlatSpec with Matchers:
       bankLines.head.shouldBe(ExpectedBankHeader)
       bankLines.length.shouldBe(1 + expectedRuns.valuesIterator.map(_.terminalState.banks.length).sum)
       bankLines.tail.shouldBe(Seeds.flatMap(seed => expectedBankRows(seed, expectedRuns(seed))))
+
+      val firmLines = readLines(outputDir.resolve(s"${filePrefix(rc)}_firms.csv"))
+      firmLines.head.shouldBe(ExpectedFirmHeader)
+      firmLines.length.shouldBe(Seeds.length + 1)
+      firmLines.tail.zip(Seeds).foreach: (line, seed) =>
+        withClue(s"seed=$seed firms summary: ") {
+          val fields = line.split(';').toVector
+          fields.length.shouldBe(ExpectedFirmHeader.split(';').length)
+          fields.head.shouldBe(seed.toString)
+        }
     }
   }
 

@@ -27,6 +27,7 @@ object PriceEquityEconomics:
       euCofin: PLN,
       euProjectCapital: PLN,
       gdp: PLN,
+      realizedSectorOutputs: Vector[PLN],
       newMacropru: Macroprudential.State,
       newSigmas: Vector[Sigma],
       newInfl: Rate,
@@ -123,12 +124,17 @@ object PriceEquityEconomics:
       w: World,
       month: ExecutionMonth,
       wageGrowth: Coefficient,
-      domesticCons: PLN,
-      govPurchases: PLN,
       avgDemandMult: Multiplier,
+      sectorMults: Vector[Multiplier],
       totalSystemLoans: PLN,
       firmStep: FirmEconomics.StepOutput,
   )(using p: SimParams): Output =
+    val expectedSectorCount = p.sectorDefs.length
+    if sectorMults.length != expectedSectorCount then
+      throw IllegalArgumentException(
+        s"PriceEquityEconomics.compute requires sectorMults to have $expectedSectorCount entries, got ${sectorMults.length}",
+      )
+
     val living2           = firmStep.ioFirms.filter(Firm.isAlive)
     val nLiving           = living2.length
     val autoR             =
@@ -142,18 +148,16 @@ object PriceEquityEconomics:
 
     val euMonthly = EuFunds.monthlyTransfer(month)
 
-    val govGdpContribution = governmentDemandContribution(govPurchases)
     val euCofin            = EuFunds.cofinancing(euMonthly)
     val euProjectCapital   = EuFunds.capitalInvestment(euMonthly, euCofin)
-    val euGdpContribution  =
-      euProjectCapital * p.fiscal.govCapitalMultiplier +
-        (euCofin - euProjectCapital).max(PLN.Zero) * p.fiscal.govCurrentMultiplier
     val greenDomesticGFCF  = firmStep.sumGreenInvestment * (Share.One - p.climate.greenImportShare)
     val domesticGFCF       = firmStep.sumGrossInvestment * (Share.One - p.capital.importShare) + greenDomesticGFCF
     val investmentImports  = firmStep.sumGrossInvestment * p.capital.importShare + firmStep.sumGreenInvestment * p.climate.greenImportShare
     val aggInventoryChange = firmStep.sumInventoryChange
+    val realizedOutputs    =
+      GdpAccounting.realizedSectorOutputs(w.priceLevel, expectedSectorCount, firmStep.ioFirms, s => sectorMults(s))
     val gdp                =
-      domesticCons + govGdpContribution + euGdpContribution + w.forex.exports + domesticGFCF + aggInventoryChange
+      GdpAccounting.outputBasedMonthlyGdp(realizedOutputs, aggInventoryChange)
 
     val newMacropru = Macroprudential.step(w.mechanisms.macropru, totalSystemLoans, gdp)
 
@@ -218,6 +222,7 @@ object PriceEquityEconomics:
       euCofin,
       euProjectCapital,
       gdp,
+      realizedOutputs,
       newMacropru,
       newSigmas,
       newInfl,

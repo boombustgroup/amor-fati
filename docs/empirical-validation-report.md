@@ -53,11 +53,12 @@ mc/validation-baseline_validation-baseline_120m_seed002.csv
 mc/validation-baseline_validation-baseline_120m_seed003.csv
 mc/validation-baseline_validation-baseline_120m_hh.csv
 mc/validation-baseline_validation-baseline_120m_banks.csv
+mc/validation-baseline_validation-baseline_120m_firms.csv
 ```
 
 Use the per-seed CSV files for monthly macro, meso, financial, and mechanism
-paths. Use the `_hh.csv` and `_banks.csv` files for terminal household and bank
-cross-section summaries.
+paths. Use the `_hh.csv`, `_banks.csv`, and `_firms.csv` files for terminal
+household, bank, and firm cross-section summaries.
 
 Manual update procedure after a baseline run:
 
@@ -76,21 +77,23 @@ The primary numeric surface is
 `src/main/scala/com/boombustgroup/amorfati/montecarlo/McTimeseriesSchema.scala`.
 Terminal cross-sections come from
 `src/main/scala/com/boombustgroup/amorfati/montecarlo/McTerminalSummarySchema.scala`.
+Time-series macro PLN aggregates are emitted in Poland scale. Validation work
+should not manually divide CSV values by `gdpRatio`.
 
 | Validation target | Empirical comparator | Model output mapping | Suggested statistic | Current status |
 | --- | --- | --- | --- | --- |
-| GDP growth | GUS national accounts real GDP growth | Engine state `world.cachedMonthlyGdpProxy`; no direct CSV column yet. `GovDebt` and `DebtToGdp` can imply annualized GDP only when both are valid. | Annual or quarterly growth of real/price-adjusted GDP proxy | `MISSING_OUTPUT` |
+| GDP growth | GUS national accounts real GDP growth | `MonthlyGdpProxy`, `AnnualizedGdpProxy` | Annual or quarterly growth of the emitted monthly GDP proxy, with real/nominal source convention stated by the validation manifest | `READY_FOR_BASELINE` |
 | Inflation | GUS CPI / HICP, NBP inflation target | `Inflation`, `PriceLevel`, `ExpectedInflation`, `InflationForecastError` | Mean, volatility, target deviation, persistence | `READY_FOR_BASELINE` |
 | Unemployment | GUS BAEL / registered unemployment | `Unemployment`, `Unemp_Central`, `Unemp_South`, `Unemp_East`, `Unemp_Northwest`, `Unemp_Southwest`, `Unemp_North` | Mean level, volatility, regional dispersion | `READY_FOR_BASELINE` |
 | Wages | GUS average wage, sector wage indices | `MarketWage`, `MinWageLevel`; terminal household income distribution not directly emitted | Mean wage level and growth; minimum/market wage ratio | `PARTIAL_OUTPUT` |
 | Credit/GDP | NBP credit aggregates to GDP | `CreditToGdpGap`, `ConsumerLoans`, `MortgageToGdp`, `MortgageStock`, `NbfiLoanStock`; terminal `_banks.csv` field `Loans` | Credit/GDP level, gap, household/firm split | `PARTIAL_OUTPUT` |
 | Public debt/GDP | MF public debt, ESA2010 general-government debt | `DebtToGdp`, `Esa2010DebtToGdp`, `GovDebt`, `QfBondsOutstanding`, `BondsOutstanding` | Terminal debt/GDP and path against thresholds | `READY_FOR_BASELINE` |
 | Current account | NBP balance of payments | `CurrentAccount`, `TradeBalance_OE`, `Exports_OE`, `TotalImports_OE`, `NetRemittances`, `NetTourismBalance`, `FDI` | Annualized current-account/GDP and component signs | `PARTIAL_OUTPUT` |
-| Firm-size distribution | GUS/REGON firm-size distribution | Initialization config `PopulationConfig`; no monthly or terminal firm-size histogram CSV yet | Init distribution and survival-weighted terminal distribution | `MISSING_OUTPUT` |
+| Firm-size distribution | GUS/REGON firm-size distribution | Terminal `_firms.csv` fields `FirmSize_Micro`, `FirmSize_Small`, `FirmSize_Medium`, `FirmSize_Large` and share fields | Terminal firm-size distribution (living firms only) | `READY_FOR_BASELINE` |
 | Bankruptcies | GUS / Ministry of Justice corporate insolvencies, consumer bankruptcy statistics | `FirmDeaths`, `FirmBirths`, `NetEntry`, `BankFailures`; terminal `_hh.csv` fields `HH_Bankrupt`, `BankruptcyRate`, `MeanMonthsToRuin` | Firm exit rate, household bankruptcy rate, bank failures | `PARTIAL_OUTPUT` |
 | Bank capital and liquidity | KNF banking-sector CAR, LCR, NSFR, NPL | `MinBankCAR`, `MinBankLCR`, `MinBankNSFR`, `NPL`, `MaxBankNPL`; terminal `_banks.csv` fields `CAR`, `NPL`, `Capital`, `Deposits`, `Loans` | Minimum and distributional stress indicators | `READY_FOR_BASELINE` |
 | Inequality | GUS household surveys, EU-SILC, OECD income/wealth indicators | Terminal `_hh.csv` fields `Gini_Individual`, `Gini_Wealth`, `ConsumptionP10`, `ConsumptionP50`, `ConsumptionP90`, `PovertyRate_50pct`, `PovertyRate_30pct` | Terminal Gini, poverty rates, consumption percentile ratios | `MISSING_DATA_BRIDGE` |
-| Sectoral output | GUS national accounts by sector, supply-use tables | Sector columns currently expose `BPO_Auto`, `Manuf_Auto`, `Retail_Auto`, `Health_Auto`, `Public_Auto`, `Agri_Auto`, sector sigmas, and `IoFlows`; direct sector output is not emitted | Sector output shares and growth | `MISSING_OUTPUT` |
+| Sectoral output | GUS national accounts by sector, supply-use tables | `BPO_Output`, `Manuf_Output`, `Retail_Output`, `Health_Output`, `Public_Output`, `Agri_Output` | Sector output shares and growth | `READY_FOR_BASELINE` |
 | External prices and FX | NBP exchange rate, ECB/Eurostat external prices | `ExRate`, `ForeignPriceIndex`, `GvcImportCostIndex`, `CommodityPriceIndex`, `FxReserves`, `FxInterventionAmt` | FX level/volatility, reserve path, import-cost shocks | `READY_FOR_BASELINE` |
 | Housing and mortgages | NBP housing prices, mortgage stock, KNF mortgage risk | `HousingPriceIndex`, `WawHpi`, `KrkHpi`, `WroHpi`, `GdnHpi`, `LdzHpi`, `PozHpi`, `RestHpi`, `MortgageToGdp`, `MortgageDefault` | HPI path, regional dispersion, mortgage/GDP, defaults | `READY_FOR_BASELINE` |
 | Fiscal stance | MF budget execution, Eurostat deficit/GDP | `DeficitToGdp`, `GovCurrentSpend`, `GovCapitalSpendDomestic`, `DebtService`, `FiscalRuleBinding`, `GovSpendingCutRatio` | Deficit/GDP, expenditure mix, fiscal-rule episodes | `READY_FOR_BASELINE` |
@@ -104,25 +107,25 @@ bridge and baseline analysis have been completed.
 
 | Target | Empirical source and vintage | Empirical value | Model run | Model value | Tolerance / criterion | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| GDP growth | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Direct GDP output column still needed. |
+| GDP growth | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use `MonthlyGdpProxy` and `AnnualizedGdpProxy`. |
 | Inflation | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use `Inflation` and `PriceLevel`. |
 | Unemployment | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Include regional dispersion. |
 | Wages | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Current output is aggregate market wage. |
 | Credit/GDP | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Firm-loan split depends partly on terminal bank summary. |
 | Public debt/GDP | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Compare `DebtToGdp` and `Esa2010DebtToGdp`. |
 | Current account | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Needs GDP denominator and annualization convention. |
-| Firm-size distribution | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Terminal firm-size histogram not emitted yet. |
+| Firm-size distribution | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use terminal `_firms.csv` firm-size counts and shares. |
 | Bankruptcies | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use firm deaths and household bankruptcy separately. |
 | Bank capital/liquidity | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use minima and terminal bank distribution. |
 | Inequality | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Terminal household summary has first-pass measures. |
-| Sectoral output | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Direct sector output columns still needed. |
+| Sectoral output | TBD via `docs/data-bridge-national-financial-accounts.md` | TBD | `validation-baseline` | TBD | TBD | `NOT_RUN` | Use emitted `*_Output` sector columns. |
 
 ## Target-Specific Notes
 
-GDP growth should be reported only after the model exposes a direct GDP or
-monthly GDP proxy column. The engine already computes `world.cachedMonthlyGdpProxy`,
-but relying on `GovDebt / DebtToGdp` as a CSV reconstruction is too fragile for
-publication use.
+GDP growth should use the emitted `MonthlyGdpProxy` or `AnnualizedGdpProxy`
+columns rather than reconstructing GDP from debt ratios. The validation
+manifest must state whether the empirical comparator is real or nominal and
+whether the statistic is monthly, quarterly, annualized, or year-over-year.
 
 Inflation validation should use both the period inflation column and the price
 level path. The report should state whether the statistic is monthly,
@@ -132,10 +135,9 @@ Credit/GDP should distinguish bank firm loans, consumer loans, mortgage credit,
 and NBFI credit. Current outputs cover several pieces but do not yet provide a
 single total-credit-to-GDP series.
 
-Firm-size distribution and sectoral output are currently the most visible
-meso-level output gaps. The model has sector metadata, firm state, and
-population initialization, but the Monte Carlo CSV does not yet emit a terminal
-firm-size histogram or sector output shares.
+Firm-size distribution and sectoral output now have direct output surfaces.
+Use terminal `_firms.csv` fields for living-firm-only terminal size shares and
+per-seed `*_Output` columns for sector output shares or growth.
 
 Inequality validation is terminal-only for now. The household summary already
 emits Gini, poverty, and consumption percentile fields, but external source

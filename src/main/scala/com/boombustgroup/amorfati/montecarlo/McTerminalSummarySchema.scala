@@ -2,7 +2,9 @@ package com.boombustgroup.amorfati.montecarlo
 
 import com.boombustgroup.amorfati.agents.Banking
 import com.boombustgroup.amorfati.agents.Banking.BankState
+import com.boombustgroup.amorfati.agents.Firm
 import com.boombustgroup.amorfati.agents.Household
+import com.boombustgroup.amorfati.config.SimParams
 import com.boombustgroup.amorfati.engine.flows.FlowSimulation
 import com.boombustgroup.amorfati.engine.ledger.LedgerFinancialState
 import com.boombustgroup.amorfati.types.*
@@ -10,7 +12,7 @@ import com.boombustgroup.amorfati.types.*
 import java.io.File
 
 private[montecarlo] enum McTerminalSummaryId:
-  case Household, Banks
+  case Household, Banks, Firms
 
 private[montecarlo] final case class McTerminalSummaryRows(seed: Long, rowsById: Map[McTerminalSummaryId, Vector[String]]):
   def rowsFor(id: McTerminalSummaryId): Vector[String] =
@@ -19,6 +21,14 @@ private[montecarlo] final case class McTerminalSummaryRows(seed: Long, rowsById:
 private[montecarlo] object McTerminalSummarySchema:
 
   private case class BankRow(bank: BankState, balances: LedgerFinancialState.BankBalances)
+  private case class FirmSizeCounts(living: Int, micro: Int, small: Int, medium: Int, large: Int):
+    private def share(count: Int): Share =
+      if living > 0 then Share.fraction(count, living) else Share.Zero
+
+    def microShare: Share  = share(micro)
+    def smallShare: Share  = share(small)
+    def mediumShare: Share = share(medium)
+    def largeShare: Share  = share(large)
 
   private def nplRatio(row: BankRow): Share =
     Banking.nplRatio(row.balances.firmLoan, row.bank.nplAmount)
@@ -66,6 +76,18 @@ private[montecarlo] object McTerminalSummarySchema:
     ("Failed", row => s"${row.bank.failed}"),
   )
 
+  private val firmSchema: Vector[(String, FirmSizeCounts => String)] = Vector(
+    ("Firm_Living", summary => s"${summary.living}"),
+    ("FirmSize_Micro", summary => s"${summary.micro}"),
+    ("FirmSize_Small", summary => s"${summary.small}"),
+    ("FirmSize_Medium", summary => s"${summary.medium}"),
+    ("FirmSize_Large", summary => s"${summary.large}"),
+    ("FirmSize_MicroShare", summary => summary.microShare.format(6)),
+    ("FirmSize_SmallShare", summary => summary.smallShare.format(6)),
+    ("FirmSize_MediumShare", summary => summary.mediumShare.format(6)),
+    ("FirmSize_LargeShare", summary => summary.largeShare.format(6)),
+  )
+
   private[montecarlo] val specs = Vector(
     // SummarySpec rows are pre-formatted by fromTerminalState, so McCsvSchema only
     // carries the header contract here and render is intentionally identity.
@@ -85,9 +107,17 @@ private[montecarlo] object McTerminalSummarySchema:
         render = identity,
       ),
     ),
+    SummarySpec(
+      McTerminalSummaryId.Firms,
+      McOutputFiles.firmFile,
+      McCsvSchema(
+        header = "Seed;" + firmSchema.map(_._1).mkString(";"),
+        render = identity,
+      ),
+    ),
   )
 
-  def fromTerminalState(seed: Long, terminalState: FlowSimulation.SimState): McTerminalSummaryRows =
+  def fromTerminalState(seed: Long, terminalState: FlowSimulation.SimState)(using SimParams): McTerminalSummaryRows =
     McTerminalSummaryRows(
       seed,
       Map(
@@ -95,6 +125,7 @@ private[montecarlo] object McTerminalSummarySchema:
         McTerminalSummaryId.Banks     -> terminalState.banks.map(bank =>
           renderBankRow(seed, BankRow(bank, terminalState.ledgerFinancialState.banks(bank.id.toInt))),
         ),
+        McTerminalSummaryId.Firms     -> Vector(renderFirmRow(seed, terminalState.firms)),
       ),
     )
 
@@ -103,3 +134,17 @@ private[montecarlo] object McTerminalSummarySchema:
 
   private def renderBankRow(seed: Long, row: BankRow): String =
     s"$seed;" + bankSchema.map(_._2(row)).mkString(";")
+
+  private def renderFirmRow(seed: Long, firms: Vector[Firm.State])(using SimParams): String =
+    val summary = firmSizeCounts(firms)
+    s"$seed;" + firmSchema.map(_._2(summary)).mkString(";")
+
+  private def firmSizeCounts(firms: Vector[Firm.State])(using SimParams): FirmSizeCounts =
+    val living = firms.filter(Firm.isAlive)
+    val counts = living.foldLeft(FirmSizeCounts(living = living.length, micro = 0, small = 0, medium = 0, large = 0)): (acc, firm) =>
+      Firm.workerCount(firm) match
+        case size if size <= 9   => acc.copy(micro = acc.micro + 1)
+        case size if size <= 49  => acc.copy(small = acc.small + 1)
+        case size if size <= 249 => acc.copy(medium = acc.medium + 1)
+        case _                   => acc.copy(large = acc.large + 1)
+    counts
