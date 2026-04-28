@@ -229,7 +229,7 @@ object OpenEconEconomics:
   private def runStepSectorOutputs(in: StepInput)(using p: SimParams): Vector[PLN] =
     aggregateSectorOutputs(in.w.priceLevel, p.sectorDefs.length, in.s5.ioFirms, in.s4.sectorMults.apply)
 
-  private def aggregateSectorOutputs(
+  private[economics] def aggregateSectorOutputs(
       priceLevel: PriceIndex,
       sectorCount: Int,
       firms: Vector[Firm.State],

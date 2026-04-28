@@ -32,6 +32,8 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "NPL",
     "RefRate",
     "PriceLevel",
+    "MonthlyGdpProxy",
+    "AnnualizedGdpProxy",
     "AutoRatio",
     "HybridRatio",
     "BPO_Auto",
@@ -40,6 +42,12 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     "Health_Auto",
     "Public_Auto",
     "Agri_Auto",
+    "BPO_Output",
+    "Manuf_Output",
+    "Retail_Output",
+    "Health_Output",
+    "Public_Output",
+    "Agri_Output",
     "BPO_Sigma",
     "Manuf_Sigma",
     "Retail_Sigma",
@@ -278,7 +286,7 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
     row(idx)
 
   "McTimeseriesSchema" should "expose the stable schema contract" in {
-    McTimeseriesSchema.nCols shouldBe 240
+    McTimeseriesSchema.nCols shouldBe 248
     McTimeseriesSchema.colNames.toVector shouldBe expectedColNames
   }
 
@@ -296,6 +304,33 @@ class McTimeseriesSchemaSpec extends AnyFlatSpec with Matchers:
 
     valueAt(updatedRow, "Manuf_Sigma") shouldBe MetricValue(17)
     valueAt(updatedRow, "BPO_Sigma") shouldBe valueAt(computeRow(init.world), "BPO_Sigma")
+  }
+
+  it should "emit direct GDP proxy and sector output columns" in {
+    val sectorOutputs = Vector(PLN(10), PLN(20), PLN(30), PLN(40), PLN(50), PLN(60))
+    val world         = init.world.copy(
+      flows = init.world.flows.copy(
+        monthlyGdpProxy = PLN(123),
+        sectorOutputs = sectorOutputs,
+      ),
+    )
+    val row           = computeRow(world)
+
+    valueAt(row, "MonthlyGdpProxy") shouldBe MetricValue(123)
+    valueAt(row, "AnnualizedGdpProxy") shouldBe MetricValue(1476)
+    valueAt(row, "BPO_Output") shouldBe MetricValue(10)
+    valueAt(row, "Manuf_Output") shouldBe MetricValue(20)
+    valueAt(row, "Retail_Output") shouldBe MetricValue(30)
+    valueAt(row, "Health_Output") shouldBe MetricValue(40)
+    valueAt(row, "Public_Output") shouldBe MetricValue(50)
+    valueAt(row, "Agri_Output") shouldBe MetricValue(60)
+  }
+
+  it should "reject malformed sector output vectors before output indexing" in {
+    val err = intercept[IllegalArgumentException]:
+      computeRow(init.world.copy(flows = init.world.flows.copy(sectorOutputs = Vector(PLN(1)))))
+
+    err.getMessage.should(include("FlowState.sectorOutputs"))
   }
 
   it should "source ledger-owned household, public, and fund stock columns from LedgerFinancialState" in {

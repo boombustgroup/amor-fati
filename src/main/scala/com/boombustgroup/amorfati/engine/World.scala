@@ -258,6 +258,7 @@ object PipelineState:
   */
 case class FlowState(
     monthlyGdpProxy: PLN = PLN.Zero,            // cached monthly GDP proxy for diagnostics / output ratios
+    sectorOutputs: Vector[PLN] = Vector.empty,  // nominal monthly output by schema sector
     ioFlows: PLN = PLN.Zero,                    // I-O intermediate payments between sectors
     fdiProfitShifting: PLN = PLN.Zero,          // intangible imports booked abroad (profit shifting)
     fdiRepatriation: PLN = PLN.Zero,            // dividend repatriation by foreign-owned firms

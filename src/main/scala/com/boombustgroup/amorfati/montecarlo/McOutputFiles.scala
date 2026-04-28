@@ -24,9 +24,12 @@ private[montecarlo] object McOutputFiles:
   def bankFile(outputDir: File, rc: McRunConfig): File =
     new File(outputDir, s"${filePrefix(rc)}_banks.csv")
 
+  def firmFile(outputDir: File, rc: McRunConfig): File =
+    new File(outputDir, s"${filePrefix(rc)}_firms.csv")
+
   def savedFiles(outputDir: File, rc: McRunConfig): Vector[File] =
     (1L to rc.nSeeds.toLong).map(seed => seedFile(outputDir, seed, rc)).toVector ++
-      Vector(householdFile(outputDir, rc), bankFile(outputDir, rc))
+      Vector(householdFile(outputDir, rc), bankFile(outputDir, rc), firmFile(outputDir, rc))
 
   private def filePrefix(rc: McRunConfig): String =
     s"${rc.outputPrefix}_${rc.runId}_${rc.runDurationMonths}m"

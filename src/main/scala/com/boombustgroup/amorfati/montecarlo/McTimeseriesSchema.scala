@@ -18,8 +18,9 @@ import com.boombustgroup.amorfati.agents.Region
 object McTimeseriesSchema:
 
   private case class SectorColumns(expectedSectorName: String, columnStem: String):
-    def autoColName: String  = s"${columnStem}_Auto"
-    def sigmaColName: String = s"${columnStem}_Sigma"
+    def autoColName: String   = s"${columnStem}_Auto"
+    def outputColName: String = s"${columnStem}_Output"
+    def sigmaColName: String  = s"${columnStem}_Sigma"
 
   private val sectorSchemaPairs: Vector[(String, String)] =
     SimParams.SchemaSectors.map(schemaSector => schemaSector.name -> schemaSector.outputStem)
@@ -94,6 +95,15 @@ object McTimeseriesSchema:
       ),
     )
     lazy val monthlyGdp: PLN                                                                        = world.cachedMonthlyGdpProxy
+    lazy val annualizedGdp: PLN                                                                     = monthlyGdp * 12
+    lazy val sectorOutputs: Vector[PLN]                                                             =
+      world.flows.sectorOutputs match
+        case outputs if outputs.isEmpty                       => Vector.fill(p.sectorDefs.length)(PLN.Zero)
+        case outputs if outputs.length == p.sectorDefs.length => outputs
+        case outputs                                          =>
+          throw IllegalArgumentException(
+            s"McTimeseriesSchema requires FlowState.sectorOutputs to be empty or have ${p.sectorDefs.length} entries, got ${outputs.length}",
+          )
     lazy val sectorAuto: Vector[Share]                                                              = sectorColumns.map { sector =>
       val sectorIdx = sectorIndexByName(sector.expectedSectorName)
       val secFirms  = living.filter(_.sector.toInt == sectorIdx)
@@ -147,17 +157,21 @@ object McTimeseriesSchema:
     ColumnDef("NPL", ctx => ctx.bankAgg.nplRatio),
     ColumnDef("RefRate", ctx => ctx.world.nbp.referenceRate),
     ColumnDef("PriceLevel", ctx => ctx.world.priceLevel),
+    ColumnDef("MonthlyGdpProxy", ctx => ctx.monthlyGdp),
+    ColumnDef("AnnualizedGdpProxy", ctx => ctx.annualizedGdp),
     ColumnDef("AutoRatio", ctx => ctx.world.real.automationRatio),
     ColumnDef("HybridRatio", ctx => ctx.world.real.hybridRatio),
   )
 
   private def sectoralGroup: Vector[ColumnDef] =
-    val autoColumns  = sectorColumns.zipWithIndex.map: (sector, idx) =>
+    val autoColumns   = sectorColumns.zipWithIndex.map: (sector, idx) =>
       ColumnDef(sector.autoColName, ctx => ctx.sectorAuto(idx))
-    val sigmaColumns = sectorColumns.zipWithIndex.map: (sector, idx) =>
+    val outputColumns = sectorColumns.zipWithIndex.map: (sector, idx) =>
+      ColumnDef(sector.outputColName, ctx => ctx.sectorOutputs(idx))
+    val sigmaColumns  = sectorColumns.zipWithIndex.map: (sector, idx) =>
       ColumnDef(sector.sigmaColName, ctx => ctx.sectorSigma(idx))
 
-    (autoColumns ++ sigmaColumns ++ Vector(
+    (autoColumns ++ outputColumns ++ sigmaColumns ++ Vector(
       ColumnDef("MeanDegree", ctx => MetricValue.fraction(ctx.firms.map(_.neighbors.length).sum, ctx.firms.length)),
       ColumnDef("IoFlows", ctx => ctx.world.flows.ioFlows),
       ColumnDef(
@@ -593,6 +607,8 @@ object McTimeseriesSchema:
     val NPL: Col                    = lookup("NPL")
     val RefRate: Col                = lookup("RefRate")
     val PriceLevel: Col             = lookup("PriceLevel")
+    val MonthlyGdpProxy: Col        = lookup("MonthlyGdpProxy")
+    val AnnualizedGdpProxy: Col     = lookup("AnnualizedGdpProxy")
     val AutoRatio: Col              = lookup("AutoRatio")
     val HybridRatio: Col            = lookup("HybridRatio")
     val BpoAuto: Col                = lookup("BPO_Auto")
@@ -601,6 +617,12 @@ object McTimeseriesSchema:
     val HealthAuto: Col             = lookup("Health_Auto")
     val PublicAuto: Col             = lookup("Public_Auto")
     val AgriAuto: Col               = lookup("Agri_Auto")
+    val BpoOutput: Col              = lookup("BPO_Output")
+    val ManufOutput: Col            = lookup("Manuf_Output")
+    val RetailOutput: Col           = lookup("Retail_Output")
+    val HealthOutput: Col           = lookup("Health_Output")
+    val PublicOutput: Col           = lookup("Public_Output")
+    val AgriOutput: Col             = lookup("Agri_Output")
     val BpoSigma: Col               = lookup("BPO_Sigma")
     val ManufSigma: Col             = lookup("Manuf_Sigma")
     val RetailSigma: Col            = lookup("Retail_Sigma")
@@ -643,8 +665,9 @@ object McTimeseriesSchema:
     val DepositFacilityUsage: Col   = lookup("DepositFacilityUsage")
     val InterbankInterestNet: Col   = lookup("InterbankInterestNet")
 
-    private val sectorAutoNames  = sectorColumns.map(_.autoColName)
-    private val sectorSigmaNames = sectorColumns.map(_.sigmaColName)
+    private val sectorAutoNames   = sectorColumns.map(_.autoColName)
+    private val sectorOutputNames = sectorColumns.map(_.outputColName)
+    private val sectorSigmaNames  = sectorColumns.map(_.sigmaColName)
 
     private def sectorCol(names: Vector[String], sectorIndex: Int, kind: String): Col =
       names
@@ -652,8 +675,9 @@ object McTimeseriesSchema:
         .map(lookup)
         .getOrElse(throw new IndexOutOfBoundsException(s"$kind sector index must be between 0 and ${names.length - 1}, got $sectorIndex"))
 
-    def sectorAuto(s: Int): Col  = sectorCol(sectorAutoNames, s, "sectorAuto")
-    def sectorSigma(s: Int): Col = sectorCol(sectorSigmaNames, s, "sectorSigma")
+    def sectorAuto(s: Int): Col   = sectorCol(sectorAutoNames, s, "sectorAuto")
+    def sectorOutput(s: Int): Col = sectorCol(sectorOutputNames, s, "sectorOutput")
+    def sectorSigma(s: Int): Col  = sectorCol(sectorSigmaNames, s, "sectorSigma")
 
   extension (c: Col) def ordinal: Int = c
 

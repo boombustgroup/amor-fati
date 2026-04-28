@@ -140,6 +140,7 @@ The main runner writes generated CSV files under `mc/`:
 mc/<prefix>_<run-id>_<months>m_seed001.csv
 mc/<prefix>_<run-id>_<months>m_hh.csv
 mc/<prefix>_<run-id>_<months>m_banks.csv
+mc/<prefix>_<run-id>_<months>m_firms.csv
 ```
 
 `mc/` is ignored by git. Keep committed research-facing artifacts under `docs/`
