@@ -15,8 +15,9 @@ import com.boombustgroup.amorfati.types.*
   * 76 bln EUR, period: 84 months, α=2, β=5 (peak ~20% into the period),
   * co-financing rate: 15%, capital share of spending: 60%.
   *
-  * The total is scaled by (firmsCount / ReferenceEconomy) to keep per-firm
-  * flows proportional regardless of simulation population size.
+  * The configured total is a Poland-scale empirical envelope. Runtime flows are
+  * converted to the simulated balance-sheet scale with `gdpRatio`; Monte Carlo
+  * CSV export reverses that scaling for analyst-facing Poland-scale values.
   */
 object EuFunds:
 
@@ -24,13 +25,14 @@ object EuFunds:
 
   /** Monthly EU transfer in PLN, following a Beta(α,β) absorption curve. */
   def monthlyTransfer(month: ExecutionMonth)(using p: SimParams): PLN =
-    val totalPln = EuFundsMath.totalEnvelopePln(
+    val totalPln        = EuFundsMath.totalEnvelopePln(
       p.fiscal.euFundsTotalEur,
       p.forex.baseExRate,
       p.pop.firmsCount,
       ReferenceEconomy,
     )
-    totalPln * EuFundsMath.monthlyWeight(
+    val runtimeTotalPln = totalPln * p.gdpRatio
+    runtimeTotalPln * EuFundsMath.monthlyWeight(
       month.toInt,
       p.fiscal.euFundsStartMonth,
       p.fiscal.euFundsPeriodMonths,

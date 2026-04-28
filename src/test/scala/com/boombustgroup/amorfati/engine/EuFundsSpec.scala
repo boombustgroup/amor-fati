@@ -12,8 +12,12 @@ import org.scalatest.matchers.should.Matchers
 
 class EuFundsSpec extends AnyFlatSpec with Matchers:
 
-  given SimParams          = SimParams.defaults
-  private val p: SimParams = summon[SimParams]
+  given SimParams                          = SimParams.defaults
+  private val p: SimParams                 = summon[SimParams]
+  private def referenceEnvelopePln: PLN    =
+    EuFundsMath.totalEnvelopePln(p.fiscal.euFundsTotalEur, p.forex.baseExRate, p.pop.firmsCount, 10000)
+  private def runtimeEnvelopePln: PLN      = referenceEnvelopePln * p.gdpRatio
+  private def polandScale(value: PLN): PLN = value / p.gdpRatio.toMultiplier
 
   // --- monthlyTransfer tests ---
   // Note: monthlyTransfer depends on Config env vars. Default: start=1, period=84
@@ -27,7 +31,7 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     EuFunds.monthlyTransfer(ExecutionMonth(p.fiscal.euFundsStartMonth)).should(be > PLN.Zero)
 
   it should "scale the default total envelope without overflowing" in {
-    val totalPln = EuFundsMath.totalEnvelopePln(p.fiscal.euFundsTotalEur, p.forex.baseExRate, p.pop.firmsCount, 10000)
+    val totalPln = referenceEnvelopePln
 
     totalPln should be > PLN.Zero
     decimal(totalPln) shouldBe BigDecimal("329080000000.0") +- BigDecimal("1.0")
@@ -51,12 +55,20 @@ class EuFundsSpec extends AnyFlatSpec with Matchers:
     decimal(EuFunds.monthlyTransfer(ExecutionMonth(mid))).should(be > BigDecimal("0.0"))
   }
 
-  it should "sum to ~totalAllocation over full period" in {
-    val totalPln = EuFundsMath.totalEnvelopePln(p.fiscal.euFundsTotalEur, p.forex.baseExRate, p.pop.firmsCount, 10000)
+  it should "sum to the gdpRatio-scaled runtime allocation over the full period" in {
+    val expected = runtimeEnvelopePln
     val sum      = (1 to p.fiscal.euFundsPeriodMonths + p.fiscal.euFundsStartMonth).map { m =>
       EuFunds.monthlyTransfer(ExecutionMonth(m))
     }.sumPln
-    decimal(sum).shouldBe(decimal(totalPln) +- (decimal(totalPln) * BigDecimal("0.02")))
+    decimal(sum).shouldBe(decimal(expected) +- (decimal(expected) * BigDecimal("0.02")))
+  }
+
+  it should "recover the Poland-scale envelope when runtime transfers are exported" in {
+    val sum = (1 to p.fiscal.euFundsPeriodMonths + p.fiscal.euFundsStartMonth).map { m =>
+      polandScale(EuFunds.monthlyTransfer(ExecutionMonth(m)))
+    }.sumPln
+
+    decimal(sum).shouldBe(decimal(referenceEnvelopePln) +- (decimal(referenceEnvelopePln) * BigDecimal("0.02")))
   }
 
   // --- cofinancing tests ---
