@@ -291,6 +291,14 @@ class PopulationControlSchemaSpec extends AnyFlatSpec with Matchers:
     report.errors should contain(ValidationError.InvalidLabourStatusAgeBand(LabourStatus.Employed, Child))
   }
 
+  it should "reject collective persons outside a private-household population scope" in {
+    val report = Validator.validate(validBundle.copy(populationScope = PopulationScope.PrivateHouseholdResidents))
+
+    report.errors should contain(
+      ValidationError.PopulationScopeViolation(PopulationScope.PrivateHouseholdResidents, ResidenceType.CollectiveResidence),
+    )
+  }
+
   it should "reject overlapping age-band classifications before a bundle is built" in {
     an[IllegalArgumentException] should be thrownBy
       classifications.copy(ageBands = Vector(AgeBand("0-20", 0, Some(20)), AgeBand("15+", 15, None)))

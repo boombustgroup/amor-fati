@@ -12,7 +12,7 @@ import scala.util.Using
 
 class PopulationControlBundleLoaderSpec extends AnyFlatSpec with Matchers:
 
-  private val FixtureDigest = "d6e8aac2f244fad17485161eef8adfc5cd6ac6a65e8b416ff20f5164108ccc7d"
+  private val FixtureDigest = "dd889e926eec9a6cabd13394e2a029f4f3efea547bf5e50dc67c635983be210b"
 
   private def fixtureRoot: Path =
     Path.of(Option(getClass.getResource("/population-control-bundles/synthetic-v1")).getOrElse(fail("synthetic population-control fixture is missing")).toURI)

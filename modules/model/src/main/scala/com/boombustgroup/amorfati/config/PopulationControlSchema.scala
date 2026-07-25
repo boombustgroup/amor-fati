@@ -173,6 +173,16 @@ object PopulationControlSchema:
       */
     case CollectiveResidence
 
+  /** Runtime perimeter represented by a population-control bundle. This is a
+    * domain boundary, not a reference to any particular national survey.
+    */
+  enum PopulationScope:
+    /** All usual residents represented by the bundle. */
+    case AllUsualResidents
+
+    /** Only residents of private households are materialized as persons. */
+    case PrivateHouseholdResidents
+
   /** Household composition used for both household counts and member-position
     * controls. Their shared value permits the capacity reconciliation.
     */
@@ -328,6 +338,7 @@ object PopulationControlSchema:
       demographicLabour: ControlTable[DemographicLabourRow],
       regionalLabour: ControlTable[RegionalLabourRow],
       employment: ControlTable[EmploymentRow],
+      populationScope: PopulationScope = PopulationScope.AllUsualResidents,
   )
 
   /** Evidence for one accounting-style count reconciliation. `expected` is the
@@ -356,6 +367,7 @@ object PopulationControlSchema:
     case UnknownAgeBand(table: String, ageBand: AgeBand)
     case UnknownProductionSector(table: String, sector: ProductionSectorCode)
     case InvalidLabourStatusAgeBand(status: LabourStatus, ageBand: AgeBand)
+    case PopulationScopeViolation(scope: PopulationScope, residence: ResidenceType)
     case FailedReconciliation(reconciliation: Reconciliation)
 
   /** Complete structural-validation evidence. Reconciliations are retained even
@@ -382,7 +394,8 @@ object PopulationControlSchema:
         metadataErrors(bundle, classifications) ++
           duplicateErrors(bundle) ++
           axisErrors(bundle, classifications) ++
-          labourAgeErrors(bundle)
+          labourAgeErrors(bundle) ++
+          populationScopeErrors(bundle)
       val reconciliations = reconciliationChecks(bundle)
       val allErrors       = errors ++ reconciliations.filterNot(_.passes).map(ValidationError.FailedReconciliation.apply)
       ValidationReport(reconciliations, allErrors)
@@ -439,6 +452,14 @@ object PopulationControlSchema:
       bundle.demographicLabour.rows.collect:
         case row if !labourStatusPermitted(row.status, row.ageBand) =>
           ValidationError.InvalidLabourStatusAgeBand(row.status, row.ageBand)
+
+    private def populationScopeErrors(bundle: Bundle): Vector[ValidationError] =
+      bundle.populationScope match
+        case PopulationScope.AllUsualResidents => Vector.empty
+        case scope =>
+          bundle.persons.rows.collect:
+            case row if row.residence == ResidenceType.CollectiveResidence =>
+              ValidationError.PopulationScopeViolation(scope, row.residence)
 
     private def reconciliationChecks(bundle: Bundle): Vector[Reconciliation] =
       val membershipByComposition             = totalBy(bundle.householdMembership.rows)(_.composition)(row => BigInt(row.count.value))

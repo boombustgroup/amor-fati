@@ -51,12 +51,13 @@ artifact inventory.
 | --- | --- |
 | `schema_version` | Must equal the supported `PopulationControlSchema` version. |
 | `baseline_id` | Immutable identity of the baseline that will contain this component. |
+| `population_scope` | Runtime population perimeter, currently `all_usual_residents` or `private_household_residents`. |
 | `population_controls_digest` | Canonical SHA-256 digest for this component. |
 | `region_classification_id`, `region_classification_version` | Region classification identity. |
 | `age_classification_id`, `age_classification_version` | Age-band classification identity. |
 | `production_sector_classification_id`, `production_sector_classification_version` | Production-sector classification identity. |
 
-The component digest covers the schema version, baseline ID, all three
+The component digest covers the schema version, baseline ID, population scope, all three
 classification references, and the raw bytes of every other required TSV. The
 digest field itself is excluded, so it does not self-reference. A changed table
 or classification file must therefore be accompanied by a newly computed
