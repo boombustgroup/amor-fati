@@ -157,7 +157,8 @@ core invariants.
   filesystem and environment defaults; and seeds and determinism.
 - Package manifest: the 49 package-directory records under
   `modules/*/src/main/scala` enumerated by `find`.
-- Checked-in report: [model-constants-audit.tsv](model-constants-audit.tsv).
+- The inventory itself is the checked-in audit record; reruns must update its
+  metadata and counts in the same commit.
 
 The source commit and query definition make the counts reproducible; a future
 rerun must update this metadata and replace stale counts rather than silently
