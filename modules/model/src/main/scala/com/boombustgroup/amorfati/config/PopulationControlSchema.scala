@@ -458,7 +458,7 @@ object PopulationControlSchema:
         case PopulationScope.AllUsualResidents => Vector.empty
         case scope                             =>
           bundle.persons.rows.collect:
-            case row if row.residence == ResidenceType.CollectiveResidence =>
+            case row if row.residence == ResidenceType.CollectiveResidence && row.count.value > 0L =>
               ValidationError.PopulationScopeViolation(scope, row.residence)
 
     private def reconciliationChecks(bundle: Bundle): Vector[Reconciliation] =

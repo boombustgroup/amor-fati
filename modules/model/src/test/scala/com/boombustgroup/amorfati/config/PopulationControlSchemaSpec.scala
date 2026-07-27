@@ -299,6 +299,22 @@ class PopulationControlSchemaSpec extends AnyFlatSpec with Matchers:
     )
   }
 
+  it should "ignore zero-count collective rows outside a private-household scope" in {
+    val zeroCollective = validBundle.persons.rows.map: row =>
+      if row.residence == ResidenceType.CollectiveResidence then row.copy(count = RepresentedCount(0L)) else row
+    val report         = Validator.validate(
+      validBundle.copy(
+        persons = validBundle.persons.copy(rows = zeroCollective),
+        populationScope = PopulationScope.PrivateHouseholdResidents,
+      ),
+    )
+
+    report.errors should not contain ValidationError.PopulationScopeViolation(
+      PopulationScope.PrivateHouseholdResidents,
+      ResidenceType.CollectiveResidence,
+    )
+  }
+
   it should "reject overlapping age-band classifications before a bundle is built" in {
     an[IllegalArgumentException] should be thrownBy
       classifications.copy(ageBands = Vector(AgeBand("0-20", 0, Some(20)), AgeBand("15+", 15, None)))
