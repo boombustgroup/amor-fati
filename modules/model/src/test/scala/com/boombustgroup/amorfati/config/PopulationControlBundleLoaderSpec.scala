@@ -89,10 +89,12 @@ class PopulationControlBundleLoaderSpec extends AnyFlatSpec with Matchers:
       val metadataPath = root.resolve("tables.tsv")
       Files.writeString(
         metadataPath,
-        Files.readString(metadataPath, UTF_8).replace(
-          "demographic_labour\tlabour\tsynthetic resident population",
-          "demographic_labour\tlabour\tBAEL 15+ private usual residents",
-        ),
+        Files
+          .readString(metadataPath, UTF_8)
+          .replace(
+            "demographic_labour\tlabour\tsynthetic resident population",
+            "demographic_labour\tlabour\tBAEL 15+ private usual residents",
+          ),
         UTF_8,
       )
       refreshDigest(root)
