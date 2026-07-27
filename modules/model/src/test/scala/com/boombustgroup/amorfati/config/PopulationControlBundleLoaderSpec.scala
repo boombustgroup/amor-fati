@@ -84,6 +84,24 @@ class PopulationControlBundleLoaderSpec extends AnyFlatSpec with Matchers:
           detail should include("unknown population scope")
         case other                                         => fail(s"expected invalid population scope, got: $other")
 
+  it should "treat a labour margin with a distinct statistical universe as source-specific" in
+    withCopiedFixture: root =>
+      val metadataPath = root.resolve("tables.tsv")
+      Files.writeString(
+        metadataPath,
+        Files
+          .readString(metadataPath, UTF_8)
+          .replace(
+            "demographic_labour\tlabour\tsynthetic resident population",
+            "demographic_labour\tlabour\tBAEL 15+ private usual residents",
+          ),
+        UTF_8,
+      )
+      refreshDigest(root)
+
+      val loaded = PopulationControlBundleLoader.load(root).fold(error => fail(s"unexpected loader failure: $error"), identity)
+      loaded.validation.reconciliations.map(_.id) should not contain "person-to-demographic-labour:(Female,AgeBand(0-14,0,Some(14)))"
+
   it should "reject malformed UTF-8 after its digest has been refreshed" in
     withCopiedFixture: root =>
       val personsPath = root.resolve("persons.tsv")
