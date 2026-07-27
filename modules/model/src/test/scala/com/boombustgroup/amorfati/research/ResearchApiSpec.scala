@@ -34,3 +34,25 @@ class ResearchApiSpec extends AnyFlatSpec with Matchers:
       case Left(error)  => error should include("Unknown scenario 'does-not-exist'")
       case Right(value) => fail(s"expected unknown scenario failure, got $value")
   }
+
+  it should "render a deterministic result-bundle manifest" in {
+    val digest   = BaselineCatalog.legacy.list.head.contentDigest
+    val manifest = ResultBundleManifest(
+      runId = "pilot-1",
+      apiVersion = ResearchApi.Version,
+      baselineId = BaselineCatalog.LegacyDefaultsId.value,
+      baselineDigest = digest,
+      scenarioIds = Vector("baseline", "monetary-tightening"),
+      seedStart = 2L,
+      seedCount = 3,
+      months = 12,
+      validationStatus = "passed",
+      reconciliationStatus = "passed",
+      evidencePolicy = "controlled-terminal",
+    )
+
+    manifest.toTsv.linesIterator.toVector shouldBe Vector(
+      ResultBundleManifest.Header.mkString("\t"),
+      s"pilot-1\t${ResearchApi.Version}\tPL-2026-04-30-legacy-v1\t$digest\tbaseline,monetary-tightening\t2\t3\t12\tpassed\tpassed\tcontrolled-terminal\tresult-bundle-v0",
+    )
+  }
