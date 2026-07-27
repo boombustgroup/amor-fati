@@ -5,7 +5,7 @@ early_access: false
 reviews:
   profile: "assertive"
   request_changes_workflow: true
-  high_level_summary: true
+  high_level_summary: false
   poem: false # Disabling the annoying poem at the end of the PR summary
 
   path_instructions:
