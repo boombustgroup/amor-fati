@@ -480,11 +480,12 @@ reconciliation cells; it is not the legacy runtime's seven regional markets.
    providing the bridge that makes person and household totals jointly
    constrain the synthetic population;
 4. labor status by demographic sex and age band, plus regional labor-status
-   totals, using the supported BAEL age universes (15-89 for employed and
-   inactive residents, 15-74 for unemployed residents) plus the explicit 90+
-   residual. Residents aged 90+ map to `non_bael_residual`, participate in
-   demographic and regional reconciliation, and remain excluded from BAEL
-   denominators; and
+   totals, using the supported source universe declared by the selected
+   provider. A labour table whose statistical universe differs from `persons`
+   is a source-specific margin: it is reconciled to compatible labour tables,
+   but is not required to partition all resident persons. BAEL age coverage,
+   exclusions, and residual treatment belong to the economy adapter and must
+   not become source-specific ontology statuses in core; and
 5. employed residents by residence TERYT voivodeship and represented primary
    employment assignments to synthetic workplaces by model production sector.
    Each employed resident has one main assignment. In v1, workplace location is

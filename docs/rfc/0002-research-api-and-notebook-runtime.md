@@ -136,7 +136,9 @@ runtime ledger indices, and future primitive columns remain internal.
 4. Amor Fati supplies a managed Almond-based kernel with a release-pinned and
    tested Scala, JVM, Almond, Jupyter, model, baseline-schema, and adapter
    combination. Each selected baseline is verified separately against that
-   compatibility boundary.
+   compatibility boundary. A declared labour margin may use a source-specific
+   statistical universe; it is not implicitly treated as a partition of the
+   full person population unless the manifest declares matching universes.
 5. Researchers launch the managed system environment. Canonical notebooks do
    not resolve Amor Fati through `$ivy`, publish-local conventions, or an
    independently assembled classpath.
