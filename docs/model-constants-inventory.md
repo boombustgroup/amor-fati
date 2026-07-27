@@ -93,15 +93,17 @@ multiple places.
 
 `CalibrationProvenance.scala` is the current detailed register for many
 parameter-level claims. Its accepted status tokens are `EMPIRICAL`,
-`EMPIRICAL_TRANSFORMED`, `ASSUMED`, `TUNED_NEEDS_VALIDATION`, `POLICY_SCENARIO`,
-`PLACEHOLDER`, and `UNKNOWN_SOURCE`. Future machine-readable inventory rows
+`EMPIRICAL_TRANSFORMED`, `CODE_NOTE_EMPIRICAL`, `ASSUMED`,
+`TUNED_NEEDS_VALIDATION`, `POLICY_SCENARIO`, `PLACEHOLDER`, and
+`UNKNOWN_SOURCE`. Future machine-readable inventory rows
 must use one of these exact tokens and be checked by the corresponding parser
 and tests.
 
-The inventory is not complete until every production symbol reachable from
-`WorldInit`, `SimParams`, configuration objects, and opening-state factories is
-either linked to a row above or explicitly classified as a structural
-invariant, test fixture, diagnostic-only value, or legacy compatibility value.
+The inventory is not complete until every production symbol in the audited
+package set, together with every symbol reachable from `WorldInit`, `SimParams`,
+configuration objects, and opening-state factories, is either linked to a row
+above or explicitly classified as a structural invariant, test fixture,
+diagnostic-only value, or legacy compatibility value.
 
 The ten-pass scan also found that not every suspicious literal is economic
 calibration. Account indices, month markers, array dimensions, lower bounds,
@@ -149,16 +151,17 @@ an authoritative exclusion. Each closed row must have:
 
 `target_release` is the release by which a row must have an explicit owner and
 contract. It does not mean that every row becomes empirical data in that
-release.
+release. The historical PL-2025-Q4-v1 and PL-2025-Q4-v2 identifiers are retained
+only as provenance; current implementation targets are listed separately.
 
 | Priority | Meaning | Default target |
 | --- | --- | --- |
-| `P0` | Required to construct and validate the first published Polish population/baseline slice. | `PL-2025-Q4-v1` (historical milestone; implementation target) |
+| `P0` | Required to construct and validate the first published Polish population/baseline slice. | `PL-2026-Q3-v1` (current implementation target; provenance baseline: `PL-2025-Q4-v1`) |
 | `P1` | Required for reproducible researcher execution and result interpretation. | `research-api-v0` |
-| `P2` | Important economic coverage, but not required for the first end-to-end population run. | `PL-2025-Q4-v2` (historical milestone; deferred target) |
+| `P2` | Important economic coverage, but not required for the first end-to-end population run. | `PL-2026-Q4-v1` (current deferred target; provenance milestone: `PL-2025-Q4-v2`) |
 | `P3` | Core invariant, runtime concern, diagnostic-only value, or explicit removal work. | `core-invariant-v1`, `runtime-profile-v1`, or `legacy-removal` |
 
-### P0 — `PL-2025-Q4-v1`
+### P0 — `PL-2026-Q3-v1` (provenance baseline: `PL-2025-Q4-v1`)
 
 These are the only families that currently block the first baseline-backed
 population run:
@@ -183,7 +186,7 @@ These are required before calling the system a reproducible research tool:
 - `monte-carlo-sampling`, `monte-carlo-output-layout`;
 - `calibration-export-contracts` and `error-taxonomy-and-gates`.
 
-### P2 — `PL-2025-Q4-v2`
+### P2 — `PL-2026-Q4-v1` (provenance milestone: `PL-2025-Q4-v2`)
 
 Defer these until the first baseline-backed run exists:
 
