@@ -161,14 +161,14 @@ object PopulationControlBundleLoader:
       ),
     ).flatMap: row =>
       for
-        schemaVersion <- requiredInt(row, "schema_version").left.map(detail => LoadError.InvalidManifest(path, detail))
-        baselineId    <- row.required("baseline_id").flatMap(BaselineId.from).left.map(detail => LoadError.InvalidManifest(path, detail))
+        schemaVersion   <- requiredInt(row, "schema_version").left.map(detail => LoadError.InvalidManifest(path, detail))
+        baselineId      <- row.required("baseline_id").flatMap(BaselineId.from).left.map(detail => LoadError.InvalidManifest(path, detail))
         populationScope <- row.required("population_scope").flatMap(parsePopulationScope).left.map(detail => LoadError.InvalidManifest(path, detail))
-        digest        <- row.required("population_controls_digest").flatMap(parseControlsDigest).left.map(detail => LoadError.InvalidManifest(path, detail))
-        regionRef     <- classificationRef(row, "region_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
-        ageRef        <- classificationRef(row, "age_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
-        sectorRef     <- classificationRef(row, "production_sector_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
-        classes       <- readClassifications(snapshot, regionRef, ageRef, sectorRef)
+        digest          <- row.required("population_controls_digest").flatMap(parseControlsDigest).left.map(detail => LoadError.InvalidManifest(path, detail))
+        regionRef       <- classificationRef(row, "region_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
+        ageRef          <- classificationRef(row, "age_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
+        sectorRef       <- classificationRef(row, "production_sector_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
+        classes         <- readClassifications(snapshot, regionRef, ageRef, sectorRef)
       yield Manifest(schemaVersion, BaselineRef(baselineId), populationScope, digest, classes)
 
   private def readClassifications(
@@ -477,7 +477,7 @@ object PopulationControlBundleLoader:
     value match
       case "all_usual_residents"         => Right(PopulationScope.AllUsualResidents)
       case "private_household_residents" => Right(PopulationScope.PrivateHouseholdResidents)
-      case _                              => Left(s"unknown population scope: $value")
+      case _                             => Left(s"unknown population scope: $value")
 
   private def parseHouseholdComposition(value: String): Either[String, HouseholdComposition] =
     value match

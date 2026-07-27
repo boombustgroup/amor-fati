@@ -67,7 +67,7 @@ class PopulationControlBundleLoaderSpec extends AnyFlatSpec with Matchers:
         case Left(LoadError.PopulationControlsDigestMismatch(expected, actual)) =>
           expected.toString shouldBe FixtureDigest
           actual should not be expected
-        case other => fail(s"expected population-controls digest mismatch, got: $other")
+        case other                                                              => fail(s"expected population-controls digest mismatch, got: $other")
 
   it should "reject an unknown population scope in the manifest" in
     withCopiedFixture: root =>
@@ -82,7 +82,7 @@ class PopulationControlBundleLoaderSpec extends AnyFlatSpec with Matchers:
         case Left(LoadError.InvalidManifest(path, detail)) =>
           path shouldBe manifestPath
           detail should include("unknown population scope")
-        case other => fail(s"expected invalid population scope, got: $other")
+        case other                                         => fail(s"expected invalid population scope, got: $other")
 
   it should "reject malformed UTF-8 after its digest has been refreshed" in
     withCopiedFixture: root =>

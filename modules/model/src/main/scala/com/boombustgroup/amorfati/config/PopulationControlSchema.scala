@@ -456,7 +456,7 @@ object PopulationControlSchema:
     private def populationScopeErrors(bundle: Bundle): Vector[ValidationError] =
       bundle.populationScope match
         case PopulationScope.AllUsualResidents => Vector.empty
-        case scope =>
+        case scope                             =>
           bundle.persons.rows.collect:
             case row if row.residence == ResidenceType.CollectiveResidence =>
               ValidationError.PopulationScopeViolation(scope, row.residence)
