@@ -1,6 +1,7 @@
 package com.boombustgroup.amorfati.config
 
 import com.boombustgroup.amorfati.config.PopulationControlBundleLoader.*
+import com.boombustgroup.amorfati.config.PopulationControlSchema.PopulationScope
 import com.boombustgroup.amorfati.config.PopulationControlSchema.ValidationError
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -45,6 +46,8 @@ class PopulationControlBundleLoaderSpec extends AnyFlatSpec with Matchers:
     val loaded = PopulationControlBundleLoader.load(fixtureRoot).fold(error => fail(s"unexpected loader failure: $error"), identity)
 
     loaded.manifest.baseline.id.toString shouldBe "synthetic-population-controls-v1"
+    loaded.manifest.populationScope shouldBe PopulationScope.AllUsualResidents
+    loaded.controls.populationScope shouldBe PopulationScope.AllUsualResidents
     loaded.manifest.populationControlsDigest.toString shouldBe FixtureDigest
     loaded.controls.persons.rows.size shouldBe 9
     loaded.controls.employment.rows.size shouldBe 4
@@ -64,7 +67,22 @@ class PopulationControlBundleLoaderSpec extends AnyFlatSpec with Matchers:
         case Left(LoadError.PopulationControlsDigestMismatch(expected, actual)) =>
           expected.toString shouldBe FixtureDigest
           actual should not be expected
-        case other                                                              => fail(s"expected population-controls digest mismatch, got: $other")
+        case other => fail(s"expected population-controls digest mismatch, got: $other")
+
+  it should "reject an unknown population scope in the manifest" in
+    withCopiedFixture: root =>
+      val manifestPath = root.resolve("manifest.tsv")
+      Files.writeString(
+        manifestPath,
+        Files.readString(manifestPath, UTF_8).replace("all_usual_residents", "not-a-scope"),
+        UTF_8,
+      )
+
+      PopulationControlBundleLoader.load(root) match
+        case Left(LoadError.InvalidManifest(path, detail)) =>
+          path shouldBe manifestPath
+          detail should include("unknown population scope")
+        case other => fail(s"expected invalid population scope, got: $other")
 
   it should "reject malformed UTF-8 after its digest has been refreshed" in
     withCopiedFixture: root =>

@@ -320,11 +320,11 @@ the raw representation remains encapsulated inside the storage boundary.
 
 An entity table stores one column per state dimension. For example, a person
 labor state should not be stored as an allocated enum payload such as
-`Employed(firmId, sectorIdx, wage)`. Its runtime representation may use:
+`Employed(workplaceId, sectorIdx, wage)`. Its runtime representation may use:
 
 ```text
 labourStatus       Array[Byte]
-employerIndex      Array[Int]
+workplaceIndex     Array[Int]  // typed WorkplaceId index
 sectorIndex        Array[Byte]
 wageRaw            Array[Long]  // fixed-point PLN backing units; exposed as PLN
 unemployedMonths   Array[Int]
@@ -647,8 +647,10 @@ representation policy, and random seed:
    constrained synthesis that satisfies both household-level and person-level
    controls.
 5. Generate the firm population from joint sector, size, region, ownership,
-   and employment controls, then create exactly one synthetic workplace for
-   each firm using its declared location-evidence class.
+   and employment controls, then create exactly one typed `Workplace ->
+   Enterprise` link for each synthetic workplace using its declared
+   location-evidence class. Copy the linked enterprise's represented quantity
+   into the workplace representation weight before employment assignment.
 6. Match employed persons to exactly one weighted primary workplace employment
    assignment; keep unemployed and inactive populations distinct.
 7. Assign deposit accounts, mortgages, consumer loans, firm loans, and other
