@@ -115,48 +115,14 @@ invariants), and embedded institution/profile tables (which can be empirical
 inputs even when represented as Scala collections). Both are now explicit rows
 above.
 
-## Package Coverage
-
-The package-level review applies the same five passes to every production Scala
-package under `modules/*/src/main/scala`: defaults/opening state, typed domain
-literals, cardinality and indices, provenance/calibration markers, and
-fallbacks/thresholds. This includes the model subpackages (`config`, `init`,
-`agents`, `engine`, `markets`, `mechanisms`, `ledger`, `fp`, `research`,
-`montecarlo`, `random`, `networks`, and `util`) as well as the standalone
-`ledger`, `tsv`, `cli`, and `montecarlo` modules. Package-local constants that
-are purely implementation details remain classified as structural invariants;
-economic-looking values must be promoted to an explicit row before migration.
-
-The repeated package audit produced 49 package-directory records. The five
-passes yielded 354, 538, 206, 595, and 1,046 textual matches respectively.
-These are candidate counts, not counts of economic parameters: one symbol can
-match several filters, and most matches are structural or diagnostic. The
-inventory therefore records families and requires field-level closure before a
-value can be moved into a baseline.
-
-The latest five-pass package review used date/vintage identifiers, collection
-and registry literals, unit/classification strings, filesystem/environment
-defaults, and seed/determinism rules. It found additional concerns in IO path
-defaults, random stream partitioning, scenario identity, calibration export
-schemas, and Monte Carlo output layout; these are recorded above rather than
-being mistaken for empirical calibration.
-
-The latest five-pass review added the non-numeric contract layer: feature flags,
-policy enums, execution-resource limits, serialization schemas, and error
-taxonomy/rejection gates. These values can materially change a run even when no
-economic number changes, so they must be versioned or explicitly classified as
-core invariants.
-
 ## Audit Metadata
 
 - Scan date: 2026-07-27.
 - Source commit: `a75cf293`.
 - Audit tool: `rg` package scans executed from the repository root.
-- Query definition: five passes for each production package covering dates and
-  vintages; collection and registry literals; units and classifications;
-  filesystem and environment defaults; and seeds and determinism.
-- Package manifest: the 49 package-directory records under
-  `modules/*/src/main/scala` enumerated by `find`.
+- Query definition: repository-wide scans covering defaults/opening state,
+  typed domain literals, cardinality, provenance, fallbacks, serialization,
+  environment defaults, and determinism.
 - The inventory itself is the checked-in audit record; reruns must update its
   metadata and counts in the same commit.
 
