@@ -16,6 +16,11 @@ class ResearchApiSpec extends AnyFlatSpec with Matchers:
     val prepared = ResearchApi.prepare(spec, BaselineCatalog.legacy).fold(error => fail(error), identity)
     prepared.apiVersion shouldBe ResearchApi.Version
     prepared.baseline.id shouldBe BaselineCatalog.LegacyDefaultsId
+    prepared.baseline.contentDigest shouldBe BaselineCatalog.legacy.list.head.contentDigest
+    prepared.seedStart shouldBe spec.seedStart
+    prepared.seeds shouldBe spec.seeds
+    prepared.months shouldBe spec.months
+    prepared.runId shouldBe spec.runId
     prepared.scenarios.map(_.id) should contain("monetary-tightening")
   }
 

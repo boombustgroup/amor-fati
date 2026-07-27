@@ -1,6 +1,6 @@
 package com.boombustgroup.amorfati.research
 
-import com.boombustgroup.amorfati.config.{BaselineCatalog, BaselineRef, PreparedScenario, ScenarioRef, ScenarioRegistry}
+import com.boombustgroup.amorfati.config.{BaselineCatalog, BaselineRef, ScenarioRef, ScenarioRegistry}
 
 /** Pre-release, typed boundary for researcher experiment construction.
   *
@@ -28,12 +28,14 @@ object ResearchApi:
   final case class PreparedExperiment(
       apiVersion: String,
       baseline: com.boombustgroup.amorfati.config.BaselineManifest,
-      scenarios: Vector[PreparedScenario],
+      scenarios: Vector[PreparedScenarioView],
       seedStart: Long,
       seeds: Int,
       months: Int,
       runId: String,
   )
+
+  final case class PreparedScenarioView(id: String, label: String, scenarioId: Option[String])
 
   def prepare(spec: ExperimentSpec, catalog: BaselineCatalog): Either[String, PreparedExperiment] =
     for
@@ -41,4 +43,12 @@ object ResearchApi:
       scenarioSpecs  <- spec.scenarios.foldLeft[Either[String, Vector[com.boombustgroup.amorfati.config.ScenarioRegistry.ScenarioSpec]]](Right(Vector.empty)):
         (acc, ref) => acc.flatMap(selected => ScenarioRegistry.get(ref.id.value).map(selected :+ _))
       scenarios      <- ScenarioRegistry.prepare(baselineBundle, scenarioSpecs).left.map(_.toString)
-    yield PreparedExperiment(Version, baselineBundle.manifest, scenarios, spec.seedStart, spec.seeds, spec.months, spec.runId)
+    yield PreparedExperiment(
+      Version,
+      baselineBundle.manifest,
+      scenarios.map(run => PreparedScenarioView(run.id, run.label, run.scenario.map(_.id.value))),
+      spec.seedStart,
+      spec.seeds,
+      spec.months,
+      spec.runId,
+    )
