@@ -479,6 +479,11 @@ object PopulationControlSchema:
       val labourMarginTolerance               = combinedTolerance(bundle.demographicLabour, bundle.regionalLabour)
       val employmentTolerance                 = combinedTolerance(bundle.regionalLabour, bundle.employment)
 
+      val personToDemographicReconciliation =
+        if bundle.demographicLabour.metadata.statisticalUniverse == bundle.persons.metadata.statisticalUniverse then
+          reconcileMaps("person-to-demographic-labour", personBySexAge, demographicLabourBySexAge, personLabourTolerance)
+        else Vector.empty
+
       Vector(
         Reconciliation(
           "private-person-membership",
@@ -488,7 +493,7 @@ object PopulationControlSchema:
         ),
       ) ++
         reconcileMaps("household-member-capacity", householdCapacityByComposition, membershipByComposition, householdMembershipTolerance) ++
-        reconcileMaps("person-to-demographic-labour", personBySexAge, demographicLabourBySexAge, personLabourTolerance) ++
+        personToDemographicReconciliation ++
         reconcileMaps("person-to-regional-labour", personByRegion, regionalLabourByRegion, regionalLabourTolerance) ++
         reconcileMaps("demographic-to-regional-labour", demographicLabourByStatus, regionalLabourByStatus, labourMarginTolerance) ++
         reconcileMaps("employed-residents-to-primary-job-assignments", employedByRegion, primaryAssignmentsByResidenceRegion, employmentTolerance)
