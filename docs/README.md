@@ -72,6 +72,7 @@ as the operational entry point.
 | [docs/institutional-sector-equations.md](institutional-sector-equations.md) | Canonical reviewer spine | Paper-facing public, monetary, external, insurance, NBFI, TFI, quasi-fiscal, and JST equations. |
 | [docs/model-card.md](model-card.md) | Canonical reviewer spine | Intended use, uses outside scope, evidence status, known limitations, reproducibility, and responsible interpretation. |
 | [docs/model-constants-inventory.md](model-constants-inventory.md) | Architecture | Inventory and release triage for production constants, embedded assumptions, initialization policy, and core invariants. |
+| [docs/model-constants-audit.tsv](model-constants-audit.tsv) | Generated evidence | Reproducibility metadata and aggregate counts for the production package constants audit. |
 | [docs/model-notation-and-state-vector.md](model-notation-and-state-vector.md) | Canonical reviewer spine | Canonical notation, state-vector definitions, symbols, ownership boundaries, and implementation anchors. |
 | [docs/population-control-bundle.md](population-control-bundle.md) | Architecture | Data-only TSV format, integrity rules, source metadata, and reconciliation boundary for the population-control baseline component. |
 | [docs/rfc/README.md](rfc/README.md) | Design proposal / RFC | Index and lifecycle policy for active, implemented, and superseded RFCs. |

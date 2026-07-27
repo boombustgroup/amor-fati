@@ -1,0 +1,2 @@
+audit_date	source_commit	tool	query_set	package_directories	pass_1_matches	pass_2_matches	pass_3_matches	pass_4_matches	pass_5_matches
+2026-07-27	a75cf293	rg+find	package-constants-v3	49	354	538	206	595	1046

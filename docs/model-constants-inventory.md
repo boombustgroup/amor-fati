@@ -49,6 +49,8 @@ multiple places.
 | `flow-and-ledger-guards` | `engine/flows`, `ledger`, `accounting` | Tolerances, zero states, rounding and conservation guards | `structural_invariant` | Core implementation | Core contracts and tests | Do not move into economic baseline | `open` |
 | `initial-zero-states` | `WorldStateSegments.scala`, `FlowState.scala`, mechanism state objects | Empty stocks, counters, and initial mechanism states | `structural_invariant` | `*.zero`, `*.initialState` | Core state constructors | Verify no economic calibration is hidden in zero constructors | `open` |
 | `scenario-defaults` | `ScenarioRegistry.scala`, `RobustnessScenarios.scala`, CLI diagnostics | Baseline patches and scenario defaults | `test_or_diagnostic` / `model_parameter` | `SimParams.defaults` and scenario code | Research scenario registry | Require explicit baseline and versioned scenario IDs | `open` |
+| `baseline.manifest` | `amor-fati-economies/artifacts/PL/PL-2025-Q4-v1/population-controls/manifest.tsv`, `PopulationControlBundleLoader.Manifest` | Baseline identity, population scope, component digest, classifications, and provenance gate | `empirical_input` / `structural_invariant` | Versioned economy artifact and core loader contract | Baseline manifest plus Research API result manifest | Pin digest, schema, source vintage, and selected baseline before runtime initialization | `open` |
+| `population-to-workplace-bridge` | `amor-fati-economies` population/employment controls; target `PopulationRepresentation` and workplace compiler | Typed person-to-workplace relation and represented workplace quantity | `initialization_policy` / `empirical_input` | Synthetic bridge constrained by employment controls | P0 population/workplace compilation contract | Define one Workplace-to-Enterprise link, units, residuals, and reconciliation evidence | `open` |
 | `eu-funds-envelope` | `engine/mechanisms/EuFunds.scala` | Poland-scale reference firm count and fund envelope scaling | `empirical_input` / `model_parameter` | Embedded `ReferenceEconomy` and configured totals | Baseline exogenous-assumptions component | Move the reference scale to the selected baseline; keep draw-down timing as policy | `open` |
 | `flow-account-indices` | `engine/flows/ZusFlows.scala`, `BankingFlows.scala`, and related flow modules | Numeric account identifiers used by ledger topology | `structural_invariant` | Core constants | Ledger contract | Keep in core, but replace duplicated literals with typed account identifiers | `open` |
 | `flow-fallback-rates` | `engine/flows/InsuranceFlows.scala`, `JstFlows.scala`, and related emitters | Fallback shares/rates used when an aggregate is zero or unavailable | `model_parameter` / `structural_invariant` | Embedded fixed-point constants | Model policy with explicit fallback evidence | Inventory each fallback and test that it cannot silently become a baseline input | `open` |
@@ -90,9 +92,11 @@ multiple places.
 ## Existing Evidence
 
 `CalibrationProvenance.scala` is the current detailed register for many
-parameter-level claims. Its statuses (`ASSUMED`, `TUNED_NEEDS_VALIDATION`,
-`EMPIRICAL_TRANSFORMED`, and similar) should be copied into the future
-machine-readable baseline inventory rather than retyped manually.
+parameter-level claims. Its accepted status tokens are `EMPIRICAL`,
+`EMPIRICAL_TRANSFORMED`, `ASSUMED`, `TUNED_NEEDS_VALIDATION`, `POLICY_SCENARIO`,
+`PLACEHOLDER`, and `UNKNOWN_SOURCE`. Future machine-readable inventory rows
+must use one of these exact tokens and be checked by the corresponding parser
+and tests.
 
 The inventory is not complete until every production symbol reachable from
 `WorldInit`, `SimParams`, configuration objects, and opening-state factories is
@@ -143,7 +147,36 @@ taxonomy/rejection gates. These values can materially change a run even when no
 economic number changes, so they must be versioned or explicitly classified as
 core invariants.
 
+## Audit Metadata
+
+- Scan date: 2026-07-27.
+- Source commit: `a75cf293`.
+- Audit tool: `rg` package scans executed from the repository root.
+- Query definition: five passes for each production package covering dates and
+  vintages; collection and registry literals; units and classifications;
+  filesystem and environment defaults; and seeds and determinism.
+- Package manifest: the 49 package-directory records under
+  `modules/*/src/main/scala` enumerated by `find`.
+- Checked-in report: [model-constants-audit.tsv](model-constants-audit.tsv).
+
+The source commit and query definition make the counts reproducible; a future
+rerun must update this metadata and replace stale counts rather than silently
+appending a new claim.
+
 ## Completion Rule
+
+A row is closed only when every production symbol in the audited package set,
+and every symbol reachable from `WorldInit`, `SimParams`, configuration objects,
+and opening-state factories, is either linked to an inventory row or listed as
+an authoritative exclusion. Each closed row must have:
+
+1. a typed owner;
+2. a unit and scope;
+3. a source or an explicit model-policy rationale;
+4. a version/effective period where applicable;
+5. a validation or reconciliation check; and
+6. a migration decision: baseline artifact, model policy, invariant, test-only,
+   or deletion.
 
 ## Release Triage
 
@@ -153,9 +186,9 @@ release.
 
 | Priority | Meaning | Default target |
 | --- | --- | --- |
-| `P0` | Required to construct and validate the first published Polish population/baseline slice. | `PL-2025-Q4-v1` |
+| `P0` | Required to construct and validate the first published Polish population/baseline slice. | `PL-2025-Q4-v1` (historical milestone; implementation target) |
 | `P1` | Required for reproducible researcher execution and result interpretation. | `research-api-v0` |
-| `P2` | Important economic coverage, but not required for the first end-to-end population run. | `PL-2025-Q4-v2` |
+| `P2` | Important economic coverage, but not required for the first end-to-end population run. | `PL-2025-Q4-v2` (historical milestone; deferred target) |
 | `P3` | Core invariant, runtime concern, diagnostic-only value, or explicit removal work. | `core-invariant-v1`, `runtime-profile-v1`, or `legacy-removal` |
 
 ### P0 — `PL-2025-Q4-v1`
@@ -208,13 +241,3 @@ Defer these until the first baseline-backed run exists:
 All rows not named in P0 or P1 are now considered deferred rather than active
 blockers. They remain in the inventory so they cannot be forgotten, but they do
 not expand the first implementation slice.
-
-A row may be closed only when it has:
-
-1. a typed owner;
-2. a unit and scope;
-3. a source or an explicit model-policy rationale;
-4. a version/effective period where applicable;
-5. a validation or reconciliation check; and
-6. a migration decision: baseline artifact, model policy, invariant, test-only,
-   or deletion.
