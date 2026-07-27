@@ -149,19 +149,20 @@ an authoritative exclusion. Each closed row must have:
 
 ## Release Triage
 
-`target_release` is the release by which a row must have an explicit owner and
-contract. It does not mean that every row becomes empirical data in that
-release. The historical PL-2025-Q4-v1 and PL-2025-Q4-v2 identifiers are retained
-only as provenance; current implementation targets are listed separately.
+`target_release` is the release or milestone by which a row must have an
+explicit owner and contract. A baseline identifier is not a calendar date: its
+quarter identifies the data vintage, while its version identifies the artifact
+revision. The PL-2025-Q4-v1 and PL-2025-Q4-v2 identifiers therefore remain the
+actual baseline milestones rather than being replaced by invented future IDs.
 
 | Priority | Meaning | Default target |
 | --- | --- | --- |
-| `P0` | Required to construct and validate the first published Polish population/baseline slice. | `PL-2026-Q3-v1` (current implementation target; provenance baseline: `PL-2025-Q4-v1`) |
+| `P0` | Required to construct and validate the first published Polish population/baseline slice. | `PL-2025-Q4-v1` |
 | `P1` | Required for reproducible researcher execution and result interpretation. | `research-api-v0` |
-| `P2` | Important economic coverage, but not required for the first end-to-end population run. | `PL-2026-Q4-v1` (current deferred target; provenance milestone: `PL-2025-Q4-v2`) |
+| `P2` | Important economic coverage, but not required for the first end-to-end population run. | `PL-2025-Q4-v2` |
 | `P3` | Core invariant, runtime concern, diagnostic-only value, or explicit removal work. | `core-invariant-v1`, `runtime-profile-v1`, or `legacy-removal` |
 
-### P0 — `PL-2026-Q3-v1` (provenance baseline: `PL-2025-Q4-v1`)
+### P0 — `PL-2025-Q4-v1`
 
 These are the only families that currently block the first baseline-backed
 population run:
@@ -186,7 +187,7 @@ These are required before calling the system a reproducible research tool:
 - `monte-carlo-sampling`, `monte-carlo-output-layout`;
 - `calibration-export-contracts` and `error-taxonomy-and-gates`.
 
-### P2 — `PL-2026-Q4-v1` (provenance milestone: `PL-2025-Q4-v2`)
+### P2 — `PL-2025-Q4-v2`
 
 Defer these until the first baseline-backed run exists:
 
