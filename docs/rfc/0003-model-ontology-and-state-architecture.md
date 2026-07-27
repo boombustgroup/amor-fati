@@ -58,6 +58,9 @@ have narrower responsibilities:
   or rewriting the verified accounting and scientific infrastructure.
 - [ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md)
   records the accepted first-target ontology and semantic resolution choices.
+- [ADR-0012](../adr/0012-synthetic-workplace-for-first-target-employment.md)
+  resolves the first-target synthetic workplace used by employment without
+  promoting empirical establishments or local units.
 - [ADR-0004](../adr/0004-ledger-owned-financial-state.md) records the single-owner
   rule for supported ledger-backed financial stocks.
 - [State and ledger boundary](../architecture/state-and-ledger-boundary.md)
@@ -185,7 +188,7 @@ behavior:
 
 - baseline manifest, classification catalogs, representation modes, weights,
   and stable-ID policy;
-- `PersonTable`, `HouseholdTable`, and `EnterpriseTable`;
+- `PersonTable`, `HouseholdTable`, `EnterpriseTable`, and `WorkplaceTable`;
 - household membership and employment relations;
 - existing social and production networks in compact indexed storage;
 - explicit opening deposit-account and credit-contract assignments for the
@@ -330,10 +333,15 @@ controlled stratum; a declared systemic enterprise may have weight one.
 
 Legal units, enterprise groups, establishments, and local units are not
 separately resolved first-target units. A group is an ownership/control layer,
-not an additional ordinary enterprise. Establishments or local units become
-separate units only when regional production, site-level employment, or
-capacity is behaviorally required. The baseline must record the crosswalk and
-consolidation rules rather than silently mixing these universes.
+not an additional ordinary enterprise. ADR-0012 nevertheless requires exactly
+one synthetic `Workplace` per enterprise in the first target. It is the model's
+labor and production locus, not a legal establishment, local unit, or observed
+site. Its modeled location may be initialized from a baseline-declared
+entity-seat proxy. Separate establishments, local units, or multiple workplaces
+per enterprise require later promotion when regional production, site-level
+employment, or capacity is behaviorally required. The baseline must record the
+crosswalk, location-evidence class, and consolidation rules rather than
+silently mixing these universes.
 
 Enterprise state includes operational status, sector, size, region, technology,
 production, inventories, capital, pricing, distress, and lifecycle. Employment,
@@ -409,7 +417,7 @@ The target relationship families are:
 | Relationship | Parties | Minimum semantic state |
 | --- | --- | --- |
 | Household membership | Person to household | Role, start/end boundary, represented quantity where weighted. |
-| Employment | Person or labor cohort to enterprise or establishment | Contract type, job quantity, wage terms, sector, start/end, status. |
+| Employment | Person or labor cohort to workplace | Contract type, job quantity, wage terms, sector, start/end, status. The workplace resolves to its operating enterprise through a typed foreign key. |
 | Residency and migration episode | Person to geography | Usual-residence status, origin, destination, start/end, migration reason where modeled. |
 | Tenure or occupancy | Household to dwelling or housing cohort | Owner/tenant/other tenure, housing cost, start/end. |
 | Enterprise ownership | Owner unit to enterprise | Stake or control share, ownership class, listed/private status, start/end. |
@@ -571,7 +579,8 @@ SimulationState
 |-- PopulationState
 |   |-- PersonTable
 |   |-- HouseholdTable
-|   `-- EnterpriseTable
+|   |-- EnterpriseTable
+|   `-- WorkplaceTable
 |-- InstitutionalState
 |   |-- FinancialInstitutionState
 |   |-- PublicInstitutionState
@@ -634,8 +643,8 @@ output. Only validated closing state is published as the next boundary.
 The following are high-cardinality or naturally batch-processed and should use
 structure-of-arrays, compact typed columns, or indexed edge storage:
 
-- persons, households, and ordinary enterprises;
-- household membership, employment, and enterprise ownership;
+- persons, households, ordinary enterprises, and workplaces;
+- household membership, person-to-workplace employment, and enterprise ownership;
 - deposit accounts, credit contracts, and security positions when resolved;
 - social, production, and other variable-degree networks;
 - high-cardinality real assets when enabled;
@@ -914,7 +923,9 @@ The new core may replace the current engine only when all gates pass:
 ## Decision Inventory
 
 The semantic portions of items 1 through 9, 12, and 13 are resolved in
-[ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md).
+[ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md);
+item 14 is resolved in
+[ADR-0012](../adr/0012-synthetic-workplace-for-first-target-employment.md).
 Their code audit and resolution history remain in the
 [ontology audit matrix](0003-model-ontology-matrix.md#decision-register).
 Allocator APIs and encodings under items 1 and 2, mutation strategy under item
@@ -947,6 +958,8 @@ Research API work.
     enterprise and consolidated synthetic financial counterparty, excluding
     legal units, enterprise groups, establishments, and local units as
     separately represented units.
+14. Whether a workplace is a first-target synthetic model unit, how it relates
+    to an enterprise, and how v1 discloses entity-seat-proxy location evidence.
 
 ## Implementation Anchors
 

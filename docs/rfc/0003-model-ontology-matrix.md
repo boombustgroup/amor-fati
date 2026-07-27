@@ -1,6 +1,6 @@
 # RFC-0003 Companion: Model Ontology Audit Matrix
 
-Status: Semantic decisions complete; recorded by [ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md)
+Status: Semantic decisions complete; recorded by [ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md) and [ADR-0012](../adr/0012-synthetic-workplace-for-first-target-employment.md)
 Audit base: `main` at `9dce4256`
 Owning RFC: [RFC-0003](0003-model-ontology-and-state-architecture.md)
 
@@ -24,10 +24,10 @@ Resolution labels used below:
 | --- | --- |
 | Observed | Description of current code, not a target decision. |
 | Target invariant | Already required by an accepted ADR or an unambiguous model invariant. |
-| ADR-aligned detail | Detailed target mapping consistent with ADR-0011; it may evolve in its owning downstream gate without changing the accepted semantic boundary. |
+| ADR-aligned detail | Detailed target mapping consistent with the accepted ontology ADRs; it may evolve in its owning downstream gate without changing the accepted semantic boundary. |
 | Owner decision | Economic or scientific choice that requires explicit acceptance. |
-| Owner accepted | Explicitly chosen for the RFC target and canonicalized by ADR-0011. |
-| RFC resolved | Technical or semantic choice fixed from code evidence and accepted constraints, then canonicalized by ADR-0011. |
+| Owner accepted | Explicitly chosen for the RFC target and canonicalized by an accepted ADR. |
+| RFC resolved | Technical or semantic choice fixed from code evidence and accepted constraints, then canonicalized by an accepted ADR. |
 | Deferred | Valid ontology family whose higher resolution is outside the first target. |
 
 ## Runtime Ownership Audit
@@ -50,7 +50,8 @@ Resolution labels used below:
 | --- | --- | --- | --- | --- | --- |
 | Person | No separate unit. Labor status, wage, education, skill, immigration, region, and distress sit on `Household.State`. | Demographic, residency, education, labor-supply, and pension-eligibility unit with `PersonId`. | Weighted synthetic unit | Person and household meaning are conflated. | ADR-aligned detail |
 | Household | `Household.State` is described as an individual household but behaves partly as one worker plus dependent-child count. | Co-resident consumption, pooled-finance, housing, and retail-credit unit with `HouseholdId`. | Weighted synthetic unit | Membership and household composition are absent. | ADR-aligned detail |
-| Enterprise | `FirmState`; currently one operating firm row with sector, region, technology, capital, and networks. | Eurostat-aligned statistical enterprise and consolidated synthetic financial counterparty. Legal units, groups, establishments, and local units are distinct but unresolved levels. | Weighted synthetic unit; declared systemic enterprises may use weight one | The current statistical universe, consolidation boundary, and weight are implicit. | Owner accepted |
+| Enterprise | `FirmState`; currently one operating firm row with sector, region, technology, capital, and networks. | Eurostat-aligned statistical enterprise and consolidated synthetic financial counterparty. Legal units, groups, establishments, and local units remain unresolved levels. | Weighted synthetic unit; declared systemic enterprises may use weight one | The current statistical universe, consolidation boundary, and weight are implicit. | Owner accepted |
+| Workplace | Absent; employment embeds `firmId` on the household row. | Synthetic labor and production locus with `WorkplaceId`, operating `EnterpriseId`, sector, modeled location, operational status, and baseline location evidence. | Exactly one workplace per ordinary enterprise, with the same represented quantity | No separate site or establishment model exists; a workplace must not be read as an empirical worksite. | Owner accepted |
 | Commercial bank | Ten named/archetype `BankState` rows plus aligned ledger balances. | Deposit-taking institutional unit with stable `BankId`. | Named unit, weight one | `BankId` is also a vector index; stable identity and row position are conflated. | Owner accepted |
 | NBP | One `Nbp.State` plus ledger-owned bond, FX-asset, and reserve-liability balances. | Central-bank institutional unit. | Named aggregate singleton, weight one | Policy state and financial positions are split correctly but lack a shared stable unit identity. | Owner accepted |
 | Central government | One `FiscalBudget.GovState` plus government ledger balances. | Central-government institutional unit with explicit consolidation policy. | Named aggregate singleton | Fiscal-rule debt metric and holder-resolved bond principal require a declared reconciliation relation. | Owner accepted |
@@ -72,7 +73,7 @@ Resolution labels used below:
 | Family | Current encoding | Target semantic contract | First-target representation | Resolution |
 | --- | --- | --- | --- | --- |
 | Household membership | Absent; dependent children are a count on `Household.State`. | Person-to-household relation with role, interval, and represented quantity. | Dedicated indexed relation | ADR-aligned detail |
-| Employment | `HhStatus.Employed(firmId, sectorIdx, wage)` embeds employer, sector, and wage on the household row. | Person/labor-cohort to enterprise relation with contract, job quantity, wage terms, and lifecycle. | Dedicated relation; sector derived from employer unless explicitly job-specific | ADR-aligned detail |
+| Employment | `HhStatus.Employed(firmId, sectorIdx, wage)` embeds employer, sector, and wage on the household row. | Person/labor-cohort to workplace relation with contract, job quantity, wage terms, and lifecycle; the operating enterprise is resolved through the workplace. | Dedicated relation; sector derived from workplace unless explicitly job-specific | ADR-aligned detail |
 | Labor inactivity and retirement | Retirees and working-age population are aggregate `DemographicsState`; no person status. | Person activity state and pension relation; aggregate counts are derived. | Person columns plus optional entitlement relation | ADR-aligned detail |
 | Residency and migration | `isImmigrant`, household region, and aggregate immigrant stock/flows. | Person-to-geography residence episode with usual-residence semantics and interval. | Person state plus migration events | ADR-aligned detail |
 | Household dependency | `numDependentChildren` count. | Membership roles and age determine dependent status; fiscal eligibility is a derived rule. | Derived from membership/person state | ADR-aligned detail |
@@ -223,6 +224,7 @@ encoding and notebook ergonomics are deliberately excluded.
 | O-11 | Snapshot/query cadence | Research API decision after the semantic vocabulary and authoritative sources are fixed. | 11 | Deferred to RFC-0002 |
 | O-12 | Resolution promotion | Require a research question, empirical controls, reconciliation, lifecycle semantics, and validation evidence before promoting an aggregate family. | 12 | RFC resolved |
 | O-13 | Domestic firm statistical unit | A row represents a Eurostat-aligned statistical enterprise and consolidated synthetic financial counterparty. Legal units, enterprise groups, establishments, and local units are not separate first-target units. | 13 | Owner accepted, 2026-07-20 |
+| O-14 | Synthetic workplace | `Workplace` is a synthetic model unit. In v1 it is one-to-one with an enterprise, has the same represented quantity, and exposes modelled location with entity-seat-proxy provenance; it is not an empirical establishment or worksite. | 14 | Owner accepted, 2026-07-24 |
 
 ### Accepted Resolution for O-03 and O-06
 
@@ -328,14 +330,29 @@ promoted to resolved units or contracts only when a research question,
 empirical controls, reconciliation, lifecycle semantics, and validation
 evidence justify the additional resolution.
 
+### Accepted Resolution for O-14
+
+`Workplace` is a first-target synthetic labor and production locus, not a
+legal establishment, local unit, registered seat, or observed physical
+worksite. It is created and retired with its operating enterprise in v1, and
+the one-to-one link carries the same represented quantity. A person or labor
+cohort's primary employment relation targets this workplace; firm-level
+financial and ownership effects continue to target the enterprise. The
+baseline records how the workplace location was initialized, including the
+`entity-seat proxy` used by `PL-2025-Q4-v1`.
+
+Multiple workplaces per enterprise, actual-workplace evidence, commuting, and
+site-level capacity require resolution promotion under O-12.
+
 ## Semantic-Ready Gate
 
 Decision status: complete and canonicalized by
-[ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md).
+[ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md)
+and [ADR-0012](../adr/0012-synthetic-workplace-for-first-target-employment.md).
 
 The ontology is ready for a Research API decision when:
 
-1. O-01 through O-09, O-12, and O-13 are owner-accepted, RFC-resolved,
+1. O-01 through O-09 and O-12 through O-14 are owner-accepted, RFC-resolved,
    covered by an accepted ADR, or explicitly revised as appropriate.
 2. Every first-target unit and relationship has a representation mode and stable
    identity policy.

@@ -185,11 +185,14 @@ person economically inactive.
 A firm is an enterprise or explicit enterprise archetype. It contains sector,
 size class, region, ownership class, legal form where relevant, production and
 capital state, and financial contracts. Employment is linked through explicit
-person-to-firm relationships or weighted job allocations.
+person-to-workplace relationships or weighted job allocations. In the first
+target each firm operates exactly one synthetic workplace; the firm remains the
+financial counterparty and owner of productive assets.
 
-The baseline must declare whether a row represents an enterprise, local unit,
-or establishment. Mixing those universes produces invalid firm counts and
-employment ratios.
+The baseline must declare the enterprise statistical universe and must not mix
+enterprise, local-unit, or establishment counts. In v1 it separately declares
+the provenance used to initialize the synthetic workplace location. Mixing
+those universes produces invalid firm counts and employment ratios.
 
 ### Financial Institution
 
@@ -274,8 +277,9 @@ CompiledPopulation
 |-- PersonTable                       columnar person state
 |-- HouseholdTable                    columnar household state
 |-- EnterpriseTable                   columnar ordinary-enterprise state
+|-- WorkplaceTable                    columnar synthetic workplace state
 |-- HouseholdMembershipTable          person-to-household relationships
-|-- EmploymentTable                   person-to-enterprise relationships
+|-- EmploymentTable                   person-to-workplace relationships
 |-- PopulationNetworkStore            compact social and production graphs
 |-- OpeningRelationshipAssignments    typed account, credit, tenure, and ownership inputs
 `-- PopulationManifest                weights, controls, residuals, and provenance
@@ -292,7 +296,7 @@ The ownership rule is:
 
 | State family | Default representation |
 | --- | --- |
-| Persons, households, ordinary enterprises | Dedicated structure-of-arrays tables backed by primitive arrays or equally compact typed columns. |
+| Persons, households, ordinary enterprises, workplaces | Dedicated structure-of-arrays tables backed by primitive arrays or equally compact typed columns. |
 | Employment and membership | Dedicated relationship tables with indexed party columns and represented quantities. |
 | Opening account, credit, tenure, and ownership assignments | Typed compiler output validated against the model-wide relationship and contract schemas. |
 | Social and production networks | Compact adjacency storage such as offsets plus neighbor indices, not one neighbor-array object per agent. |
@@ -316,11 +320,11 @@ the raw representation remains encapsulated inside the storage boundary.
 
 An entity table stores one column per state dimension. For example, a person
 labor state should not be stored as an allocated enum payload such as
-`Employed(firmId, sectorIdx, wage)`. Its runtime representation may use:
+`Employed(workplaceId, sectorIdx, wage)`. Its runtime representation may use:
 
 ```text
 labourStatus       Array[Byte]
-employerIndex      Array[Int]
+workplaceIndex     Array[Int]  // typed WorkplaceId index
 sectorIndex        Array[Byte]
 wageRaw            Array[Long]  // fixed-point PLN backing units; exposed as PLN
 unemployedMonths   Array[Int]
@@ -415,9 +419,10 @@ compilation. It should contain:
   labor-force dimensions;
 - household controls for size, composition, tenure, income, and financial
   products;
-- enterprise controls by sector, size, registered-seat region, ownership, and
-  employment, with the source-measure and workplace-bridge boundary recorded in
-  the [enterprise-control acquisition record](../baselines/pl-2025-q4-v1-enterprise-controls.md);
+- enterprise and workplace-initialization controls by sector, size,
+  entity-seat geography, ownership, and employment, with explicit
+  location-evidence class and person-universe bridge recorded in the
+  [enterprise-control acquisition record](../baselines/pl-2025-q4-v1-enterprise-controls.md);
 - an explicit sector-classification bridge into Amor Fati sectors;
 - named or archetypal financial institutions and their opening profiles;
 - national-accounts and financial-accounts totals; and
@@ -481,9 +486,10 @@ reconciliation cells; it is not the legacy runtime's seven regional markets.
    demographic and regional reconciliation, and remain excluded from BAEL
    denominators; and
 5. employed residents by residence TERYT voivodeship and represented primary
-   employment assignments by workplace TERYT voivodeship and model production
-   sector, with one main assignment per employed resident, an origin-destination
-   commuting bridge, or an explicit no-commuting limitation.
+   employment assignments to synthetic workplaces by model production sector.
+   Each employed resident has one main assignment. In v1, workplace location is
+   initialized through a baseline-declared entity-seat proxy; no commuting
+   control is implied or claimed.
 
 Resident-person totals, private- and collective-household totals, labor
 identities, and primary-employment-assignment reconciliation are hard controls subject only to
@@ -641,8 +647,11 @@ representation policy, and random seed:
    constrained synthesis that satisfies both household-level and person-level
    controls.
 5. Generate the firm population from joint sector, size, region, ownership,
-   and employment controls.
-6. Match employed persons to exactly one weighted primary firm employment
+   and employment controls, then create exactly one typed `Workplace ->
+   Enterprise` link for each synthetic workplace using its declared
+   location-evidence class. Copy the linked enterprise's represented quantity
+   into the workplace representation weight before employment assignment.
+6. Match employed persons to exactly one weighted primary workplace employment
    assignment; keep unemployed and inactive populations distinct.
 7. Assign deposit accounts, mortgages, consumer loans, firm loans, and other
    financial contracts using product-specific empirical controls.
@@ -663,9 +672,11 @@ attempt to reproduce every actual Polish company.
 Ordinary firms should be synthetic and disclosure-safe, but the weighted joint
 population must reproduce the reference economy. Size should be conditional on
 sector and region; ownership should be conditional where the data supports it;
-and weighted job capacity must reconcile with employment. Independent draws
-from national sector, size, and region marginals are insufficient because they
-can create combinations that do not resemble the empirical economy.
+and weighted primary-workplace employment assignments must reconcile with the
+declared employment controls. This synthetic allocation is not a claim of
+observed job capacity. Independent draws from national sector, size, and region
+marginals are insufficient because they can create combinations that do not
+resemble the empirical economy.
 
 Every nonzero hard-control stratum is preserved by the compiler, using a smaller
 weight where necessary rather than allowing a rare cell to disappear. A
@@ -683,7 +694,8 @@ opening relations:
 
 ```text
 Person --member-of--> Household
-Person --employment-contract--> Firm
+Person --employment--> Workplace
+Workplace --operated-by--> Firm
 Household --deposit-account--> Bank
 Household --mortgage-contract--> Bank
 Household --consumer-loan-contract--> Bank
@@ -863,6 +875,7 @@ indexes, views, and the data-oriented implementation boundary.
 | P-07 | Tourism resolution | Aggregate inbound receipts and outbound expenditure only; visitor cohorts are outside the first target. | Accepted through ADR-0011 |
 | P-08 | Stable IDs and population allocation | Stable family-specific typed IDs are accepted by ADR-0011. Concrete slot allocation, reuse, compaction, and relationship-rewrite encoding are deferred to RFC-0003's physical gate. | Semantic boundary accepted; physical design deferred |
 | P-09 | Mutation and buffering | Atomic month publication is required. Per-column double buffering, change sets, and validated in-place mutation are deferred to RFC-0003's physical gate and observed Research API access patterns. | Semantic boundary accepted; physical design deferred |
+| P-10 | Employment workplace | Primary employment targets a synthetic workplace. V1 creates one workplace per enterprise, with the same represented quantity and baseline-declared entity-seat-proxy location evidence; it does not claim an observed establishment or commuting pattern. | Accepted through ADR-0012 |
 
 ## Semantic-Ready Gate
 
@@ -872,11 +885,13 @@ P-06 through P-08 inherit their relationship, resolution, and stable-identity
 boundaries from
 [ADR-0011](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md),
 while P-09 inherits atomic month publication from
-[ADR-0002](../adr/0002-explicit-month-boundary.md). The remaining P-08 and P-09
-choices are physical encodings and do not block the semantic-ready gate. This
-RFC remains active while the baseline bundle, compiler, physical population
-tables, lifecycle transitions, reconciliation, and validation evidence are
-implemented.
+[ADR-0002](../adr/0002-explicit-month-boundary.md). P-10 inherits the synthetic
+workplace boundary from
+[ADR-0012](../adr/0012-synthetic-workplace-for-first-target-employment.md).
+The remaining P-08 and P-09 choices are physical encodings and do not block the
+semantic-ready gate. This RFC remains active while the baseline bundle,
+compiler, physical population tables, lifecycle transitions, reconciliation,
+and validation evidence are implemented.
 
 ## References
 
@@ -886,3 +901,4 @@ implemented.
 - [ADR-0002: Explicit Month Boundary](../adr/0002-explicit-month-boundary.md)
 - [ADR-0008: Explicit Reference Population and Representation Scale](../adr/0008-explicit-reference-population-and-representation-scale.md)
 - [ADR-0011: First-Target Model Ontology and Resolution Boundaries](../adr/0011-first-target-model-ontology-and-resolution-boundaries.md)
+- [ADR-0012: Synthetic Workplace for First-Target Employment](../adr/0012-synthetic-workplace-for-first-target-employment.md)

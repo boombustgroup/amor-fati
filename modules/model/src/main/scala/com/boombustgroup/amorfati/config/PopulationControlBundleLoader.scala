@@ -94,6 +94,7 @@ object PopulationControlBundleLoader:
   final case class Manifest(
       schemaVersion: Int,
       baseline: BaselineRef,
+      populationScope: PopulationScope,
       populationControlsDigest: PopulationControlsDigest,
       classifications: Classifications,
   )
@@ -136,7 +137,7 @@ object PopulationControlBundleLoader:
         LoadError.PopulationControlsDigestMismatch(manifest.populationControlsDigest, actualDigest),
       )
       tableMetadata <- readTableMetadata(snapshot, manifest.classifications)
-      controls      <- readControls(snapshot, manifest.classifications, tableMetadata)
+      controls      <- readControls(snapshot, manifest.classifications, tableMetadata, manifest.populationScope)
       validation     = Validator.validate(controls)
       _             <- Either.cond(validation.isValid, (), LoadError.ControlValidationFailed(validation.errors))
     yield Loaded(manifest, controls, validation)
@@ -149,6 +150,7 @@ object PopulationControlBundleLoader:
       Vector(
         "schema_version",
         "baseline_id",
+        "population_scope",
         "population_controls_digest",
         "region_classification_id",
         "region_classification_version",
@@ -159,14 +161,15 @@ object PopulationControlBundleLoader:
       ),
     ).flatMap: row =>
       for
-        schemaVersion <- requiredInt(row, "schema_version").left.map(detail => LoadError.InvalidManifest(path, detail))
-        baselineId    <- row.required("baseline_id").flatMap(BaselineId.from).left.map(detail => LoadError.InvalidManifest(path, detail))
-        digest        <- row.required("population_controls_digest").flatMap(parseControlsDigest).left.map(detail => LoadError.InvalidManifest(path, detail))
-        regionRef     <- classificationRef(row, "region_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
-        ageRef        <- classificationRef(row, "age_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
-        sectorRef     <- classificationRef(row, "production_sector_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
-        classes       <- readClassifications(snapshot, regionRef, ageRef, sectorRef)
-      yield Manifest(schemaVersion, BaselineRef(baselineId), digest, classes)
+        schemaVersion   <- requiredInt(row, "schema_version").left.map(detail => LoadError.InvalidManifest(path, detail))
+        baselineId      <- row.required("baseline_id").flatMap(BaselineId.from).left.map(detail => LoadError.InvalidManifest(path, detail))
+        populationScope <- row.required("population_scope").flatMap(parsePopulationScope).left.map(detail => LoadError.InvalidManifest(path, detail))
+        digest          <- row.required("population_controls_digest").flatMap(parseControlsDigest).left.map(detail => LoadError.InvalidManifest(path, detail))
+        regionRef       <- classificationRef(row, "region_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
+        ageRef          <- classificationRef(row, "age_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
+        sectorRef       <- classificationRef(row, "production_sector_classification").left.map(detail => LoadError.InvalidManifest(path, detail))
+        classes         <- readClassifications(snapshot, regionRef, ageRef, sectorRef)
+      yield Manifest(schemaVersion, BaselineRef(baselineId), populationScope, digest, classes)
 
   private def readClassifications(
       snapshot: ComponentSnapshot,
@@ -244,6 +247,7 @@ object PopulationControlBundleLoader:
       snapshot: ComponentSnapshot,
       classifications: Classifications,
       metadata: Map[Table, TableMetadata],
+      populationScope: PopulationScope,
   ): Either[LoadError, Bundle] =
     val regions = classifications.regions.map(region => region.value -> region).toMap
     val ages    = classifications.ageBands.map(band => band.code -> band).toMap
@@ -261,7 +265,7 @@ object PopulationControlBundleLoader:
       demographicTable    <- controlTable(snapshot.path(DemographicLabourFile), metadata(Table.DemographicLabour), demographicLabour)
       regionalTable       <- controlTable(snapshot.path(RegionalLabourFile), metadata(Table.RegionalLabour), regionalLabour)
       employmentTable     <- controlTable(snapshot.path(EmploymentFile), metadata(Table.Employment), employment)
-    yield Bundle(classifications, personTable, householdTable, membershipTable, demographicTable, regionalTable, employmentTable)
+    yield Bundle(classifications, personTable, householdTable, membershipTable, demographicTable, regionalTable, employmentTable, populationScope)
 
   private def readPersons(
       snapshot: ComponentSnapshot,
@@ -354,6 +358,7 @@ object PopulationControlBundleLoader:
       "population-control-bundle-v1",
       s"schema_version=${manifest.schemaVersion}",
       s"baseline_id=${manifest.baseline.id}",
+      s"population_scope=${manifest.populationScope}",
       s"region_classification=${manifest.classifications.region.id}@${manifest.classifications.region.version}",
       s"age_classification=${manifest.classifications.age.id}@${manifest.classifications.age.version}",
       s"production_sector_classification=${manifest.classifications.productionSector.id}@${manifest.classifications.productionSector.version}",
@@ -467,6 +472,12 @@ object PopulationControlBundleLoader:
       case "private_household"    => Right(ResidenceType.PrivateHousehold)
       case "collective_residence" => Right(ResidenceType.CollectiveResidence)
       case _                      => Left(s"unknown residence type: $value")
+
+  private def parsePopulationScope(value: String): Either[String, PopulationScope] =
+    value match
+      case "all_usual_residents"         => Right(PopulationScope.AllUsualResidents)
+      case "private_household_residents" => Right(PopulationScope.PrivateHouseholdResidents)
+      case _                             => Left(s"unknown population scope: $value")
 
   private def parseHouseholdComposition(value: String): Either[String, HouseholdComposition] =
     value match

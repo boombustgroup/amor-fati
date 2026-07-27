@@ -33,6 +33,7 @@ historical anchor date, not the date the ADR text was written.
 | [ADR-0009](0009-research-api-as-supported-scientific-interface.md) | Proposed | A versioned Research API is the supported programmatic scientific interface across adapters. |
 | [ADR-0010](0010-managed-almond-jupyter-runtime-and-committed-notebooks.md) | Proposed | Amor Fati supplies a managed Almond/Jupyter kernel and committed executable notebooks. |
 | [ADR-0011](0011-first-target-model-ontology-and-resolution-boundaries.md) | Accepted | The first-target ontology and representation boundaries define units, relationships, contracts, assets, institutions, and promotion rules. |
+| [ADR-0012](0012-synthetic-workplace-for-first-target-employment.md) | Accepted | A synthetic workplace is the first-target labor and production locus; its v1 location provenance is separate from the model ontology. |
 
 ## Format
 
