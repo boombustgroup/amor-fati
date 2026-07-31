@@ -113,7 +113,7 @@ Amor Fati separates state into three broad surfaces:
 The canonical mathematical notation for these surfaces is defined in
 [`docs/model-notation-and-state-vector.md`](model-notation-and-state-vector.md).
 In that notation, the complete month-boundary state is
-`X_t = (m_t, W_t, F_t, H_t, B_t, A^H_t, L_t)`, directly mapped to
+$X_{t} = (m_{t}, W_{t}, F_{t}, H_{t}, B_{t}, A^{H}_{t}, L_{t})$, directly mapped to
 `FlowSimulation.SimState`.
 
 The top-level monthly boundary is `FlowSimulation.SimState`, containing:
@@ -135,7 +135,7 @@ The default scale is:
 - economy: Poland, with explicit rest-of-world sector;
 - time: monthly discrete time steps;
 - firms: 10,000 default firm agents;
-- households: default total population equals `firmsCount * workersPerFirm`,
+- households: default total population equals $\mathrm{firmsCount} \cdot \mathrm{workersPerFirm}$,
   currently 100,000 household agents under default parameters;
 - banks: ten banking-sector rows: PKO BP, Pekao, mBank, ING BSK,
   Santander, BPS/Coop, BNP Paribas, Millennium, Alior, and residual Other
@@ -185,7 +185,7 @@ The high-level order is fixed:
 5. Translate calculated quantities into typed monetary-flow mechanisms.
 6. Emit and execute batched flows through the runtime ledger topology.
 7. Project supported runtime deltas back into ledger-owned financial state.
-8. Run exact SFC validation for the `X_t -> X_tau` transition.
+8. Run exact SFC validation for the $X_{t} \to X_{\tau}$ transition.
 9. Return `StepOutput` with `nextState`, trace, flows, validation, and deltas.
 
 The mathematical transition contract is documented in

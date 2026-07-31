@@ -18,7 +18,7 @@ second reading order; the canonical first-pass path is in
 | Source | Role in the model specification |
 | --- | --- |
 | [Model notation and state vector](model-notation-and-state-vector.md) | Canonical symbols, state vector, time indexing, quantity classes, stochastic notation, and implementation anchors. |
-| [Monthly transition function](monthly-transition-function.md) | Formal `X_t -> X_tau` month-step contract, including randomness, same-month economics, closed-month state, flow emission, runtime ledger execution, SFC validation, and next-pre boundary. |
+| [Monthly transition function](monthly-transition-function.md) | Formal $X_{t} \to X_{\tau}$ month-step contract, including randomness, same-month economics, closed-month state, flow emission, runtime ledger execution, SFC validation, and next-pre boundary. |
 | [Stochastic processes and replay](stochastic-processes-and-replay.md) | Publication-facing randomness contract: initialization streams, month streams, stochastic decision surfaces, Monte Carlo seed policy, deterministic replay, validation, and limitations. |
 | [Household equations](household-equations.md) | Publication-facing household-sector state, income, PIT, transfers, consumption, mortgage service, consumer credit, liquidity shortfall, distress, retraining, remittances, evidence, and limitations. |
 | [Firm equations](firm-equations.md) | Publication-facing firm-sector state, production, P&L, labor, pricing, inventory, investment, technology, financing, default/NPL, entry/exit, evidence, and limitations. |
@@ -78,19 +78,21 @@ attribute, not a continuous spatial coordinate.
 
 The complete month-boundary state is:
 
-```text
-X_t = (m_t, W_t, F_t, H_t, B_t, A^H_t, L_t)
-```
+$$
+\begin{aligned}
+X_{t} &= (m_{t}, W_{t}, F_{t}, H_{t}, B_{t}, A^{H}_{t}, L_{t})
+\end{aligned}
+$$
 
 | Symbol | Runtime field | Meaning |
 | --- | --- | --- |
-| `m_t` | `FlowSimulation.SimState.completedMonth` | completed month index |
-| `W_t` | `FlowSimulation.SimState.world` | macro, market, mechanism, signal, and diagnostic world state |
-| `F_t` | `FlowSimulation.SimState.firms` | firm behavioral state vector |
-| `H_t` | `FlowSimulation.SimState.households` | household behavioral state vector |
-| `B_t` | `FlowSimulation.SimState.banks` | bank operational state vector |
-| `A^H_t` | `FlowSimulation.SimState.householdAggregates` | household aggregate diagnostics and market aggregates |
-| `L_t` | `FlowSimulation.SimState.ledgerFinancialState` | ledger-owned financial balances |
+| $m_{t}$ | `FlowSimulation.SimState.completedMonth` | completed month index |
+| $W_{t}$ | `FlowSimulation.SimState.world` | macro, market, mechanism, signal, and diagnostic world state |
+| $F_{t}$ | `FlowSimulation.SimState.firms` | firm behavioral state vector |
+| $H_{t}$ | `FlowSimulation.SimState.households` | household behavioral state vector |
+| $B_{t}$ | `FlowSimulation.SimState.banks` | bank operational state vector |
+| $A^{H}_{t}$ | `FlowSimulation.SimState.householdAggregates` | household aggregate diagnostics and market aggregates |
+| $L_{t}$ | `FlowSimulation.SimState.ledgerFinancialState` | ledger-owned financial balances |
 
 The state vector intentionally separates:
 
@@ -109,29 +111,38 @@ state-to-code mapping live in
 
 One model month is the transition:
 
-```text
-Phi_tau : (X_t, RND_tau, theta) -> (X_tau, E_tau)
-tau = t + 1
-```
+$$
+\begin{aligned}
+\Phi_{\tau} : (X_{t}, RND_{\tau}, \theta) \to (X_{\tau}, E_{\tau}) \\
+\tau &= t + 1
+\end{aligned}
+$$
 
 where:
 
 | Symbol | Meaning |
 | --- | --- |
-| `X_t` | month-boundary state after completed month `t` |
-| `RND_tau` | explicit month randomness contract |
-| `theta` | model parameter vector, including scenario-adjusted parameters |
-| `Phi_tau` | executable one-month transition implemented by `FlowSimulation.step` |
-| `X_tau` | next month-boundary state |
-| `E_tau` | trace, emitted flows, runtime ledger evidence, SFC validation, diagnostics, and deltas |
+| $X_{t}$ | month-boundary state after completed month `t` |
+| $RND_{\tau}$ | explicit month randomness contract |
+| $\theta$ | model parameter vector, including scenario-adjusted parameters |
+| $\Phi_{\tau}$ | executable one-month transition implemented by `FlowSimulation.step` |
+| $X_{\tau}$ | next month-boundary state |
+| $E_{\tau}$ | trace, emitted flows, runtime ledger evidence, SFC validation, diagnostics, and deltas |
 
 The execution order is:
 
-```text
-pre boundary -> same-month economics -> same-month boundary views
--> semantic closed month and seed extraction -> flow emission
--> runtime ledger execution -> next-pre materialization -> SFC validation gate
-```
+$$
+\begin{aligned}
+\text{pre boundary}
+{} \to \text{same-month economics}
+{} \to \text{same-month boundary views} \\
+{} \to \text{semantic closed month and seed extraction}
+{} \to \text{flow emission} \\
+{} \to \text{runtime ledger execution}
+{} \to \text{next-pre materialization}
+{} \to \text{SFC validation gate}
+\end{aligned}
+$$
 
 Same-month economics calculates decisions, prices, rates, quantities, and
 closing projections. The flow layer translates those quantities into typed
@@ -214,11 +225,13 @@ dividend flow.
 
 The model is deterministic conditional on:
 
-```text
-(X_t, RND_tau, theta)
-```
+$$
+\begin{aligned}
+(X_{t}, RND_{\tau}, \theta)
+\end{aligned}
+$$
 
-`RND_tau` is an explicit `MonthRandomness.Contract`, not ambient global
+$RND_{\tau}$ is an explicit `MonthRandomness.Contract`, not ambient global
 randomness. It derives named streams for household income, firm economics,
 household financial economics, open-economy economics, banking economics, FDI
 M&A, firm entry, startup staffing, and regional migration.

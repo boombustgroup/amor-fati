@@ -8,10 +8,12 @@ fallbacks.
 
 NBFI credit origination is stock-renewal based:
 
-```text
-origination = openingNbfiLoanStock * nbfi.creditBaseRate
-              * (1 + countercyclical * bankTightness)
-```
+$$
+\begin{aligned}
+origination &= openingNbfiLoanStock \cdot \mathrm{nbfi.creditBaseRate} \\
+&\quad \cdot (1 + countercyclical \cdot bankTightness)
+\end{aligned}
+$$
 
 The baseline `nbfi.creditBaseRate` is `0.031` per month. This is calibrated
 against the 36-month scheduled repayment rate and baseline defaults, so NBFI

@@ -4,7 +4,7 @@ Generated artifact. Do not edit by hand; regenerate with `sbt "sfcMatrices --see
 
 # Stock-Flow Reconciliation and Revaluation Evidence
 
-Rows compare independently sourced transaction, revaluation, default, write-off, and other-change channels with observed stock deltas or level identities. Residual is actual minus expected. Displayed monetary columns are macro-scaled PLN (`raw model-scale PLN / SimParams.gdpRatio`) to match Monte Carlo `macroPln`; identity validation remains on raw model-scale fixed-point PLN.
+Rows compare independently sourced transaction, revaluation, default, write-off, and other-change channels with observed stock deltas or level identities. Residual is actual minus expected. Displayed monetary columns are macro-scaled PLN ($\mathrm{rawModelScalePLN} / \mathrm{SimParams.gdpRatio}$) to match Monte Carlo `macroPln`; identity validation remains on raw model-scale fixed-point PLN.
 
 | Identity | Expected (macro PLN) | Actual (macro PLN) | Residual (macro PLN) | Status | Runtime channels | Source |
 | --- | --- | --- | --- | --- | --- | --- |

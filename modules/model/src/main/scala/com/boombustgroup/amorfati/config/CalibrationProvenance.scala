@@ -536,7 +536,7 @@ object CalibrationProvenance:
       """
 | `pop.firmsCount` | `10000` | agents | Simulation design choice | Tractable heterogeneous firm population | Direct | `PopulationConfig` | `ASSUMED` |
 | `pop.workersPerFirm` | `10` | workers/firm normalizer | Simulation design choice | Normalizer for population and `gdpRatio` | Direct | `PopulationConfig` | `ASSUMED` |
-| `household.count` | `firmsCount * workersPerFirm = 100000` | agents | Derived from simulation scale | Household population tied to firm scale | Derived in `SimParams.defaults` | `SimParams` | `ASSUMED` |
+| `household.count` | $\mathrm{firmsCount} \cdot \mathrm{workersPerFirm} = 100000$ | agents | Derived from simulation scale | Household population tied to firm scale | Derived in `SimParams.defaults` | `SimParams` | `ASSUMED` |
 | `pop.firmSizeDist` | `Gus` | enum | 2026-04-30 enterprise-size bridge | Polish firm-size distribution mode | Direct | `PopulationConfig` | `TUNED_NEEDS_VALIDATION` |
 | `pop.firmSizeMicroShare` | `0.962` | share | 2026-04-30 enterprise-size bridge | Micro enterprise share | Direct | `PopulationConfig` | `TUNED_NEEDS_VALIDATION` |
 | `pop.firmSizeSmallShare` | `0.028` | share | 2026-04-30 enterprise-size bridge | Small firm share | Direct | `PopulationConfig` | `TUNED_NEEDS_VALIDATION` |
@@ -598,7 +598,7 @@ object CalibrationProvenance:
 | `social.nfzPerCapitaCost` | `500` | PLN/month | #461 pension-stock recalibration | Health spending per effective capita | Direct, with `nfzAgingElasticity` | `SocialConfig` | `TUNED_NEEDS_VALIDATION` |
 | `social.ppkEmployeeRate`, `ppkEmployerRate` | `0.02`, `0.015` | rate | Code note bridge: PPK law | PPK contribution rates | Direct | `SocialConfig` | `EMPIRICAL` |
 | `social.eduShares` | `[0.08, 0.25, 0.30, 0.37]` | share | Code note bridge: GUS LFS bridge prior | Education composition | CDF draw | `SocialConfig` | `CODE_NOTE_EMPIRICAL` |
-| `social.demInitialRetirees` | `pop.firmsCount * pop.workersPerFirm / 3` | agents | #461 pension-consumption/GDP calibration | Effective initial retiree stock | Derived in `SimParams.defaults`; consumed by `HouseholdIncomeEconomics` | `SocialConfig`, `SimParams`, `HouseholdIncomeEconomics` | `TUNED_NEEDS_VALIDATION` |
+| `social.demInitialRetirees` | $\mathrm{pop.firmsCount} \cdot \mathrm{pop.workersPerFirm} / 3$ | agents | #461 pension-consumption/GDP calibration | Effective initial retiree stock | Derived in `SimParams.defaults`; consumed by `HouseholdIncomeEconomics` | `SocialConfig`, `SimParams`, `HouseholdIncomeEconomics` | `TUNED_NEEDS_VALIDATION` |
 | `firm.baseRevenue` | `180000` | PLN/month/worker | Code note bridge: GUS F-01 bridge prior | Revenue per worker before demand shocks | Direct, unscaled | `FirmConfig` | `CODE_NOTE_EMPIRICAL` |
 | `firm.productivityGrowth` | `0.020` | annual rate | #461 GDP-growth calibration | Baseline productivity/catch-up trend | `.monthly` in use | `FirmConfig` | `TUNED_NEEDS_VALIDATION` |
 | `firm.otherCosts` | `16667` | PLN/month/worker | Structural fixed-cost prior | Fixed non-wage operating cost | Direct, unscaled | `FirmConfig` | `ASSUMED` |

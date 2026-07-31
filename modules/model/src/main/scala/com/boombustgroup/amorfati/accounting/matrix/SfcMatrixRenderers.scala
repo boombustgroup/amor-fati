@@ -109,7 +109,7 @@ object SfcMatrixRenderers:
   private def renderSymbolicMarkdown(metadata: MatrixMetadata, matrix: SfcSymbolicMatrices.SymbolicMatrix): String =
     val header = matrix.rowHeader +: SfcSymbolicMatrices.sectors.map(sector => SfcMatrixRegistry.sector(sector).label) :+ "Sum"
     val rows   = matrix.rows.map: row =>
-      row.label +: SfcSymbolicMatrices.sectors.map(sector => row.cells.getOrElse(sector, "")) :+ row.zeroSymbol
+      row.label +: SfcSymbolicMatrices.sectors.map(sector => markdownSymbol(row.cells.getOrElse(sector, ""))) :+ markdownSymbol(row.zeroSymbol)
 
     renderMarkdownTable(
       s"""<!-- schema=${metadata.schemaVersion} seed=${metadata.seed} month=${metadata.executionMonth} commit=${metadata.commit} sfc=${metadata.sfcStatus} matrix=${metadata.matrixStatus} output=symbolic -->
@@ -164,7 +164,7 @@ object SfcMatrixRenderers:
       Vector(
         row.matrix,
         row.rowLabel,
-        row.symbols.mkString(", "),
+        row.symbols.map(markdownSymbol).mkString(", "),
         row.assets.map(assetLabel).mkString("<br>"),
         row.mechanisms.map(mechanismLabel).mkString("<br>"),
         row.note,
@@ -312,8 +312,9 @@ object SfcMatrixRenderers:
        |""".stripMargin
 
   private def renderReconciliationMarkdown(bundle: MatrixEvidenceBundle)(using SimParams): String =
-    val metadata = bundle.metadata
-    val rows     = bundle.reconciliation.rows.map: row =>
+    val metadata     = bundle.metadata
+    val scaleFormula = "$\\mathrm{rawModelScalePLN} / \\mathrm{SimParams.gdpRatio}$"
+    val rows         = bundle.reconciliation.rows.map: row =>
       Vector(
         row.label,
         formatAmountMacroPln(row.expectedRaw),
@@ -331,7 +332,7 @@ object SfcMatrixRenderers:
          |
          |# Stock-Flow Reconciliation and Revaluation Evidence
          |
-         |Rows compare independently sourced transaction, revaluation, default, write-off, and other-change channels with observed stock deltas or level identities. Residual is actual minus expected. Displayed monetary columns are macro-scaled PLN (`raw model-scale PLN / SimParams.gdpRatio`) to match Monte Carlo `macroPln`; identity validation remains on raw model-scale fixed-point PLN.
+         |Rows compare independently sourced transaction, revaluation, default, write-off, and other-change channels with observed stock deltas or level identities. Residual is actual minus expected. Displayed monetary columns are macro-scaled PLN ($scaleFormula) to match Monte Carlo `macroPln`; identity validation remains on raw model-scale fixed-point PLN.
          |""".stripMargin,
       Vector("Identity", "Expected (macro PLN)", "Actual (macro PLN)", "Residual (macro PLN)", "Status", "Runtime channels", "Source"),
       rows,
@@ -350,6 +351,12 @@ object SfcMatrixRenderers:
     values.map(escapeMarkdown).mkString("| ", " | ", " |")
 
   private def latexSymbol(value: String): String =
+    mathSymbol(value)
+
+  private def markdownSymbol(value: String): String =
+    mathSymbol(value)
+
+  private def mathSymbol(value: String): String =
     if value.isBlank then ""
     else "$" + value + "$"
 

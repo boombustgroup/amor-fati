@@ -118,11 +118,13 @@ Recommended local defaults are intentionally small:
 
 Runtime grows roughly with:
 
-```text
-scenario_count * seed_count * months
-```
+$$
+\begin{aligned}
+scenario_{count} \cdot seed_{count} \cdot months
+\end{aligned}
+$$
 
-The default core run is therefore `9 * 2 * 24 = 432` simulated monthly steps.
+The default core run is therefore $9 \cdot 2 \cdot 24 = 432$ simulated monthly steps.
 
 ## Follow-Ups
 

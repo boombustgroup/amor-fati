@@ -156,7 +156,7 @@ object CalibrationRegisterRenderer:
   private def renderParameter(parameter: CalibrationParameter): String =
     Vector(
       renderParameterIds(parameter.parameterIds),
-      codeCell(parameter.renderedValue),
+      valueCell(parameter.renderedValue),
       plainCell(parameter.unit),
       plainCell(parameter.provenance),
       plainCell(parameter.empiricalTarget),
@@ -319,6 +319,10 @@ object CalibrationRegisterRenderer:
 
   private def plainCell(value: String): String =
     escapeCell(value)
+
+  private def valueCell(value: String): String =
+    if value.startsWith("$") && value.endsWith("$") then plainCell(value)
+    else codeCell(value)
 
   private def codeCell(value: String): String =
     s"`${escapeCell(value)}`"

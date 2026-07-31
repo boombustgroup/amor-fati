@@ -33,6 +33,15 @@ class CalibrationRegisterRendererSpec extends AnyFlatSpec with Matchers:
     rendered should include("Opening migration-stock comparisons")
   }
 
+  it should "render formula values as GitHub MathJax instead of code spans" in {
+    val rendered = CalibrationRegisterRenderer.render()
+
+    rendered should include("""| `household.count` | $\mathrm{firmsCount} \cdot \mathrm{workersPerFirm} = 100000$ |""")
+    rendered should include("""| `social.demInitialRetirees` | $\mathrm{pop.firmsCount} \cdot \mathrm{pop.workersPerFirm} / 3$ |""")
+    rendered should not include "`firmsCount * workersPerFirm = 100000`"
+    rendered should not include "`pop.firmsCount * pop.workersPerFirm / 3`"
+  }
+
   it should "render structured source metadata" in {
     val rendered = CalibrationRegisterRenderer.render()
 

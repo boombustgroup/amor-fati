@@ -15,7 +15,7 @@ rules and does not replace the implementation anchors listed below.
 | --- | --- |
 | [Model specification](model-specification.md#reviewer-reading-path) | Canonical reviewer path and model overview. |
 | [Model notation and state vector](model-notation-and-state-vector.md#households) | Household behavioral state, ledger-owned household balances, and major symbol families. |
-| [Monthly transition function](monthly-transition-function.md) | `X_t -> X_tau` timing, randomness, flow emission, SFC validation, and next-pre boundary. |
+| [Monthly transition function](monthly-transition-function.md) | $X_{t} \to X_{\tau}$ timing, randomness, flow emission, SFC validation, and next-pre boundary. |
 | [Behavioral equations and decision rules](behavioral-equations-and-decision-rules.md#household-rules) | Detailed implementation-oriented household rule catalog and output-column map. |
 | [SFC matrix evidence](sfc-matrix-evidence.md) | Accounting matrix evidence and generated runtime mapping artifacts. |
 | [Engine invariants and semantics](engine-invariants-and-semantics.md) | Validation ownership and hard-fail semantics. |
@@ -29,44 +29,53 @@ rules and does not replace the implementation anchors listed below.
 
 For household `h`, the behavioral state is:
 
-```text
-a^H_{h,t} =
-  (status_{h,t}, rent_h, skill_{h,t}, healthPenalty_{h,t}, mpc_{h,t},
-   neighbors_h, bank_h, lastSector_h, immigrant_h, children_h,
-   education_h, routineness_h, wageScar_{h,t}, contract_h, region_h,
-   distressMonths_{h,t}, distressState_{h,t})
-```
+$$
+\begin{aligned}
+a^{H}_{h,t} &=  \\
+&\quad (status_{h,t}, rent_{h}, skill_{h,t}, healthPenalty_{h,t}, mpc_{h,t}, \\
+&\quad neighbors_{h}, bank_{h}, lastSector_{h}, immigrant_{h}, children_{h}, \\
+&\quad education_{h}, routineness_{h}, wageScar_{h,t}, contract_{h}, region_{h}, \\
+&\quad distressMonths_{h,t}, distressState_{h,t})
+\end{aligned}
+$$
 
 Ledger-owned household balances are:
 
-```text
-l^H_{h,t} =
-  (D^H_{h,t}, M^H_{h,t}, CL^H_{h,t}, E^H_{h,t},
-   RemMtgMonths_{h,t})
-```
+$$
+\begin{aligned}
+l^{H}_{h,t} &=  \\
+&\quad (D^{H}_{h,t}, M^{H}_{h,t}, CL^{H}_{h,t}, E^{H}_{h,t}, \\
+&\quad RemMtgMonths_{h,t})
+\end{aligned}
+$$
 
-where `D^H` is the household demand-deposit asset, `M^H` is mortgage
-principal, `CL^H` is unsecured consumer-loan principal, `E^H` is listed-equity
+where $D^{H}$ is the household demand-deposit asset, $M^{H}$ is mortgage
+principal, $CL^{H}$ is unsecured consumer-loan principal, $E^{H}$ is listed-equity
 wealth, and `RemMtgMonths` is the remaining contractual mortgage maturity.
 
 The activity status is:
 
-```text
-status_h in {
-  Employed(firm, sector, wage),
-  Unemployed(months),
-  Retraining(monthsLeft, targetSector, cost),
-  Bankrupt
-}
-```
+$$
+\begin{aligned}
+status_{h} \in \{ \\
+&\quad \mathrm{Employed}(firm, sector, wage), \\
+&\quad \mathrm{Unemployed}(months), \\
+&\quad \mathrm{Retraining}(monthsLeft, targetSector, cost), \\
+\mathrm{Bankrupt} \\
+\}
+\end{aligned}
+$$
 
 The financial-distress lifecycle is separate from activity status:
 
-```text
-distressState_h in {
-  Current, LiquidityStress, Arrears, Restructuring, Defaulted, Bankruptcy
-}
-```
+$$
+\begin{aligned}
+distressState_{h} \in \{ \\
+\mathrm{Current}, \mathrm{LiquidityStress}, \mathrm{Arrears}, \\
+\mathrm{Restructuring}, \mathrm{Defaulted}, \mathrm{Bankruptcy} \\
+\}
+\end{aligned}
+$$
 
 The legacy activity status `Bankrupt` is an absorbing inactive labor/activity
 state. The financial-distress `Bankruptcy` state is personal insolvency and
@@ -77,14 +86,16 @@ force.
 
 The household batch step follows a fixed boundary:
 
-```text
-opening rows
--> validate aligned household and financial-stock rows
--> compute each household's monthly flows
--> aggregate exact public totals and per-bank flows
--> validate monthly diagnostics against aggregate totals
--> close updated household states, financial stocks, and monthly rows
-```
+$$
+\begin{aligned}
+\text{opening rows} \\
+{} \to \text{validate aligned household and financial-stock rows} \\
+{} \to \text{compute each household's monthly flows} \\
+{} \to \text{aggregate exact public totals and per-bank flows} \\
+{} \to \text{validate monthly diagnostics against aggregate totals} \\
+{} \to \text{close updated household states, financial stocks, and monthly rows}
+\end{aligned}
+$$
 
 Opening demand deposits must be non-negative. Any current-month deficit is
 routed through explicit liquidity-shortfall financing and charge-off
@@ -94,12 +105,16 @@ diagnostics rather than persisted as a negative deposit.
 
 The monthly labor-income base is:
 
-```text
-BaseInc_{h,tau} =
-  wage_h                                  if Employed
-  UnempBenefit(monthsUnemployed_h)        if Unemployed
-  0                                       if Retraining or Bankrupt
-```
+$$
+\begin{aligned}
+BaseInc_{h,\tau} &=
+\begin{cases}
+wage_{h}, & \text{if Employed}, \\
+\mathrm{UnempBenefit}(monthsUnemployed_{h}), & \text{if Unemployed}, \\
+0, & \text{if Retraining or Bankrupt}.
+\end{cases}
+\end{aligned}
+$$
 
 Unemployed households increment their unemployment spell after benefit
 resolution. Retraining and bankrupt activity states do not receive base income
@@ -107,33 +122,43 @@ inside the household step.
 
 Bank-specific deposit interest is:
 
-```text
-DepInt_{h,tau} =
-  D^H_{h,t} r^D_{bank(h),tau} / 12     if bank deposit rates are available
-  0                                    otherwise
-```
+$$
+\begin{aligned}
+DepInt_{h,\tau} &=
+\begin{cases}
+D^{H}_{h,t} r^{D}_{\mathrm{bank}(h),\tau} / 12, & \text{if bank deposit rates are available}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 Gross monthly income is:
 
-```text
-GrossInc_{h,tau} = BaseInc_{h,tau} + max(DepInt_{h,tau}, 0)
-```
+$$
+\begin{aligned}
+GrossInc_{h,\tau} &= BaseInc_{h,\tau} + \max(DepInt_{h,\tau}, 0)
+\end{aligned}
+$$
 
 PIT is annualized after employee ZUS:
 
-```text
-PitBase_{h,tau} = GrossInc_{h,tau} (1 - zusEmployeeRate)
-AnnualPitBase_{h,tau} = 12 PitBase_{h,tau}
-PIT_{h,tau} =
-  max(ProgressiveTax(AnnualPitBase_{h,tau}) - annualTaxCredit, 0) / 12
-```
+$$
+\begin{aligned}
+PitBase_{h,\tau} &= GrossInc_{h,\tau} (1 - zusEmployeeRate) \\
+AnnualPitBase_{h,\tau} &= 12 PitBase_{h,\tau} \\
+PIT_{h,\tau} &=  \\
+&\quad \max(\mathrm{ProgressiveTax}(AnnualPitBase_{h,\tau}) - annualTaxCredit, 0) / 12
+\end{aligned}
+$$
 
 Dependent-child transfers are:
 
-```text
-Transfer_{h,tau} = children_h * social800
-Inc_{h,tau} = GrossInc_{h,tau} - PIT_{h,tau} + Transfer_{h,tau}
-```
+$$
+\begin{aligned}
+Transfer_{h,\tau} &= children_{h} \cdot social800 \\
+Inc_{h,\tau} &= GrossInc_{h,\tau} - PIT_{h,\tau} + Transfer_{h,\tau}
+\end{aligned}
+$$
 
 Aggregate pension income, when supplied by the monthly calculus, is added at
 the household aggregate layer and consumed with the configured household MPC.
@@ -145,33 +170,41 @@ opening household state, bank-rate surface, and parameters.
 
 Household-side mortgage service uses the active contractual maturity:
 
-```text
-RemMtgMonths^*_{h,t} =
-  0                              if M^H_{h,t} <= 0
-  RemMtgMonths_{h,t}             if M^H_{h,t} > 0 and RemMtgMonths_{h,t} > 0
-  mortgageMaturity               if M^H_{h,t} > 0 and RemMtgMonths_{h,t} = 0
-```
+$$
+\begin{aligned}
+RemMtgMonths^{*}_{h,t} &=
+\begin{cases}
+0, & M^{H}_{h,t} \le 0, \\
+RemMtgMonths_{h,t}, & M^{H}_{h,t} > 0 \land RemMtgMonths_{h,t} > 0, \\
+mortgageMaturity, & M^{H}_{h,t} > 0 \land RemMtgMonths_{h,t} = 0.
+\end{cases}
+\end{aligned}
+$$
 
 Scheduled principal and interest are:
 
-```text
-MtgPrin_{h,tau} =
-  M^H_{h,t} / RemMtgMonths^*_{h,t}    if RemMtgMonths^*_{h,t} > 0
-  0                                   otherwise
-
-r^M_{h,tau} =
-  r^L_{bank(h),tau}                   if bank lending rates are available
-  r^{NBP}_{tau} + mortgageSpread      otherwise
-
-MtgInt_{h,tau} = M^H_{h,t} max(r^M_{h,tau}, 0) / 12
-MtgService_{h,tau} = MtgPrin_{h,tau} + MtgInt_{h,tau}
-```
+$$
+\begin{aligned}
+MtgPrin_{h,\tau} &=  \\
+M^{H}_{h,t} / RemMtgMonths^{*}_{h,t} & \text{if } RemMtgMonths^{*}_{h,t} > 0 \\
+0 & \text{otherwise} \\
+ \\
+r^{M}_{h,\tau} &=  \\
+r^{L}_{\mathrm{bank}(h),\tau} & \text{if bank lending rates are available} \\
+r^{\mathrm{NBP}}_{\tau} + mortgageSpread & \text{otherwise} \\
+ \\
+MtgInt_{h,\tau} &= M^{H}_{h,t} \max(r^{M}_{h,\tau}, 0) / 12 \\
+MtgService_{h,\tau} &= MtgPrin_{h,\tau} + MtgInt_{h,\tau}
+\end{aligned}
+$$
 
 The closing household mortgage stock after scheduled service is:
 
-```text
-M^H_{h,tau} = max(M^H_{h,t} - MtgPrin_{h,tau}, 0)
-```
+$$
+\begin{aligned}
+M^{H}_{h,\tau} &= \max(M^{H}_{h,t} - MtgPrin_{h,\tau}, 0)
+\end{aligned}
+$$
 
 If mortgage debt remains, contractual maturity decreases by one month but not
 below one. If the mortgage is fully repaid, remaining months become zero.
@@ -187,29 +220,32 @@ household micro origination rule in this step.
 Consumer-loan service uses the household's bank lending rate plus the consumer
 credit spread:
 
-```text
-r^{CC}_{h,tau} =
-  r^L_{bank(h),tau} + ccSpread       if bank lending rates are available
-  r^{NBP}_{tau} + ccSpread           otherwise
-
-CCPrin_{h,tau} = CL^H_{h,t} ccAmortRate
-CCInt_{h,tau} = CL^H_{h,t} r^{CC}_{h,tau} / 12
-CCService_{h,tau} = CCPrin_{h,tau} + CCInt_{h,tau}
-```
+$$
+\begin{aligned}
+r^{CC}_{h,\tau} &=  \\
+r^{L}_{\mathrm{bank}(h),\tau} + ccSpread & \text{if bank lending rates are available} \\
+r^{\mathrm{NBP}}_{\tau} + ccSpread & \text{otherwise} \\
+ \\
+CCPrin_{h,\tau} &= CL^{H}_{h,t} ccAmortRate \\
+CCInt_{h,\tau} &= CL^{H}_{h,t} r^{CC}_{h,\tau} / 12 \\
+CCService_{h,\tau} &= CCPrin_{h,\tau} + CCInt_{h,\tau}
+\end{aligned}
+$$
 
 Normal underwritten consumer credit is available only to employed households.
 The household-side eligibility rule is:
 
-```text
-Stressed_h =
-  DisposablePreCredit_{h,tau} < wage_h * DisposableWageThreshold
-
-Eligible_h =
-  Employed_h
-  and Stressed_h
-  and not BlockedByDistress(distressState_{h,t})
-  and U^{ccElig}_{h,tau} < ccEligRate
-```
+$$
+\begin{aligned}
+Stressed_{h} &=  \\
+&\quad DisposablePreCredit_{h,\tau} < wage_{h} \cdot DisposableWageThreshold \\
+ \\
+Eligible_{h} &=  \\
+&\quad Employed_{h} \land Stressed_{h} \\
+&\quad \land \neg \mathrm{BlockedByDistress}(distressState_{h,t}) \\
+&\quad \land U^{ccElig}_{h,\tau} < ccEligRate
+\end{aligned}
+$$
 
 The distress states `Arrears`, `Restructuring`, `Defaulted`, and `Bankruptcy`
 block new underwritten consumer-credit approval before the bank gate.
@@ -217,31 +253,35 @@ block new underwritten consumer-credit approval before the bank gate.
 
 The DTI-based principal capacity is:
 
-```text
-ExistingDti_h =
-  (MtgService_{h,tau} + CCService_{h,tau}) / Inc_{h,tau}
-
-PaymentHeadroom_h =
-  Inc_{h,tau} * max(ccMaxDti - ExistingDti_h, 0)
-
-PaymentFactor_h = ccAmortRate + r^{CC}_{h,tau} / 12
-
-Capacity^{CC}_{h,tau} =
-  min(PaymentHeadroom_h / PaymentFactor_h, ccMaxLoan)
-```
+$$
+\begin{aligned}
+ExistingDti_{h} &=  \\
+&\quad (MtgService_{h,\tau} + CCService_{h,\tau}) / Inc_{h,\tau} \\
+ \\
+PaymentHeadroom_{h} &=  \\
+&\quad Inc_{h,\tau} \cdot \max(ccMaxDti - ExistingDti_{h}, 0) \\
+ \\
+PaymentFactor_{h} &= ccAmortRate + r^{CC}_{h,\tau} / 12 \\
+ \\
+Capacity^{CC}_{h,\tau} &=  \\
+&\quad \min(PaymentHeadroom_{h} / PaymentFactor_{h}, ccMaxLoan)
+\end{aligned}
+$$
 
 The desired underwritten principal is:
 
-```text
-StressGap_h =
-  max(wage_h * DisposableWageThreshold - DisposablePreCredit_{h,tau}, 0)
-
-EssentialGap_h =
-  max(basicConsumptionFloor + CCService_{h,tau} - DisposablePreCredit_{h,tau}, 0)
-
-Demand^{CC}_{h,tau} =
-  min(max(StressGap_h, EssentialGap_h), Capacity^{CC}_{h,tau})
-```
+$$
+\begin{aligned}
+StressGap_{h} &=  \\
+&\quad \max(wage_{h} \cdot DisposableWageThreshold - DisposablePreCredit_{h,\tau}, 0) \\
+ \\
+EssentialGap_{h} &=  \\
+&\quad \max(basicConsumptionFloor + CCService_{h,\tau} - DisposablePreCredit_{h,\tau}, 0) \\
+ \\
+Demand^{CC}_{h,\tau} &=  \\
+&\quad \min(\max(StressGap_{h}, EssentialGap_{h}), Capacity^{CC}_{h,\tau})
+\end{aligned}
+$$
 
 Small requests below the configured minimum consumer-loan size are set to zero.
 Positive eligible demand is then passed through the product-aware bank-side
@@ -254,80 +294,92 @@ bank-side approval audit fields for household snapshot rows.
 
 Ordinary closing consumer debt before residual liquidity settlement is:
 
-```text
-CL^{ordinary}_{h,tau} =
-  max(CL^H_{h,t} + ApprovedCC_{h,tau} - CCPrin_{h,tau}, 0)
-```
+$$
+\begin{aligned}
+CL^{ordinary}_{h,\tau} &=  \\
+&\quad \max(CL^{H}_{h,t} + ApprovedCC_{h,\tau} - CCPrin_{h,\tau}, 0)
+\end{aligned}
+$$
 
 ## Consumption And Savings
 
 The first non-discretionary budget layer is:
 
-```text
-Obligations_{h,tau} =
-  rent_h + MtgService_{h,tau} + Remit_{h,tau}
-
-DisposablePreCredit_{h,tau} =
-  max(Inc_{h,tau} - Obligations_{h,tau}, 0)
-
-FullObligations_{h,tau} =
-  Obligations_{h,tau} + CCService_{h,tau}
-
-Disposable_{h,tau} =
-  max(Inc_{h,tau} - FullObligations_{h,tau}, 0)
-```
+$$
+\begin{aligned}
+Obligations_{h,\tau} &=  \\
+&\quad rent_{h} + MtgService_{h,\tau} + Remit_{h,\tau} \\
+ \\
+DisposablePreCredit_{h,\tau} &=  \\
+&\quad \max(Inc_{h,\tau} - Obligations_{h,\tau}, 0) \\
+ \\
+FullObligations_{h,\tau} &=  \\
+&\quad Obligations_{h,\tau} + CCService_{h,\tau} \\
+ \\
+Disposable_{h,\tau} &=  \\
+&\quad \max(Inc_{h,\tau} - FullObligations_{h,\tau}, 0)
+\end{aligned}
+$$
 
 Savings-buffer drawdown depends on activity status:
 
-```text
-TargetSavings_h = max(Inc_{h,tau}, baseReservationWage) * bufferTargetMonths
-ProtectedBuffer_h = TargetSavings_h * bufferProtectedShare
-
-Drawdown_h =
-  max(D^H_{h,t} - ProtectedBuffer_h, 0) * bufferStressDrawdownRate
-    if Unemployed or Retraining
-  max(D^H_{h,t} - TargetSavings_h, 0) * bufferExcessDrawdownRate
-    if Employed or Bankrupt
-```
+$$
+\begin{aligned}
+TargetSavings_{h} &= \max(Inc_{h,\tau}, baseReservationWage) \cdot bufferTargetMonths \\
+ProtectedBuffer_{h} &= TargetSavings_{h} \cdot bufferProtectedShare \\
+ \\
+Drawdown_{h} &=
+\begin{cases}
+\max(D^{H}_{h,t} - ProtectedBuffer_{h}, 0) \cdot bufferStressDrawdownRate, & \text{if Unemployed or Retraining}, \\
+\max(D^{H}_{h,t} - TargetSavings_{h}, 0) \cdot bufferExcessDrawdownRate, & \text{if Employed or Bankrupt}.
+\end{cases}
+\end{aligned}
+$$
 
 The pre-waterfall consumption budget is:
 
-```text
-ConsBudget_{h,tau} =
-  Disposable_{h,tau} + ApprovedCC_{h,tau} + Drawdown_h
-
-DesiredCons^{raw}_{h,tau} = mpc_{h,t} ConsBudget_{h,tau}
-```
+$$
+\begin{aligned}
+ConsBudget_{h,\tau} &=  \\
+&\quad Disposable_{h,\tau} + ApprovedCC_{h,\tau} + Drawdown_{h} \\
+ \\
+DesiredCons^{raw}_{h,\tau} &= mpc_{h,t} ConsBudget_{h,\tau}
+\end{aligned}
+$$
 
 Social-neighbor distress and the household financial-distress state then apply
 precautionary compression. Positive listed-equity revaluation and the aggregate
 housing wealth effect add to desired consumption:
 
-```text
-E^H_{h,tau} = max(E^H_{h,t} (1 + r^E_tau), 0)
-EquityBoost_h = max(E^H_{h,tau} - E^H_{h,t}, 0) * equityWealthEffectMpc
-HousingBoost_h = HousingWealthEffect_tau / population_tau
-DesiredCons_{h,tau} = DistressAdjustedCons_h + EquityBoost_h + HousingBoost_h
-```
+$$
+\begin{aligned}
+E^{H}_{h,\tau} &= \max(E^{H}_{h,t} (1 + r^{E}_{\tau}), 0) \\
+EquityBoost_{h} &= \max(E^{H}_{h,\tau} - E^{H}_{h,t}, 0) \cdot equityWealthEffectMpc \\
+HousingBoost_{h} &= HousingWealthEffect_{\tau} / population_{\tau} \\
+DesiredCons_{h,\tau} &= DistressAdjustedCons_{h} + EquityBoost_{h} + HousingBoost_{h}
+\end{aligned}
+$$
 
 The consumption waterfall pays basic consumption first, then obligations, then
 affordable discretionary consumption:
 
-```text
-BasicNeed_h = min(DesiredCons_{h,tau}, basicConsumptionFloor)
-AvailableCash_h = max(D^H_{h,t} + Inc_{h,tau} + ApprovedCC_{h,tau}, 0)
-
-PaidBasic_h = min(BasicNeed_h, AvailableCash_h)
-UnmetBasic_h = BasicNeed_h - PaidBasic_h
-
-AvailableAfterBills_h =
-  max(AvailableCash_h - PaidBasic_h - max(FullObligations_{h,tau}, 0), 0)
-
-PaidDiscretionary_h =
-  min(max(DesiredCons_{h,tau} - BasicNeed_h, 0), AvailableAfterBills_h)
-
-Cons_{h,tau} = PaidBasic_h + PaidDiscretionary_h
-```
+$$
+\begin{aligned}
+BasicNeed_{h} &= \min(DesiredCons_{h,\tau}, basicConsumptionFloor) \\
+AvailableCash_{h} &= \max(D^{H}_{h,t} + Inc_{h,\tau} + ApprovedCC_{h,\tau}, 0) \\
+ \\
+PaidBasic_{h} &= \min(BasicNeed_{h}, AvailableCash_{h}) \\
+UnmetBasic_{h} &= BasicNeed_{h} - PaidBasic_{h} \\
+ \\
+AvailableAfterBills_{h} &=  \\
+&\quad \max(AvailableCash_{h} - PaidBasic_{h} - \max(FullObligations_{h,\tau}, 0), 0) \\
+ \\
+PaidDiscretionary_{h} &=  \\
+&\quad \min(\max(DesiredCons_{h,\tau} - BasicNeed_{h}, 0), AvailableAfterBills_{h}) \\
+ \\
+Cons_{h,\tau} &= PaidBasic_{h} + PaidDiscretionary_{h}
+\end{aligned}
+$$
 
 Unmet basic consumption and discretionary compression are diagnostics, not
 credit origination. They are recorded before any residual liquidity bridge is
@@ -335,11 +387,13 @@ settled.
 
 The raw liquid-balance signal is:
 
-```text
-RawD_{h,tau} =
-  D^H_{h,t} + Inc_{h,tau} - FullObligations_{h,tau}
-  + ApprovedCC_{h,tau} - Cons_{h,tau}
-```
+$$
+\begin{aligned}
+RawD_{h,\tau} &=  \\
+&\quad D^{H}_{h,t} + Inc_{h,\tau} - FullObligations_{h,\tau} \\
+&\quad + ApprovedCC_{h,\tau} - Cons_{h,\tau}
+\end{aligned}
+$$
 
 Retraining cost, if paid in the current month, is subtracted before final
 liquidity settlement.
@@ -350,20 +404,24 @@ Before booking a bridge, any remaining negative raw liquid balance is offered
 to the same underwritten consumer-credit path and product-aware bank supply up
 to unused DTI capacity:
 
-```text
-ResidualShortfall_h = max(-RawD_{h,tau}, 0)
-UnusedCapacity_h = max(Capacity^{CC}_{h,tau} - ApprovedCC_{h,tau}, 0)
-ResidualDemand_h = min(ResidualShortfall_h, UnusedCapacity_h)
-```
+$$
+\begin{aligned}
+ResidualShortfall_{h} &= \max(-RawD_{h,\tau}, 0) \\
+UnusedCapacity_{h} &= \max(Capacity^{CC}_{h,\tau} - ApprovedCC_{h,\tau}, 0) \\
+ResidualDemand_{h} &= \min(ResidualShortfall_{h}, UnusedCapacity_{h})
+\end{aligned}
+$$
 
 Approved residual demand increases `ApprovedCC` and the raw liquid balance. If
 the final raw balance remains negative, it is settled as explicit same-month
 liquidity-shortfall financing:
 
-```text
-Shortfall_h = max(-RawD^{final}_{h,tau}, 0)
-D^H_{h,tau} = max(RawD^{final}_{h,tau}, 0)
-```
+$$
+\begin{aligned}
+Shortfall_{h} &= \max(-RawD^{final}_{h,\tau}, 0) \\
+D^{H}_{h,\tau} &= \max(RawD^{final}_{h,\tau}, 0)
+\end{aligned}
+$$
 
 The shortfall is attributed in cash-priority order to:
 
@@ -382,25 +440,27 @@ off in the same month rather than becoming ordinary consumer debt.
 
 The public consumer-credit decomposition is:
 
-```text
-ConsumerOrigination =
-  ConsumerApprovedOrigination
-
-ConsumerDefault =
-  ConsumerLoanDefault
-
-ConsumerLoanDefault =
-  OrdinaryConsumerLoanDefault + ConsumerInsolvencyDefault
-
-ConsumerCredit_NetStockFlow =
-  ConsumerOrigination - ConsumerPrincipal - ConsumerDefault
-
-ConsumerCredit_UnderwrittenNetFlow =
-  ConsumerApprovedOrigination - ConsumerPrincipal - ConsumerLoanDefault
-
-ConsumerCredit_BridgeNetFlow =
-  HouseholdLiquidity_ShortfallFinancing - LiquidityBridgeChargeOff
-```
+$$
+\begin{aligned}
+ConsumerOrigination &=  \\
+&\quad ConsumerApprovedOrigination \\
+ \\
+ConsumerDefault &=  \\
+&\quad ConsumerLoanDefault \\
+ \\
+ConsumerLoanDefault &=  \\
+&\quad OrdinaryConsumerLoanDefault + ConsumerInsolvencyDefault \\
+ \\
+ConsumerCredit_{NetStockFlow} &=  \\
+&\quad ConsumerOrigination - ConsumerPrincipal - ConsumerDefault \\
+ \\
+ConsumerCredit_{UnderwrittenNetFlow} &=  \\
+&\quad ConsumerApprovedOrigination - ConsumerPrincipal - ConsumerLoanDefault \\
+ \\
+ConsumerCredit_{BridgeNetFlow} &=  \\
+&\quad HouseholdLiquidity_{ShortfallFinancing} - LiquidityBridgeChargeOff
+\end{aligned}
+$$
 
 This split is central to the accounting semantics: underwritten consumer credit
 and residual liquidity settlement are both SFC-routed consumer-credit mechanisms,
@@ -413,21 +473,23 @@ of ordinary `ConsumerLoanDefault`; personal-insolvency default is exposed as the
 After survival resolution, the marginal propensity to consume adapts through a
 buffer-stock rule:
 
-```text
-TargetSavings_h = Inc_{h,tau} * bufferTargetMonths
-BufferRatio_h = D^H_{h,t} / TargetSavings_h
-Deviation_h = BufferRatio_h - 1
-
-BufferAdj_h =
-  clamp(1 - bufferSensitivity * Deviation_h, 0, 1)
-
-UnemployedAdj_h =
-  1 + mpcUnemployedBoost      if Unemployed
-  1                           otherwise
-
-mpc_{h,tau} =
-  clamp(mpc_{h,t} * BufferAdj_h * UnemployedAdj_h, MpcFloor, MpcCeiling)
-```
+$$
+\begin{aligned}
+TargetSavings_{h} &= Inc_{h,\tau} \cdot bufferTargetMonths \\
+BufferRatio_{h} &= D^{H}_{h,t} / TargetSavings_{h} \\
+Deviation_{h} &= BufferRatio_{h} - 1 \\
+ \\
+BufferAdj_{h} &=  \\
+&\quad \mathrm{clamp}(1 - bufferSensitivity \cdot Deviation_{h}, 0, 1) \\
+ \\
+UnemployedAdj_{h} &=  \\
+1 + mpcUnemployedBoost & \text{if Unemployed} \\
+1 & \text{otherwise} \\
+ \\
+mpc_{h,\tau} &=  \\
+&\quad \mathrm{clamp}(mpc_{h,t} \cdot BufferAdj_{h} \cdot UnemployedAdj_{h}, MpcFloor, MpcCeiling)
+\end{aligned}
+$$
 
 If current income is non-positive, MPC is left unchanged.
 
@@ -435,75 +497,88 @@ If current income is non-positive, MPC is left unchanged.
 
 The monthly financial-distress trigger is:
 
-```text
-EssentialOutflows_h =
-  max(rent_h + MtgService_{h,tau} + CCService_{h,tau}, rent_h)
-
-DistressFloor_h = EssentialOutflows_h * bankruptcyThreshold
-
-Triggered_h =
-  RawD_{h,tau} < 0
-  or UnmetBasic_h > 0
-  or RawD_{h,tau} < DistressFloor_h
-```
+$$
+\begin{aligned}
+EssentialOutflows_{h} &=  \\
+&\quad \max(rent_{h} + MtgService_{h,\tau} + CCService_{h,\tau}, rent_{h}) \\
+ \\
+DistressFloor_{h} &= EssentialOutflows_{h} \cdot bankruptcyThreshold \\
+ \\
+Triggered_{h} &=  \\
+&\quad RawD_{h,\tau} < 0 \\
+&\quad \lor UnmetBasic_{h} > 0 \\
+&\quad \lor RawD_{h,\tau} < DistressFloor_{h}
+\end{aligned}
+$$
 
 Consecutive distress months evolve as:
 
-```text
-distressMonths_{h,tau} =
-  distressMonths_{h,t} + 1     if Triggered_h
-  0                            otherwise
-```
+$$
+\begin{aligned}
+distressMonths_{h,\tau} &=
+\begin{cases}
+distressMonths_{h,t} + 1, & Triggered_{h}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 The distress state transition is threshold-driven by the updated consecutive
 distress spell:
 
-```text
-Bankruptcy       if legacy activity status is Bankrupt or personal insolvency fires
-Defaulted        if distressMonths >= bankruptcyDistressMonths
-Arrears          if distressMonths >= 2
-LiquidityStress  if distressMonths = 1
-
-If distressMonths = 0:
-  Arrears, Defaulted, Bankruptcy -> Restructuring
-  Current, LiquidityStress, Restructuring -> Current
-```
+$$
+\begin{aligned}
+distressState_{h,\tau} &=
+\begin{cases}
+\mathrm{Restructuring}, & distressMonths_{h,\tau} = 0 \text{ and } distressState_{h,t} \in \{\mathrm{Arrears}, \mathrm{Defaulted}, \mathrm{Bankruptcy}\}, \\
+\mathrm{Current}, & distressMonths_{h,\tau} = 0 \text{ and } distressState_{h,t} \in \{\mathrm{Current}, \mathrm{LiquidityStress}, \mathrm{Restructuring}\}, \\
+\mathrm{Bankruptcy}, & \text{legacy activity status is Bankrupt or personal insolvency fires}, \\
+\mathrm{Defaulted}, & distressMonths_{h,\tau} \ge bankruptcyDistressMonths, \\
+\mathrm{Arrears}, & distressMonths_{h,\tau} \ge 2, \\
+\mathrm{LiquidityStress}, & distressMonths_{h,\tau} = 1.
+\end{cases}
+\end{aligned}
+$$
 
 Personal insolvency is a stochastic filing hazard, not a deterministic counter
 cliff. The hazard is zero before `personalInsolvencyMinDistressMonths`, then
 rises with distress duration toward `personalInsolvencyDistressMonths` and with
 arrears/debt-service burden:
 
-```text
-durationRamp_h =
-  clamp((distressMonths_h - personalInsolvencyMinDistressMonths)
-        / max(1, personalInsolvencyDistressMonths - personalInsolvencyMinDistressMonths), 0, 1)
-
-burden_h =
-  clamp((LiquidityShortfall_h + ConsumerDebtService_h) / Income_h, 0, 1)
-
-piInsolvency_h =
-  min(personalInsolvencyMaxHazard,
-      personalInsolvencyBaseHazard
-      + (personalInsolvencyMaxHazard - personalInsolvencyBaseHazard)
-        * durationRamp_h
-      + personalInsolvencyBurdenHazardWeight * burden_h)
-```
+$$
+\begin{aligned}
+durationRamp_{h} &=  \\
+&\quad \mathrm{clamp}((distressMonths_{h,\tau} - personalInsolvencyMinDistressMonths) \\
+&\quad / \max(1, personalInsolvencyDistressMonths - personalInsolvencyMinDistressMonths), 0, 1) \\
+ \\
+burden_{h} &=  \\
+&\quad \mathrm{clamp}((LiquidityShortfall_{h} + ConsumerDebtService_{h}) / Inc_{h,\tau}, 0, 1) \\
+ \\
+piInsolvency_{h} &=  \\
+&\quad \min(personalInsolvencyMaxHazard, \\
+&\quad personalInsolvencyBaseHazard \\
+&\quad + (personalInsolvencyMaxHazard - personalInsolvencyBaseHazard) \\
+&\quad \cdot durationRamp_{h} \\
+&\quad + personalInsolvencyBurdenHazardWeight \cdot burden_{h})
+\end{aligned}
+$$
 
 Distressed workout and filing defaults are bounded by current consumer-debt
 arrears, multiples of consumer-debt service, and a share of outstanding
 principal:
 
-```text
-DefaultCap_h =
-  min(CL^H_{h,tau-pre},
-      max(ConsumerDebtArrears_h, ConsumerDebtService_h * debtServiceMonthsCap),
-      CL^H_{h,tau-pre} * outstandingShareCap)
-
-CL^H_{h,tau} = CL^H_{h,tau-pre} - DefaultCap_h
-E^H_{h,tau} = 0
-distressState_{h,tau} = Bankruptcy
-```
+$$
+\begin{aligned}
+DefaultCap_{h} &=  \\
+&\quad \min(CL^{H}_{h,\tau-pre}, \\
+&\quad \max(ConsumerDebtArrears_{h}, ConsumerDebtService_{h} \cdot debtServiceMonthsCap), \\
+&\quad CL^{H}_{h,\tau-pre} \cdot outstandingShareCap) \\
+ \\
+CL^{H}_{h,\tau} &= CL^{H}_{h,\tau-pre} - DefaultCap_{h} \\
+E^{H}_{h,\tau} &= 0 \\
+distressState_{h,\tau} &= Bankruptcy
+\end{aligned}
+$$
 
 The mortgage stock is not written off by this household personal-insolvency
 branch. Mortgage default is an aggregate housing/banking flow, while household
@@ -512,18 +587,27 @@ write-off state.
 
 Long unemployment creates labor-market scarring:
 
-```text
-skill_{h,tau} = skill_{h,t} (1 - skillDecayRate)
-  if monthsUnemployed >= scarringOnset
-
-healthPenalty_{h,tau} =
-  min(healthPenalty_{h,t} + scarringRate, scarringCap)
-  if monthsUnemployed >= scarringOnset
-
-wageScar_{h,tau} =
-  min(wageScar_{h,t} + wageScarRate, wageScarCap)
-  if monthsUnemployed >= scarringOnset
-```
+$$
+\begin{aligned}
+skill_{h,\tau} &=
+\begin{cases}
+skill_{h,t} (1 - skillDecayRate), & \text{if } monthsUnemployed_{h} \ge scarringOnset, \\
+skill_{h,t}, & \text{otherwise},
+\end{cases} \\
+ \\
+healthPenalty_{h,\tau} &=
+\begin{cases}
+\min(healthPenalty_{h,t} + scarringRate, scarringCap), & \text{if } monthsUnemployed_{h} \ge scarringOnset, \\
+healthPenalty_{h,t}, & \text{otherwise},
+\end{cases} \\
+ \\
+wageScar_{h,\tau} &=
+\begin{cases}
+\min(wageScar_{h,t} + wageScarRate, wageScarCap), & \text{if } monthsUnemployed_{h} \ge scarringOnset, \\
+wageScar_{h,t}, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 Re-employment decays the wage scar toward zero.
 
@@ -533,14 +617,17 @@ Employed households can attempt voluntary cross-sector search. The target
 sector is selected from sector wage and vacancy signals, adjusted by the labor
 friction matrix. A transition into retraining occurs only when:
 
-```text
-U^{search}_{h,tau} < voluntarySearchProb
-vacancies_{target,tau} > 0
-targetWage_{target,tau} * crossSectorWagePenalty(friction)
-  > wage_h * (1 + voluntaryWageThreshold)
-friction <= adjacentFrictionMax
-D^H_{h,t} > retrainingCost(friction)
-```
+$$
+\begin{aligned}
+RetrainingGate_{h,\tau} &\Longleftrightarrow
+U^{search}_{h,\tau} < voluntarySearchProb \\
+&\quad \land vacancies_{target,\tau} > 0 \\
+&\quad \land targetWage_{target,\tau} \cdot \mathrm{crossSectorWagePenalty}(friction)
+> wage_{h} \cdot (1 + voluntaryWageThreshold) \\
+&\quad \land friction \le adjacentFrictionMax \\
+&\quad \land D^{H}_{h,t} > \mathrm{retrainingCost}(friction)
+\end{aligned}
+$$
 
 Unemployed households can enter retraining after the unemployment threshold if
 retraining is enabled, they have enough deposits to pay the relevant cost, and
@@ -549,14 +636,16 @@ retraining probability.
 
 Retraining completion succeeds with:
 
-```text
-p^{retrain}_{h,tau} =
-  retrainingBaseSuccess
-  * skill_{h,tau}
-  * (1 - healthPenalty_{h,tau})
-  * educationMultiplier_{education_h}
-  * (1 - friction * frictionSuccessDiscount)
-```
+$$
+\begin{aligned}
+p^{retrain}_{h,\tau} &=  \\
+&\quad retrainingBaseSuccess \\
+&\quad \cdot skill_{h,\tau} \\
+&\quad \cdot (1 - healthPenalty_{h,\tau}) \\
+&\quad \cdot educationMultiplier_{education_{h}} \\
+&\quad \cdot (1 - friction \cdot frictionSuccessDiscount)
+\end{aligned}
+$$
 
 A successful completion resets the unemployment spell to zero; a failed
 completion returns the household to unemployment with a configured
@@ -569,27 +658,35 @@ Immigrant households send remittances out of post-tax-and-transfer monthly
 income, before rent, debt service, consumption, and liquidity settlement are
 applied:
 
-```text
-Remit_{h,tau} =
-  Inc_{h,tau} * remitRate      if immigrant_h
-  0                            otherwise
-```
+$$
+\begin{aligned}
+Remit_{h,\tau} &=
+\begin{cases}
+Inc_{h,\tau} \cdot remitRate, & immigrant_{h}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 The household import share is adjusted by the exchange rate:
 
-```text
-ImportAdj_tau =
-  clamp(importPropensity * (baseExRate / ExRate_tau)^{ImportErElasticity}, 0, 1)
-```
+$$
+\begin{aligned}
+ImportAdj_{\tau} &=  \\
+&\quad \mathrm{clamp}(importPropensity \cdot (baseExRate / ExRate_{\tau})^{ImportErElasticity}, 0, 1)
+\end{aligned}
+$$
 
 Household aggregate consumption is split as:
 
-```text
-GoodsCons_tau = sum_h Cons_{h,tau}
-TotalCons_tau = GoodsCons_tau + sum_h rent_h
-ImportCons_tau = GoodsCons_tau * ImportAdj_tau
-DomesticCons_tau = TotalCons_tau - ImportCons_tau
-```
+$$
+\begin{aligned}
+GoodsCons_{\tau} &= \sum_{h} Cons_{h,\tau} \\
+TotalCons_{\tau} &= GoodsCons_{\tau} + \sum_{h} rent_{h} \\
+ImportCons_{\tau} &= GoodsCons_{\tau} \cdot ImportAdj_{\tau} \\
+DomesticCons_{\tau} &= TotalCons_{\tau} - ImportCons_{\tau}
+\end{aligned}
+$$
 
 Diaspora remittance inflow and tourism services are computed at the household
 financial-economics aggregate boundary. They are external-sector calibration

@@ -13,7 +13,7 @@ assumptions, new probability distributions, or new seed scheduling rules.
 | Source | Role |
 | --- | --- |
 | [Model specification](model-specification.md#reviewer-reading-path) | Canonical reviewer path and model overview. |
-| [Model notation and state vector](model-notation-and-state-vector.md#stochastic-variables) | Stochastic notation, `RND_tau`, and stream-key notation. |
+| [Model notation and state vector](model-notation-and-state-vector.md#stochastic-variables) | Stochastic notation, $RND_{\tau}$, and stream-key notation. |
 | [Monthly transition function](monthly-transition-function.md#randomness-contract) | Formal one-month replay contract. |
 | [`random/RandomStream.scala`](../modules/model/src/main/scala/com/boombustgroup/amorfati/random/RandomStream.scala) | Project-wide RNG facade. |
 | [`random/SeedDerivation.scala`](../modules/model/src/main/scala/com/boombustgroup/amorfati/random/SeedDerivation.scala) | Stable seed splitting from one explicit root seed. |
@@ -32,30 +32,36 @@ streams from explicit contracts.
 
 The one-month transition is deterministic conditional on:
 
-```text
-(X_t, RND_tau, theta)
-```
+$$
+\begin{aligned}
+(X_{t}, RND_{\tau}, \theta)
+\end{aligned}
+$$
 
 where:
 
 | Symbol | Meaning |
 | --- | --- |
-| `X_t` | completed month boundary state |
-| `RND_tau` | explicit `MonthRandomness.Contract` for execution month `tau` |
-| `theta` | complete `SimParams` vector, including scenario-adjusted parameters |
+| $X_{t}$ | completed month boundary state |
+| $RND_{\tau}$ | explicit `MonthRandomness.Contract` for execution month $\tau$ |
+| $\theta$ | complete `SimParams` vector, including scenario-adjusted parameters |
 
 Initialization has a separate deterministic contract:
 
-```text
-X_0 = init(theta, INIT_s)
-INIT_s = InitRandomness.Contract.fromSeed(s)
-```
+$$
+\begin{aligned}
+X_{0} &= \mathrm{init}(\theta, INIT_{s}) \\
+INIT_{s} &= \mathrm{InitRandomness.Contract.fromSeed}(s)
+\end{aligned}
+$$
 
 The replay rule is:
 
-```text
-same theta + same seed contract + same boundary state = same result
-```
+$$
+\begin{aligned}
+\theta, RND_{\tau}, X_{t}\ \mathrm{fixed} &\Longrightarrow X_{\tau}\ \mathrm{fixed}
+\end{aligned}
+$$
 
 Different seeds are not alternative deterministic branches of one run. They are
 Monte Carlo draws used to estimate distributional behavior of the same
@@ -91,9 +97,11 @@ Initialization randomness belongs to `InitRandomness.Contract`.
 
 For production Monte Carlo seed `s`:
 
-```text
-INIT_s = InitRandomness.Contract.fromSeed(s)
-```
+$$
+\begin{aligned}
+INIT_{s} &= \mathrm{InitRandomness.Contract.fromSeed}(s)
+\end{aligned}
+$$
 
 The initialization streams are:
 
@@ -123,12 +131,14 @@ Monthly randomness belongs to `MonthRandomness.Contract`.
 For the production Monte Carlo path, seed `s` and opening state with completed
 month `t` use:
 
-```text
-RND_{t+1,s} = MonthRandomness.Contract.fromSeed(s * 10000 + t)
-```
+$$
+\begin{aligned}
+RND_{t+1,s} &= \mathrm{MonthRandomness.Contract.fromSeed}(s \cdot 10000 + t)
+\end{aligned}
+$$
 
-The first executed month therefore uses the root seed `s * 10000` because the
-opening initialized state has `completedMonth = 0`.
+The first executed month therefore uses the root seed $s \cdot 10000$ because
+the opening initialized state has $\mathrm{completedMonth} = 0$.
 
 The monthly contract splits randomness into same-month stage streams and
 closed-month lifecycle streams:
@@ -188,10 +198,12 @@ affected by stochastic household, firm, bank, and external channels.
 
 For seed `s`:
 
-```text
-WorldInit.initialize(InitRandomness.Contract.fromSeed(s))
-MonthRandomness.Contract.fromSeed(s * 10000 + completedMonth)
-```
+$$
+\begin{aligned}
+\mathrm{WorldInit.initialize}(\mathrm{InitRandomness.Contract.fromSeed}(s)) \\
+\mathrm{MonthRandomness.Contract.fromSeed}(s \cdot 10000 + completedMonth)
+\end{aligned}
+$$
 
 `McRunner.runZIO` runs seeds in parallel, but each seed is an independent
 streaming simulation. Parallel execution order does not change the seed
@@ -210,22 +222,26 @@ or command metadata rather than inferred from `McRunner`.
 
 One seed is one deterministic realization:
 
-```text
-s fixed -> X_0 fixed -> X_1 fixed -> ... -> X_T fixed
-```
+$$
+\begin{aligned}
+s\ \mathrm{fixed} \to X_{0}\ \mathrm{fixed} \to X_{1}\ \mathrm{fixed} \to \ldots \to X_{T}\ \mathrm{fixed}
+\end{aligned}
+$$
 
 A Monte Carlo run with `N` seeds is a distributional sample:
 
-```text
-{ path_s | s in seedRange }
-```
+$$
+\begin{aligned}
+\{\,\mathrm{path}_{s} \mid s \in \mathrm{seedRange}\,\}
+\end{aligned}
+$$
 
 Across-seed means, minima, maxima, envelopes, quantiles, and scenario
 comparisons are therefore evidence about stochastic uncertainty under fixed
 parameters and fixed scenario deltas. They are not new behavioral equations and
 they do not alter `SimParams`.
 
-Scenario runs keep the same seed semantics but change `theta` through
+Scenario runs keep the same seed semantics but change $\theta$ through
 registered parameter deltas. Sensitivity and robustness reports separate
 stochastic uncertainty across seeds from parameter perturbation across
 scenarios.

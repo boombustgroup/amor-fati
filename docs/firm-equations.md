@@ -15,7 +15,7 @@ behavior and does not replace the implementation anchors listed below.
 | --- | --- |
 | [Model specification](model-specification.md#reviewer-reading-path) | Canonical reviewer path and model overview. |
 | [Model notation and state vector](model-notation-and-state-vector.md#firms) | Firm state, ledger-owned firm balances, and major symbol families. |
-| [Monthly transition function](monthly-transition-function.md) | `X_t -> X_tau` timing, randomness, flow emission, SFC validation, and next-pre boundary. |
+| [Monthly transition function](monthly-transition-function.md) | $X_{t} \to X_{\tau}$ timing, randomness, flow emission, SFC validation, and next-pre boundary. |
 | [Behavioral equations and decision rules](behavioral-equations-and-decision-rules.md#firm-rules) | Detailed implementation-oriented rule catalog and output-column map. |
 | [SFC matrix evidence](sfc-matrix-evidence.md) | Accounting matrix evidence and generated runtime mapping artifacts. |
 | [Engine invariants and semantics](engine-invariants-and-semantics.md) | Validation ownership and hard-fail semantics. |
@@ -27,188 +27,238 @@ behavior and does not replace the implementation anchors listed below.
 
 ## State
 
-For firm `f` in sector `s = s(f)`, the behavioral state is:
+For firm `f` in sector $s = s(f)$, the behavioral state is:
 
-```text
-a^F_{f,t} =
-  (tech_{f,t}, risk_f, innovCost_f, DR_{f,t}, s_f, N_f,
-   bank_f, K_{f,t}, GK_{f,t}, Inv_{f,t}, markup_{f,t},
-   foreign_f, stateOwned_f, region_f, startup_f, signal_f, ...)
-```
+$$
+\begin{aligned}
+a^{F}_{f,t} &=  \\
+&\quad (tech_{f,t}, risk_{f}, innovCost_{f}, DR_{f,t}, s_{f}, N_{f}, \\
+&\quad bank_{f}, K_{f,t}, GK_{f,t}, Inv_{f,t}, markup_{f,t}, \\
+&\quad foreign_{f}, stateOwned_{f}, region_{f}, startup_{f}, signal_{f}, \ldots)
+\end{aligned}
+$$
 
 Ledger-owned firm balances are:
 
-```text
-l^F_{f,t} = (Cash^F_{f,t}, L^F_{f,t}, CB^F_{f,t}, Eq^F_{f,t})
-```
+$$
+\begin{aligned}
+l^{F}_{f,t} &= (Cash^{F}_{f,t}, L^{F}_{f,t}, CB^{F}_{f,t}, Eq^{F}_{f,t})
+\end{aligned}
+$$
 
-where `Cash^F` is firm liquidity, `L^F` is bank-loan principal, `CB^F`
-is issued corporate-bond principal, and `Eq^F` is listed-equity financing
+where $Cash^{F}$ is firm liquidity, $L^{F}$ is bank-loan principal, $CB^{F}$
+is issued corporate-bond principal, and $Eq^{F}$ is listed-equity financing
 recorded in the firm ledger slice.
 
 The technology regime is:
 
-```text
-tech_f in {Traditional(n), Hybrid(n, A), Automated(A), Bankrupt(reason)}
-```
+$$
+\begin{aligned}
+tech_{f} \in \{\mathrm{Traditional}(n), \mathrm{Hybrid}(n, A), \mathrm{Automated}(A), \mathrm{Bankrupt}(reason)\}
+\end{aligned}
+$$
 
 with effective worker count:
 
-```text
-n_f =
-  n                                      if Traditional(n)
-  n                                      if Hybrid(n, A)
-  max(autoSkeletonCrew, floor(phi_skel N_f)) if Automated(A)
-  0                                      if Bankrupt
-```
+$$
+\begin{aligned}
+n_{f} &=
+\begin{cases}
+n, & \text{if } tech_{f} = \mathrm{Traditional}(n), \\
+n, & \text{if } tech_{f} = \mathrm{Hybrid}(n, A), \\
+\max(autoSkeletonCrew, \mathrm{floor}(phi_{skel} N_{f})), & \text{if } tech_{f} = \mathrm{Automated}(A), \\
+0, & \text{if } tech_{f} = \mathrm{Bankrupt}.
+\end{cases}
+\end{aligned}
+$$
 
 Bankrupt firms are inactive until recycled through the entry mechanism.
 
 ## Capacity And Production
 
-Let `N_f` be initial firm size and `N_bar` the calibration workers-per-firm
+Let $N_{f}$ be initial firm size and `N_bar` the calibration workers-per-firm
 scale. The size scale is:
 
-```text
-size_f = N_f / N_bar
-```
+$$
+\begin{aligned}
+size_{f} &= N_{f} / N_{bar}
+\end{aligned}
+$$
 
 The labor/technology efficiency term is:
 
-```text
-ell_f =
-  n_f / N_f                         if Traditional
-  omega_H^L n_f / N_f + omega_H^A A_f if Hybrid
-  A_f                               if Automated
-  0                                 if Bankrupt
-```
+$$
+\begin{aligned}
+\ell_{f} &=
+\begin{cases}
+n_{f} / N_{f}, & \text{if traditional}, \\
+omega_{H}^{L} n_{f} / N_{f} + omega_{H}^{A} A_{f}, & \text{if hybrid}, \\
+A_{f}, & \text{if automated}, \\
+0, & \text{if bankrupt}.
+\end{cases}
+\end{aligned}
+$$
 
 The structural capital target is based on planning workers:
 
-```text
-K^*_{f,t} = n^{plan}_{f,t} kappa_s
-```
+$$
+\begin{aligned}
+K^{*}_{f,t} &= n^{plan}_{f,t} kappa_{s}
+\end{aligned}
+$$
 
-where `n^{plan}` is the current worker count, startup target, or initial size
+where $n^{plan}$ is the current worker count, startup target, or initial size
 floor used by the implementation for capital planning.
 
 If physical capital and labor/technology efficiency are positive, firm capacity
 is:
 
-```text
-C_{f,tau} =
-  baseRevenue * size_f * revMult_s *
-  CES_alpha,sigma_s(k_{f,t}, ell_{f,t})
-
-k_{f,t} = clamp(K_{f,t} / K^*_{f,t}, 0.1, 2.0)
-```
+$$
+\begin{aligned}
+C_{f,\tau} &=  \\
+&\quad baseRevenue \cdot size_{f} \cdot revMult_{s} \cdot \\
+&\quad \mathrm{CES}_{\alpha,\sigma_{s}}(k_{f,t}, \ell_{f,t}) \\
+ \\
+k_{f,t} &= \mathrm{clamp}(K_{f,t} / K^{*}_{f,t}, 0.1, 2.0)
+\end{aligned}
+$$
 
 Otherwise:
 
-```text
-C_{f,tau} = baseRevenue * size_f * revMult_s * ell_{f,t}
-```
+$$
+\begin{aligned}
+C_{f,\tau} &= baseRevenue \cdot size_{f} \cdot revMult_{s} \cdot \ell_{f,t}
+\end{aligned}
+$$
 
 Runtime productivity scales the realized capacity surface:
 
-```text
-C^eff_{f,tau} = prodIndex_t * C_{f,tau}
-```
+$$
+\begin{aligned}
+C^{eff}_{f,\tau} &= prodIndex_{t} \cdot C_{f,\tau}
+\end{aligned}
+$$
 
 The CES aggregator is Cobb-Douglas at the unit-elasticity boundary:
 
-```text
-CES_alpha,sigma(k, ell) =
-  k^alpha ell^(1-alpha)                                  if sigma approx 1
-  [alpha k^rho + (1-alpha) ell^rho]^(1/rho)              otherwise
-rho = (sigma - 1) / sigma
-```
+$$
+\begin{aligned}
+\mathrm{CES}_{\alpha,\sigma}(k, \ell) &=
+\begin{cases}
+k^{\alpha} \ell^{1-\alpha}, & \text{if } \sigma \approx 1, \\
+\left[\alpha k^{\rho} + (1-\alpha) \ell^{\rho}\right]^{1/\rho}, & \text{otherwise},
+\end{cases} \\
+\rho &= (\sigma - 1) / \sigma
+\end{aligned}
+$$
 
 ## Revenue And Profit
 
-Let `P_t` be the domestic price level and `D_{s,tau}` the sector demand
+Let $P_{t}$ be the domestic price level and $D_{s,\tau}$ the sector demand
 multiplier used by same-month economics. Firm revenue is:
 
-```text
-Y^F_{f,tau} = P_t C^eff_{f,tau} D_{s,tau}
-```
+$$
+\begin{aligned}
+Y^{F}_{f,\tau} &= P_{t} C^{eff}_{f,\tau} D_{s,\tau}
+\end{aligned}
+$$
 
 Labor cost is:
 
-```text
-WCost_{f,tau} = n_f wage_tau wageMult_s
-```
+$$
+\begin{aligned}
+WCost_{f,\tau} &= n_{f} wage_{\tau} wageMult_{s}
+\end{aligned}
+$$
 
-where `wageMult_s` includes the sector wage multiplier and union wage premium.
+where $wageMult_{s}$ includes the sector wage multiplier and union wage premium.
 
 Monthly interest cost uses bank and corporate-bond debt:
 
-```text
-IntCost_{f,tau} = (L^F_{f,t} + CB^F_{f,t}) r^L_{bank(f),tau} / 12
-```
+$$
+\begin{aligned}
+IntCost_{f,\tau} &= (L^{F}_{f,t} + CB^{F}_{f,t}) r^{L}_{\mathrm{bank}(f),\tau} / 12
+\end{aligned}
+$$
 
 The pre-profit-shifting operating cost stack is:
 
-```text
-Cost^{prePS}_{f,tau} =
-  WCost_{f,tau}
-  + OtherCost_{f,tau}
-  + DepK_{f,tau}
-  + AIOpex_{f,tau}
-  + IntCost_{f,tau}
-  + InvCarry_{f,tau}
-  + EnergyETS_{f,tau}
-```
+$$
+\begin{aligned}
+Cost^{prePS}_{f,\tau} &=  \\
+&\quad WCost_{f,\tau} \\
+&\quad + OtherCost_{f,\tau} \\
+&\quad + DepK_{f,\tau} \\
+&\quad + AIOpex_{f,\tau} \\
+&\quad + IntCost_{f,\tau} \\
+&\quad + InvCarry_{f,\tau} \\
+&\quad + EnergyETS_{f,\tau}
+\end{aligned}
+$$
 
 where:
 
 - `OtherCost` scales with firm size, price level, startup multiplier, and the
   share of costs not already made explicit through capital, energy, or
   inventory channels;
-- `DepK = K_{f,t} delta^K_s / 12`;
+- $DepK = K_{f,t} \delta^K_s / 12$;
 - `AIOpex` applies to automated and hybrid firms with domestic/import price
   splits and sublinear size scaling;
-- `InvCarry = Inv_{f,t} r^{invCarry} / 12`;
+- $InvCarry = Inv_{f,t} r^{invCarry} / 12$;
 - `EnergyETS` uses sector energy-cost shares, commodity prices, ETS carbon
   surcharge, and a green-capital discount.
 
 Gross profit before FDI profit shifting is:
 
-```text
-Pi^{gross}_{f,tau} = Y^F_{f,tau} - Cost^{prePS}_{f,tau}
-```
+$$
+\begin{aligned}
+Pi^{gross}_{f,\tau} &= Y^{F}_{f,\tau} - Cost^{prePS}_{f,\tau}
+\end{aligned}
+$$
 
 Foreign-owned firms shift a share of positive gross profit:
 
-```text
-PS_{f,tau} =
-  profitShiftRate * max(Pi^{gross}_{f,tau}, 0) if foreign_f
-  0                                           otherwise
-```
+$$
+\begin{aligned}
+PS_{f,\tau} &=
+\begin{cases}
+profitShiftRate \cdot \max(Pi^{gross}_{f,\tau}, 0), & \text{if } foreign_{f}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 Profit before CIT is:
 
-```text
-Pi^{preTax}_{f,tau} = Pi^{gross}_{f,tau} - PS_{f,tau}
-```
+$$
+\begin{aligned}
+Pi^{preTax}_{f,\tau} &= Pi^{gross}_{f,\tau} - PS_{f,\tau}
+\end{aligned}
+$$
 
 CIT uses loss carryforward:
 
-```text
-Taxable_{f,tau} =
-  max(Pi^{preTax}_{f,tau} - min(loss_{f,t}, carryMax * Pi^{preTax}_{f,tau}), 0)
+$$
+\begin{aligned}
+Pi^{+}_{f,\tau} &= \max(Pi^{preTax}_{f,\tau}, 0) \\
+ \\
+Taxable_{f,\tau} &=  \\
+&\quad \max(Pi^{+}_{f,\tau} - \min(loss_{f,t}, carryMax \cdot Pi^{+}_{f,\tau}), 0) \\
+ \\
+CIT_{f,\tau} &= citRate \cdot Taxable_{f,\tau}
+\end{aligned}
+$$
 
-CIT_{f,tau} = citRate * Taxable_{f,tau}
-```
-
-Losses increase when `Pi^{preTax} < 0`; remaining accumulated losses decay
+Losses increase when $Pi^{preTax} < 0$; remaining accumulated losses decay
 after offsets.
 
 Post-tax profit is:
 
-```text
-Pi^{net}_{f,tau} = Pi^{preTax}_{f,tau} - CIT_{f,tau}
-```
+$$
+\begin{aligned}
+Pi^{net}_{f,\tau} &= Pi^{preTax}_{f,\tau} - CIT_{f,\tau}
+\end{aligned}
+$$
 
 These P&L equations are deterministic conditional on the opening state,
 same-month macro inputs, lending rate, and parameters.
@@ -218,44 +268,54 @@ same-month macro inputs, lending rate, and parameters.
 Traditional and hybrid firms compute desired workers from a one-period
 marginal-revenue comparison. For a hypothetical worker count `n`:
 
-```text
-MR_f(n) =
-  [C^eff_f(n) - C^eff_f(n - 1)] *
-  P_t *
-  D^{hire}_{s,tau}
-```
+$$
+\begin{aligned}
+MR_{f}(n) &=  \\
+&\quad [C^{eff}_{f}(n) - C^{eff}_{f}(n - 1)] \cdot \\
+&\quad P_{t} \cdot \\
+&\quad D^{hire}_{s,\tau}
+\end{aligned}
+$$
 
 The demand signal used for hiring blends realized sector demand with positive
 sector hiring pressure:
 
-```text
-D^{hire}_{s,tau} =
-  D_{s,tau} + max(HireSignal_{s,tau} - D_{s,tau}, 0) * blend
-```
+$$
+\begin{aligned}
+D^{hire}_{s,\tau} &=  \\
+&\quad D_{s,\tau} + \max(HireSignal_{s,\tau} - D_{s,\tau}, 0) \cdot blend
+\end{aligned}
+$$
 
 Desired workers are the largest `n` such that:
 
-```text
-MR_f(n) > wage_tau wageMult_s
-```
+$$
+\begin{aligned}
+MR_{f}(n) > wage_{\tau} wageMult_{s}
+\end{aligned}
+$$
 
 The raw target is then compressed by aggregate operational hiring slack:
 
-```text
-n^{target}_{f,tau} =
-  n_{f,t} + slack_tau * max(n^{raw}_{f,tau} - n_{f,t}, 0)
-```
+$$
+\begin{aligned}
+n^{target}_{f,\tau} &=  \\
+&\quad n_{f,t} + slack_{\tau} \cdot \max(n^{raw}_{f,\tau} - n_{f,t}, 0)
+\end{aligned}
+$$
 
 Hiring is limited by persistence, monthly headroom, liquidity, startup runway,
 and profitability. Firing is smoothed by an adjustment share and softened for
 state-owned firms:
 
-```text
-Delta n_{f,tau} =
-  stochastic_round(lambda_hire * gap)      if gap > threshold_hire
-  -stochastic_round(lambda_fire * |gap|)   if gap < -threshold_fire
-  0                                        otherwise
-```
+$$
+\begin{aligned}
+\Delta n_{f,\tau} &=  \\
+\mathrm{stochastic}_{round}(\lambda_{hire} \cdot gap) & \text{if } gap > threshold_{hire} \\
+-\mathrm{stochastic}_{round}(\lambda_{fire} \cdot |gap|) & \text{if } gap < -threshold_{fire} \\
+0 & \text{otherwise}
+\end{aligned}
+$$
 
 The residual stochastic rounding draw is part of the firm-economics random
 stream and is recorded in firm decision traces.
@@ -275,49 +335,59 @@ three deterministic or stochastic market surfaces:
 3. labor-market matching, immigration/remigration, wage updates, and firm
    staffing synchronization.
 
-The markup update is a Calvo lottery. With probability `theta`, firm `f` resets
+The markup update is a Calvo lottery. With probability $\theta$, firm `f` resets
 its markup; otherwise it keeps the previous markup:
 
-```text
-mu_{f,tau} =
-  mu^*_{f,tau}    if U^{price}_{f,tau} < theta
-  mu_{f,t}        otherwise
-```
+$$
+\begin{aligned}
+\mu_{f,\tau} &=
+\begin{cases}
+\mu^{*}_{f,\tau}, & U^{price}_{f,\tau} < \theta, \\
+\mu_{f,t}, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 The reset markup is:
 
-```text
-mu^*_{f,tau} =
-  clamp(
-    baseMarkup *
-    [1
-     + min(max(DPressure_{s,tau} - 1, 0) demandSensitivity, demandCap)
-     + min(max(WageGrowth_tau, 0) costPassthrough, costCap)
-     + min(max(EnergyPressure_{s,tau}, 0), energyCap)],
-    minMarkup,
-    maxMarkup)
-```
+$$
+\begin{aligned}
+\mu^{*}_{f,\tau} &=  \\
+&\quad \mathrm{clamp}( \\
+&\quad baseMarkup \cdot \\
+&\quad \left[1 \\
+&\quad + \min(\max(DPressure_{s,\tau} - 1, 0) \cdot demandSensitivity, demandCap) \\
+&\quad + \min(\max(WageGrowth_{\tau}, 0) \cdot costPassthrough, costCap) \\
+&\quad + \min(\max(EnergyPressure_{s,\tau}, 0), energyCap)\right], \\
+&\quad minMarkup, \\
+&\quad maxMarkup)
+\end{aligned}
+$$
 
 where `EnergyPressure` depends on the commodity-price index, sector energy-cost
 share, and the state-owned energy pass-through modifier. The aggregate markup
 inflation contribution is the annualized capacity-weighted average markup
 change:
 
-```text
-pi^{markup}_{tau} =
-  annualize(
-    sum_f C^eff_{f,tau} (mu_{f,tau} - mu_{f,t})
-    / sum_f C^eff_{f,tau})
-```
+$$
+\begin{aligned}
+\pi^{markup}_{\tau} &=  \\
+&\quad \mathrm{annualize}( \\
+&\quad \sum_{f} C^{eff}_{f,\tau}(\mu_{f,\tau} - \mu_{f,t}) \\
+&\quad / \sum_{f} C^{eff}_{f,\tau})
+\end{aligned}
+$$
 
 Inventory is adjusted after the primary decision:
 
-```text
-Inv^{postSpoil}_{f,tau} = Inv_{f,t} (1 - spoil_s / 12)
-TargetInv_{f,tau} = RealizedRevenue_{f,tau} inventoryTarget_s
-RawDeltaInv_{f,tau} =
-  (TargetInv_{f,tau} - Inv^{postSpoil}_{f,tau}) inventoryAdjustSpeed
-```
+$$
+\begin{aligned}
+Inv^{postSpoil}_{f,\tau} &= Inv_{f,t} (1 - spoil_{s} / 12) \\
+TargetInv_{f,\tau} &= RealizedRevenue_{f,\tau} inventoryTarget_{s} \\
+RawDeltaInv_{f,\tau} &=  \\
+&\quad (TargetInv_{f,\tau} - Inv^{postSpoil}_{f,\tau}) inventoryAdjustSpeed
+\end{aligned}
+$$
 
 Positive inventory replenishment is capped by a revenue-based budget; negative
 inventory movement cannot draw below zero. If cash is negative, the firm can
@@ -327,44 +397,52 @@ liquidate inventory at a discount to raise cash.
 
 Physical capital investment occurs after the selected firm decision:
 
-```text
-K^{postDep}_{f,tau} = K_{f,t} (1 - delta^K_s / 12)
-K^{target}_{f,tau} =
-  n^{plan}_{f,tau} kappa_s *
-  [1 + demandExpansionSensitivity * pressure^+_{s,tau} * persistence_{f,t}]
-```
+$$
+\begin{aligned}
+K^{postDep}_{f,\tau} &= K_{f,t} (1 - delta^{K}_{s} / 12) \\
+K^{target}_{f,\tau} &=  \\
+&\quad n^{plan}_{f,\tau} kappa_{s} \cdot \\
+&\quad [1 + demandExpansionSensitivity \cdot pressure^+_{s,\tau} \cdot persistence_{f,t}]
+\end{aligned}
+$$
 
 Desired gross investment is:
 
-```text
-I^{des}_{f,tau} =
-  DepK_{f,tau}
-  + max(K^{target}_{f,tau} - K^{postDep}_{f,tau}, 0) * adjustSpeed * investMult_f
-```
+$$
+\begin{aligned}
+I^{des}_{f,\tau} &=  \\
+&\quad DepK_{f,\tau} \\
+&\quad + \max(K^{target}_{f,\tau} - K^{postDep}_{f,\tau}, 0) \cdot adjustSpeed \cdot investMult_{f}
+\end{aligned}
+$$
 
-Cash investment is funded first:
+Pre-credit cash capacity is:
 
-```text
-I^{cash}_{f,tau} = min(I^{des}_{f,tau}, max(Cash^F_{f,t}, 0))
-```
+$$
+\begin{aligned}
+I^{cash,pre}_{f,\tau} &= \min(I^{des}_{f,\tau}, \max(Cash^{F}_{f,t}, 0))
+\end{aligned}
+$$
 
 Desired investment generates a target bank-credit request before the firm falls
 back to internal cash. A separate shortfall leg still lets cash-constrained
 firms request credit for unfunded investment:
 
-```text
-I^{targetDebt}_{f,tau} =
-  I^{des}_{f,tau} * investmentDebtTargetShare
-
-I^{shortfallDebt}_{f,tau} =
-  max(I^{des}_{f,tau} - max(Cash^F_{f,t}, 0), 0) * investmentCreditShare
-
-Demand^{invCredit}_{f,tau} =
-  min(max(I^{targetDebt}_{f,tau}, I^{shortfallDebt}_{f,tau}), I^{des}_{f,tau})
-
-I^{cash}_{f,tau} =
-  min(I^{des}_{f,tau} - Credit^{approved}_{f,tau}, max(Cash^F_{f,t}, 0))
-```
+$$
+\begin{aligned}
+I^{targetDebt}_{f,\tau} &=  \\
+&\quad I^{des}_{f,\tau} \cdot investmentDebtTargetShare \\
+ \\
+I^{shortfallDebt}_{f,\tau} &=  \\
+&\quad \max(I^{des}_{f,\tau} - \max(Cash^{F}_{f,t}, 0), 0) \cdot investmentCreditShare \\
+ \\
+Demand^{invCredit}_{f,\tau} &=  \\
+&\quad \min(\max(I^{targetDebt}_{f,\tau}, I^{shortfallDebt}_{f,\tau}), I^{des}_{f,\tau}) \\
+ \\
+I^{cash}_{f,\tau} &=  \\
+&\quad \min(I^{des}_{f,\tau} - Credit^{approved}_{f,\tau}, \max(Cash^{F}_{f,t}, 0))
+\end{aligned}
+$$
 
 Approved investment credit increases both cash and firm-loan principal before
 being spent on capital. Rejected credit is exposed by reason in the
@@ -380,38 +458,40 @@ separate cash budget share.
 Traditional firms evaluate full-AI and hybrid candidates; hybrid firms can
 evaluate full-AI upgrades. Candidate capex is:
 
-```text
-Capex^{AI}_{f,tau} =
-  aiCapex * aiCapexMult_s *
-  (1 - digiCapexDiscount * DR_{f,t}) *
-  innovCost_f *
-  size_f^{capexExp}
-
-Capex^{Hybrid}_{f,tau} =
-  hybridCapex * hybridCapexMult_s *
-  (1 - digiCapexDiscount * DR_{f,t}) *
-  innovCost_f *
-  size_f^{capexExp}
-```
+$$
+\begin{aligned}
+Capex^{AI}_{f,\tau} &=  \\
+&\quad aiCapex \cdot aiCapexMult_{s} \cdot \\
+&\quad (1 - digiCapexDiscount \cdot DR_{f,t}) \cdot \\
+&\quad innovCost_{f} \cdot \\
+&\quad size_{f}^{capexExp} \\
+ \\
+Capex^{Hybrid}_{f,\tau} &=  \\
+&\quad hybridCapex \cdot hybridCapexMult_{s} \cdot \\
+&\quad (1 - digiCapexDiscount \cdot DR_{f,t}) \cdot \\
+&\quad innovCost_{f} \cdot \\
+&\quad size_{f}^{capexExp}
+\end{aligned}
+$$
 
 Each candidate defines:
 
-```text
-Loan^{tech}_{f,tau} = loanShare_path * Capex_path
-Down_path = downShare_path * Capex_path
-```
+$$
+\begin{aligned}
+Loan^{tech}_{f,\tau} &= loanShare_{path} \cdot Capex_{path} \\
+Down_{path} &= downShare_{path} \cdot Capex_{path}
+\end{aligned}
+$$
 
 A candidate is feasible when all of the following hold:
 
-```text
-current cost base exceeds the path cost threshold adjusted by sigma_s
-Cash^F_{f,t} >= Down_path
-DR_{f,t} >= readinessMin_path
-relationship bank approves Loan_path
-```
+- current cost base exceeds the path cost threshold adjusted by $\sigma_{s}$;
+- $Cash^{F}_{f,t} \ge Down_{path}$;
+- $DR_{f,t} \ge readinessMin_{path}$;
+- the relationship bank approves $Loan_{path}$.
 
 For traditional-firm upgrades, the path cost threshold is divided by the
-sectoral substitution threshold `sigmaThreshold(sigma_s)`, matching the runtime
+sectoral substitution threshold $sigmaThreshold(\sigma_{s})$, matching the runtime
 use of current sector technology substitutability in upgrade feasibility. Hybrid
 to full-AI upgrades use the full-AI margin threshold without that additional
 sector-sigma divisor.
@@ -429,10 +509,12 @@ Adoption probabilities combine:
 
 For traditional firms:
 
-```text
-p^{AI}_{f,tau} = min(1, willingness * rawFullAi)
-p^{H}_{f,tau} = min(1 - p^{AI}_{f,tau}, willingness * rawHybrid)
-```
+$$
+\begin{aligned}
+p^{AI}_{f,\tau} &= \min(1, willingness \cdot rawFullAi) \\
+p^{H}_{f,\tau} &= \min(1 - p^{AI}_{f,\tau}, willingness \cdot rawHybrid)
+\end{aligned}
+$$
 
 A single adoption draw selects full-AI, hybrid, or no upgrade. Successful
 upgrades draw technology efficiency. Failed implementations impose partial
@@ -458,21 +540,27 @@ portfolio-preference, unclassified
 ```
 
 Approved technology and investment loan demand enters the firm financing split.
-For a total new-financing amount `NewLoan_f`:
+For a total new-financing amount $NewLoan_{f}$:
 
-```text
-Equity_f =
-  equityFrac * NewLoan_f      if workers_f >= equityMinSize
-  0                           otherwise
-
-AfterEquity_f = NewLoan_f - Equity_f
-
-CorpBond_f =
-  bondFrac * AfterEquity_f    if workers_f >= corpBondMinSize
-  0                           otherwise
-
-BankLoan_f = AfterEquity_f - CorpBond_f
-```
+$$
+\begin{aligned}
+Equity_{f} &=
+\begin{cases}
+equityFrac \cdot NewLoan_{f}, & workers_{f} \ge equityMinSize, \\
+0, & \text{otherwise},
+\end{cases} \\
+ \\
+AfterEquity_{f} &= NewLoan_{f} - Equity_{f} \\
+ \\
+CorpBond_{f} &=
+\begin{cases}
+bondFrac \cdot AfterEquity_{f}, & workers_{f} \ge corpBondMinSize, \\
+0, & \text{otherwise},
+\end{cases} \\
+ \\
+BankLoan_{f} &= AfterEquity_{f} - CorpBond_{f}
+\end{aligned}
+$$
 
 The technology portion is prorated across equity, corporate bonds, and bank
 loans so the diagnostics can distinguish `TechBankLoan` from total financing.
@@ -493,10 +581,13 @@ Per-firm decisions can produce bankruptcy directly when:
 Newly dead firms are those alive at the opening stage and bankrupt after firm
 market stages. Bank NPL creation and loss are:
 
-```text
-NPL^{new}_{tau} = sum_{f newly dead} L^F_{f,tau}
-NPLLoss_tau = NPL^{new}_{tau} * (1 - loanRecovery)
-```
+$$
+\begin{aligned}
+NPL^{new}_{\tau} &= \sum_{\substack{f:\ \text{alive at } t \\
+\text{bankrupt after firm stages}}} L^{F}_{f,\tau} \\
+NPLLoss_{\tau} &= NPL^{new}_{\tau} \cdot (1 - loanRecovery)
+\end{aligned}
+$$
 
 Corporate-bond defaults are computed from defaulted issuer debt and cleared
 from the holder-resolved corporate-bond ownership layer.
@@ -513,15 +604,9 @@ Firm entry runs in the closed-month lifecycle boundary. It has two channels:
 2. net entry: append new firms when demand, inflation, hiring slack, and
    startup absorption support expansion.
 
-Sector entry weights combine:
-
-```text
-sector target share
-* correction for over/under-representation
-* demand pressure and utilization
-* profitability signal
-* sector entry-barrier multiplier
-```
+Sector entry weights multiply the sector target share, the correction for
+over/under-representation, demand pressure and utilization, the profitability
+signal, and the sector entry-barrier multiplier.
 
 The profitability signal is based on sector-average cash relative to the
 living-firm average and is clamped to a bounded range.
@@ -536,19 +621,23 @@ succeeds.
 
 Foreign-owned firms have two channels:
 
-```text
-profit shifting = profitShiftRate * max(gross profit, 0)
-repatriation = min(repatriationRate * max(post-tax profit, 0), available cash)
-```
+$$
+\begin{aligned}
+ProfitShift_{f,\tau} &= profitShiftRate \cdot \max(Pi^{gross}_{f,\tau}, 0) \\
+Repatriation_{f,\tau} &= \min(repatriationRate \cdot \max(Pi^{postTax}_{f,\tau}, 0), Cash^{available}_{f,\tau})
+\end{aligned}
+$$
 
 Informal-economy CIT evasion is:
 
-```text
-CITEvasion_{f,tau} =
-  CIT_{f,tau} *
-  clamp(shadowShare_s + cyclicalInformalAdjustment_t, 0, 1) *
-  citEvasionRate
-```
+$$
+\begin{aligned}
+CITEvasion_{f,\tau} &=  \\
+&\quad CIT_{f,\tau} \cdot \\
+&\quad \mathrm{clamp}(shadowShare_{s} + cyclicalInformalAdjustment_{t}, 0, 1) \cdot \\
+&\quad citEvasionRate
+\end{aligned}
+$$
 
 These flows affect cash, tax payments, and external-sector/public-sector
 evidence, but they do not create separate firm behavioral types.

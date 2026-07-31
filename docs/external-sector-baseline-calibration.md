@@ -14,13 +14,17 @@ deficit mechanically wider even though the closure terms balanced.
 Keep `openEcon.exportBase` unchanged. Add a domestic export-capacity term inside
 `GvcTrade`:
 
-```text
-sectorExportDemand = foreign demand
-                   * real exchange-rate effect
-                   * automation effect
-                   * (realSectorOutput / openingRealSectorOutput)^gvc.exportCapacityElasticity
-                   * disruption effect
-```
+$$
+\begin{aligned}
+sectorExportDemand &=
+foreignDemand
+\cdot realExchangeRateEffect
+\cdot automationEffect \\
+&\quad \cdot
+\left(\frac{realSectorOutput}{openingRealSectorOutput}\right)^{\mathrm{gvc.exportCapacityElasticity}}
+\cdot disruptionEffect
+\end{aligned}
+$$
 
 The opening real sector output is anchored on the first observed sector-output
 vector. This preserves the empirical opening export base while allowing realized
@@ -28,9 +32,9 @@ exports to move with domestic supply capacity over a multi-year baseline.
 
 The calibrated value is:
 
-```text
-gvc.exportCapacityElasticity = 0.35
-```
+$$
+\mathrm{gvc.exportCapacityElasticity} = 0.35
+$$
 
 A trial value of `0.55` was rejected. It improved the external balance more
 aggressively but produced an all-failed banking-sector path in the Nix/JAR
@@ -60,7 +64,7 @@ mc/issue617-external-baseline_20260525-617-external-baseline-after035_60m_seed00
 mc/issue617-external-baseline_20260525-617-external-baseline-after035_60m_seed005.tsv
 ```
 
-Annual ratios are computed as `sum(flow) / sum(MonthlyGdpProxy)` across the five
+Annual ratios are computed as $\frac{\sum \mathrm{flow}}{\sum \mathrm{MonthlyGdpProxy}}$ across the five
 seeds in each 12-month window. M60 rows are seed means.
 
 ## Results

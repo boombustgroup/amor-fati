@@ -54,7 +54,7 @@ Those TSV outputs are the primary numeric evidence surface for these rules.
 
 One model month follows the deterministic same-month economics pipeline below,
 then emits runtime ledger flows and validates SFC identities.
-The formal `X_t -> X_tau` transition contract is documented in
+The formal $X_{t} \to X_{\tau}$ transition contract is documented in
 [monthly-transition-function.md](monthly-transition-function.md).
 
 | Module | Rule surface |
@@ -113,34 +113,48 @@ Each household carries:
 
 For a household `h`, monthly base income is:
 
-```text
-baseIncome_h =
-  wage_h                         if employed
-  unemploymentBenefit(months_h)   if unemployed
-  0                               if retraining or bankrupt
-```
+$$
+\begin{aligned}
+baseIncome_{h} &=
+\begin{cases}
+wage_{h}, & \text{if employed}, \\
+\mathrm{unemploymentBenefit}(months_{h}), & \text{if unemployed}, \\
+0, & \text{if retraining or bankrupt}.
+\end{cases}
+\end{aligned}
+$$
 
 Deposit interest is paid on demand deposits using the household's bank deposit
 rate when bank-specific rates are available:
 
-```text
-depositInterest_h = demandDeposit_h * depositRate_b.monthly
-```
+$$
+\begin{aligned}
+depositInterest_{h} &=
+\begin{cases}
+demandDeposit_{h} \cdot depositRate_{b}^{\mathrm{monthly}}, & \text{if bank deposit rates are available}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 Monthly PIT is progressive and annualized in the household module:
 
-```text
-pitBase_h = grossIncome_h - employeeZus_h
-annualizedBase_h = 12 * pitBase_h
-pit_h = max(grossTax(annualizedBase_h) - annualTaxCredit, 0) / 12
-```
+$$
+\begin{aligned}
+pitBase_{h} &= grossIncome_{h} - employeeZus_{h} \\
+annualizedBase_{h} &= 12 \cdot pitBase_{h} \\
+pit_{h} &= \max(\mathrm{grossTax}(annualizedBase_{h}) - annualTaxCredit, 0) / 12
+\end{aligned}
+$$
 
 The current social-transfer rule is a lump-sum 800+ payment:
 
-```text
-socialTransfer_h = dependentChildren_h * social800
-income_h = grossIncome_h - pit_h + socialTransfer_h
-```
+$$
+\begin{aligned}
+socialTransfer_{h} &= dependentChildren_{h} \cdot social800 \\
+income_{h} &= grossIncome_{h} - pit_{h} + socialTransfer_{h}
+\end{aligned}
+$$
 
 ### Consumption, Saving, And Wealth Effects
 
@@ -148,45 +162,58 @@ Mortgage debt service separates scheduled principal repayment from variable-rate
 interest. When bank-specific rates are unavailable, the fallback rate is the
 policy rate plus the housing mortgage spread:
 
-```text
-mortgageRate_h =
-  lendingRate_b                         if bank-specific lendingRate_b exists
-  nbp.referenceRate + housing.mortgageSpread
-                                        otherwise
-remainingMortgageMonths_h =
-  remainingMortgageMonths_h             if mortgageLoan_h > 0 and remainingMortgageMonths_h > 0
-  housing.mortgageMaturity              if mortgageLoan_h > 0 and no contract state exists
-  0                                     otherwise
-mortgagePrincipal_h =
-  mortgageLoan_h / remainingMortgageMonths_h if mortgageLoan_h > 0
-  0                                          otherwise
-mortgageInterest_h = mortgageLoan_h * mortgageRate_h.monthly
-scheduledMortgagePayment_h =
-  mortgagePrincipal_h + mortgageInterest_h
-mortgageLoan'_h = max(mortgageLoan_h - mortgagePrincipal_h, 0)
-remainingMortgageMonths'_h =
-  max(remainingMortgageMonths_h - 1, 1)  if mortgageLoan'_h > 0
-  0                                     otherwise
-```
+$$
+\begin{aligned}
+mortgageRate_{h} &=
+\begin{cases}
+lendingRate_{b}, & \text{if bank-specific } lendingRate_{b} \text{ exists}, \\
+\mathrm{nbp.referenceRate} + \mathrm{housing.mortgageSpread}, & \text{otherwise},
+\end{cases} \\
+remainingMortgageMonths_{h} &=
+\begin{cases}
+remainingMortgageMonths_{h}, & mortgageLoan_{h} > 0 \land remainingMortgageMonths_{h} > 0, \\
+\mathrm{housing.mortgageMaturity}, & \text{if } mortgageLoan_{h} > 0 \text{ and no contract state exists}, \\
+0, & \text{otherwise},
+\end{cases} \\
+mortgagePrincipal_{h} &=
+\begin{cases}
+mortgageLoan_{h} / remainingMortgageMonths_{h}, & mortgageLoan_{h} > 0, \\
+0, & \text{otherwise},
+\end{cases} \\
+mortgageInterest_{h} &= mortgageLoan_{h} \cdot mortgageRate_{h}^{\mathrm{monthly}} \\
+scheduledMortgagePayment_{h} &=  \\
+&\quad mortgagePrincipal_{h} + mortgageInterest_{h} \\
+mortgageLoan'_{h} &= \max(mortgageLoan_{h} - mortgagePrincipal_{h}, 0) \\
+remainingMortgageMonths'_{h} &=
+\begin{cases}
+\max(remainingMortgageMonths_{h} - 1, 1), & \text{if } mortgageLoan'_{h} > 0, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
-`scheduledMortgagePayment_h` is a household budget burden. It is not a single
+$scheduledMortgagePayment_{h}$ is a household budget burden. It is not a single
 bank-income flow: principal reduces the mortgage stock, while interest enters
 bank income.
 
 Aggregate mortgage origination is calibrated from the outstanding mortgage
 book, not from the full residential-property value:
 
-```text
-baseMortgageOrigination = mortgageStock * housing.originationRate
-```
+$$
+\begin{aligned}
+baseMortgageOrigination &= mortgageStock \cdot \mathrm{housing.originationRate}
+\end{aligned}
+$$
 
 The aggregate housing-credit stock identity exposed by the timeseries is:
 
-```text
-MortgageNetStockFlow =
-  MortgageOrigination - MortgageRepayment - MortgageDefault
-MortgageToGdp = MortgageStock / AnnualizedGdpProxy
-```
+$$
+\begin{aligned}
+MortgageNetStockFlow &=  \\
+&\quad MortgageOrigination - MortgageRepayment - MortgageDefault \\
+MortgageToGdp &= MortgageStock / AnnualizedGdpProxy
+\end{aligned}
+$$
 
 `MortgageOriginationToStock`, `MortgageRepaymentToStock`, and
 `MortgageDefaultToStock` decompose mortgage-book runoff into new lending,
@@ -199,23 +226,27 @@ do not directly impose a mortgage-supply cap; if that gate is wired later,
 
 Immigrant households send remittances:
 
-```text
-remittance_h = income_h * immigration.remitRate
-```
+$$
+\begin{aligned}
+remittance_{h} &= income_{h} \cdot \mathrm{immigration.remitRate}
+\end{aligned}
+$$
 
 The disposable budget is computed after rent, secured debt service, remittance,
 and consumer-credit service:
 
-```text
-obligations_h = rent_h + scheduledMortgagePayment_h + remittance_h
-disposablePreCredit_h = max(income_h - obligations_h, 0)
-approvedConsumerLoan_h = consumerCreditRule(...)
-fullObligations_h = obligations_h + consumerCreditDebtService_h
-disposable_h = max(income_h - fullObligations_h, 0)
-savingsDrawdown_h = savingsBufferDrawdown(...)
-consumptionBudget_h = disposable_h + approvedConsumerLoan_h + savingsDrawdown_h
-desiredConsumption_h = mpc_h * consumptionBudget_h
-```
+$$
+\begin{aligned}
+obligations_{h} &= rent_{h} + scheduledMortgagePayment_{h} + remittance_{h} \\
+disposablePreCredit_{h} &= \max(income_{h} - obligations_{h}, 0) \\
+approvedConsumerLoan_{h} &= \mathrm{consumerCreditRule}(\ldots) \\
+fullObligations_{h} &= obligations_{h} + consumerCreditDebtService_{h} \\
+disposable_{h} &= \max(income_{h} - fullObligations_{h}, 0) \\
+savingsDrawdown_{h} &= \mathrm{savingsBufferDrawdown}(\ldots) \\
+consumptionBudget_{h} &= disposable_{h} + approvedConsumerLoan_{h} + savingsDrawdown_{h} \\
+desiredConsumption_{h} &= mpc_{h} \cdot consumptionBudget_{h}
+\end{aligned}
+$$
 
 If more than the neighbor-distress threshold of social neighbors are bankrupt
 or unemployed, the household applies a precautionary consumption multiplier.
@@ -226,21 +257,25 @@ the non-discretionary part of desired consumption up to
 consumer-debt service, and only then the affordable discretionary part of
 consumption:
 
-```text
-basicNeed_h = min(desiredConsumption_h, household.basicConsumptionFloor)
-unmetBasicConsumption_h = max(basicNeed_h - availableCash_h, 0)
-discretionaryConsumptionCompression_h =
-  max(desiredConsumption_h - basicNeed_h - affordableDiscretionaryConsumption_h, 0)
-consumption_h = paidBasicConsumption_h + affordableDiscretionaryConsumption_h
-```
+$$
+\begin{aligned}
+basicNeed_{h} &= \min(desiredConsumption_{h}, \mathrm{household.basicConsumptionFloor}) \\
+unmetBasicConsumption_{h} &= \max(basicNeed_{h} - availableCash_{h}, 0) \\
+discretionaryConsumptionCompression_{h} &=  \\
+&\quad \max(desiredConsumption_{h} - basicNeed_{h} - affordableDiscretionaryConsumption_{h}, 0) \\
+consumption_{h} &= paidBasicConsumption_{h} + affordableDiscretionaryConsumption_{h}
+\end{aligned}
+$$
 
 Household liquidity is first computed as a raw closing liquid-balance signal:
 
-```text
-rawLiquidBalance'_h =
-  demandDeposit_h + income_h - fullObligations_h + approvedConsumerLoan_h
-  - consumption_h - retrainingCost_h
-```
+$$
+\begin{aligned}
+rawLiquidBalance'_{h} &=  \\
+&\quad demandDeposit_{h} + income_{h} - fullObligations_{h} + approvedConsumerLoan_{h} \\
+&\quad - consumption_{h} - retrainingCost_{h}
+\end{aligned}
+$$
 
 The persisted demand-deposit asset is then floored at zero. Any negative raw
 balance is not treated as a negative deposit. It is routed through a distinct
@@ -249,16 +284,18 @@ settlement remain separately auditable. Before the bridge is booked, any
 remaining negative raw balance is offered to the same underwritten
 consumer-credit rule up to unused DTI principal capacity. Unmet basic consumption
 is deprivation, not bridge-financed debt; discretionary consumption compression
-absorbs stress before `liquidityShortfallFinancing_h` is created:
+absorbs stress before $liquidityShortfallFinancing_{h}$ is created:
 
-```text
-liquidityShortfallFinancing_h = max(-rawLiquidBalance'_h, 0)
-demandDeposit'_h = max(rawLiquidBalance'_h, 0)
-consumerLoan'_h =
-  consumerLoanAfterScheduledCredit_h
-totalConsumerOrigination_h =
-  approvedConsumerLoan_h
-```
+$$
+\begin{aligned}
+liquidityShortfallFinancing_{h} &= \max(-rawLiquidBalance'_{h}, 0) \\
+demandDeposit'_{h} &= \max(rawLiquidBalance'_{h}, 0) \\
+consumerLoan'_{h} &=  \\
+&\quad consumerLoanAfterScheduledCredit_{h} \\
+totalConsumerOrigination_{h} &=  \\
+&\quad approvedConsumerLoan_{h}
+\end{aligned}
+$$
 
 If the household enters persistent default or a personal-insolvency filing,
 ordinary unsecured consumer-loan principal default is capped by current
@@ -289,14 +326,20 @@ portfolio-choice wedge after household affordability has already passed.
 
 The state-dependent MPC follows a buffer-stock rule:
 
-```text
-targetSavings_h = income_h * bufferTargetMonths
-bufferRatio_h = demandDeposit_h / targetSavings_h
-deviation_h = bufferRatio_h - 1
-bufferAdj_h = clamp(1 - bufferSensitivity * deviation_h, 0, 1)
-unemployedAdj_h = 1 + mpcUnemployedBoost if unemployed else 1
-mpc'_h = clamp(mpc_h * bufferAdj_h * unemployedAdj_h, MpcFloor, MpcCeiling)
-```
+$$
+\begin{aligned}
+targetSavings_{h} &= income_{h} \cdot bufferTargetMonths \\
+bufferRatio_{h} &= demandDeposit_{h} / targetSavings_{h} \\
+deviation_{h} &= bufferRatio_{h} - 1 \\
+bufferAdj_{h} &= \mathrm{clamp}(1 - bufferSensitivity \cdot deviation_{h}, 0, 1) \\
+unemployedAdj_{h} &=
+\begin{cases}
+1 + mpcUnemployedBoost, & \text{if unemployed}, \\
+1, & \text{otherwise},
+\end{cases} \\
+mpc'_{h} &= \mathrm{clamp}(mpc_{h} \cdot bufferAdj_{h} \cdot unemployedAdj_{h}, MpcFloor, MpcCeiling)
+\end{aligned}
+$$
 
 Savings drawdown is more aggressive for unemployed or retraining households,
 but still keeps a protected buffer floor.
@@ -314,19 +357,33 @@ monthly consumer-credit payment factor. The household's bank then applies the
 product-aware bank-credit approval engine with `ConsumerLoan` as the requested
 product:
 
-```text
-stressed_h = disposablePreCredit_h < wage_h * DisposableWageThreshold
-paymentHeadroom_h = income_h * max(ccMaxDti - existingDti_h, 0)
-paymentFactor_h = ccAmortRate + consumerCreditRate_h.monthly
-principalCapacity_h = min(paymentHeadroom_h / paymentFactor_h, ccMaxLoan)
-liquidityNeed_h = max(disposable-stress gap, essential-consumption gap)
-consumerCreditDemand_h = min(liquidityNeed_h, principalCapacity_h)
-bankSupplyOk_b = creditApproval(bank_b, ConsumerLoan, consumerCreditDemand_h).approved
-approvedConsumerLoan_h = consumerCreditDemand_h if eligible and bankSupplyOk_b else 0
-rejectedConsumerCreditDemand_h = consumerCreditDemand_h - approvedConsumerLoan_h
-bankRejectedConsumerCreditDemand_h = consumerCreditDemand_h if eligible and not bankSupplyOk_b else 0
-portfolioRejectedConsumerCreditDemand_h = bankRejectedConsumerCreditDemand_h if rejectionReason = portfolio-preference else 0
-```
+$$
+\begin{aligned}
+stressed_{h} &= disposablePreCredit_{h} < wage_{h} \cdot DisposableWageThreshold \\
+paymentHeadroom_{h} &= income_{h} \cdot \max(ccMaxDti - existingDti_{h}, 0) \\
+paymentFactor_{h} &= ccAmortRate + consumerCreditRate_{h}^{\mathrm{monthly}} \\
+principalCapacity_{h} &= \min(paymentHeadroom_{h} / paymentFactor_{h}, ccMaxLoan) \\
+liquidityNeed_{h} &= \max(\text{disposable-stress gap}, \text{essential-consumption gap}) \\
+consumerCreditDemand_{h} &= \min(liquidityNeed_{h}, principalCapacity_{h}) \\
+bankSupplyOk_{b} &= \mathrm{creditApproval}(bank_{b}, ConsumerLoan, consumerCreditDemand_{h}).approved \\
+approvedConsumerLoan_{h} &=
+\begin{cases}
+consumerCreditDemand_{h}, & \text{if eligible and } bankSupplyOk_{b}, \\
+0, & \text{otherwise},
+\end{cases} \\
+rejectedConsumerCreditDemand_{h} &= consumerCreditDemand_{h} - approvedConsumerLoan_{h} \\
+bankRejectedConsumerCreditDemand_{h} &=
+\begin{cases}
+consumerCreditDemand_{h}, & \text{if eligible and not } bankSupplyOk_{b}, \\
+0, & \text{otherwise},
+\end{cases} \\
+portfolioRejectedConsumerCreditDemand_{h} &=
+\begin{cases}
+bankRejectedConsumerCreditDemand_{h}, & \text{if } rejectionReason_{h} = \mathrm{portfolioPreference}, \\
+0, & \text{otherwise}.
+\end{cases}
+\end{aligned}
+$$
 
 `Current` and first-month `LiquidityStress` households can still pass the normal
 underwriting rule. `Arrears`, `Restructuring`, `Defaulted`, and `Bankruptcy`
@@ -341,20 +398,23 @@ Liquidity-shortfall financing is not a discretionary credit decision and does
 not expand the consumption budget. It is a settlement leg booked after monthly
 income, obligations, approved credit, consumption, and retraining cost have
 already determined the raw closing liquid balance. This keeps
-`demandDeposit >= 0` while preserving the liability-side stock-flow identity.
+$\mathrm{demandDeposit} \ge 0$ while preserving the liability-side
+stock-flow identity.
 
 Consumer-loan service separates principal repayment from interest:
 
-```text
-consumerPrincipal_h = consumerLoan_h * ccAmortRate
-consumerInterest_h = consumerLoan_h * (lendingRate_b + ccSpread).monthly
-consumerDebtService_h = consumerPrincipal_h + consumerInterest_h
-consumerLoan'_h = max(consumerLoan_h + approvedConsumerLoan_h - consumerPrincipal_h, 0)
-```
+$$
+\begin{aligned}
+consumerPrincipal_{h} &= consumerLoan_{h} \cdot ccAmortRate \\
+consumerInterest_{h} &= consumerLoan_{h} \cdot (lendingRate_{b} + ccSpread)^{\mathrm{monthly}} \\
+consumerDebtService_{h} &= consumerPrincipal_{h} + consumerInterest_{h} \\
+consumerLoan'_{h} &= \max(consumerLoan_{h} + approvedConsumerLoan_{h} - consumerPrincipal_{h}, 0)
+\end{aligned}
+$$
 
-`consumerDebtService_h` is the household instalment burden used in DTI and
-liquidity stress diagnostics. Only `consumerInterest_h` is bank income;
-`consumerPrincipal_h` reduces the consumer-loan stock.
+$consumerDebtService_{h}$ is the household instalment burden used in DTI and
+liquidity stress diagnostics. Only $consumerInterest_{h}$ is bank income;
+$consumerPrincipal_{h}$ reduces the consumer-loan stock.
 
 Household bankruptcy sets household equity to zero and records a bounded
 ordinary consumer-loan principal default; remaining unsecured principal stays in
@@ -372,11 +432,13 @@ Unemployed households become retraining-eligible after the unemployment
 threshold. Retraining success depends on skill, health penalty, education, and
 sectoral friction:
 
-```text
-successProb_h =
-  retrainingBaseSuccess * skill_h * (1 - healthPenalty_h)
-  * educationMultiplier_h * (1 - friction * frictionSuccessDiscount)
-```
+$$
+\begin{aligned}
+successProb_{h} &=  \\
+&\quad retrainingBaseSuccess \cdot skill_{h} \cdot (1 - healthPenalty_{h}) \\
+&\quad \cdot educationMultiplier_{h} \cdot (1 - friction \cdot frictionSuccessDiscount)
+\end{aligned}
+$$
 
 Long unemployment reduces skill, increases health penalty, and accumulates a
 wage scar. Re-employment decays the wage scar gradually.
@@ -384,25 +446,29 @@ wage scar. Re-employment decays the wage scar gradually.
 Financial distress is tracked as consecutive months with savings below a
 distress floor:
 
-```text
-bankruptcyFloor_h =
-  max(rent_h + scheduledMortgagePayment_h + consumerDebtService_h, rent_h)
-  * bankruptcyThreshold
-```
+$$
+\begin{aligned}
+bankruptcyFloor_{h} &=  \\
+&\quad \max(rent_{h} + scheduledMortgagePayment_{h} + consumerDebtService_{h}, rent_{h}) \\
+&\quad \cdot bankruptcyThreshold
+\end{aligned}
+$$
 
 The resulting financial-distress state is separate from labor-market status:
 
-```text
-Current
-  -> LiquidityStress       after first active distress month
-  -> Arrears               after repeated distress
-  -> Defaulted             at bankruptcyDistressMonths
-  -> Bankruptcy            only when the personal-insolvency hazard files
-
-Arrears/Defaulted/Bankruptcy with no new distress -> Restructuring
-Restructuring with no new distress                -> Current
-LiquidityStress with no new distress              -> Current
-```
+$$
+\begin{aligned}
+\mathrm{Current} \\
+{} \to \text{LiquidityStress       after first active distress month} \\
+{} \to \text{Arrears               after repeated distress} \\
+{} \to \text{Defaulted             at bankruptcyDistressMonths} \\
+{} \to \text{Bankruptcy            only when the personal-insolvency hazard files} \\
+ \\
+Arrears/Defaulted/Bankruptcy with no new distress \to Restructuring \\
+Restructuring with no new distress                \to Current \\
+LiquidityStress with no new distress              \to Current
+\end{aligned}
+$$
 
 The state affects behavior before the next monthly budget is closed. Non-current
 states apply precautionary consumption compression, bounded by the basic
@@ -436,14 +502,16 @@ On configured adjustment months, the minimum wage is indexed to cumulative
 inflation since the last adjustment and partially converges toward a target
 share of the market wage:
 
-```text
-inflIndexed = previousMinWage * (1 + max(cumulativeInflation, 0))
-targetMinWage = marketWage * minWageTargetRatio
-newMinWage = max(previousMinWage,
-                 inflIndexed + max(targetMinWage - inflIndexed, 0)
-                 * minWageConvergenceSpeed)
-reservationWage = newMinWage
-```
+$$
+\begin{aligned}
+inflIndexed &= previousMinWage \cdot (1 + \max(cumulativeInflation, 0)) \\
+targetMinWage &= marketWage \cdot minWageTargetRatio \\
+newMinWage &= \max(previousMinWage, \\
+&\quad inflIndexed + \max(targetMinWage - inflIndexed, 0) \\
+&\quad \cdot minWageConvergenceSpeed) \\
+reservationWage &= newMinWage
+\end{aligned}
+$$
 
 ### Wage Clearing
 
@@ -451,18 +519,20 @@ Labor demand is the sum of workers planned by living firms. Regional labor
 clearing computes regional and national wages. The national wage is then
 adjusted for expected inflation pressure and union rigidity:
 
-```text
-wageAfterExpectations =
-  max(reservationWage,
-      rawWage * (1 + expWagePassthrough
-                 * max(expectedInflation - targetInflation, 0) / 12))
-
-newWage =
-  max(reservationWage,
-      wageAfterExpectations
-      + (previousMarketWage - wageAfterExpectations)
-        * unionRigidity * aggregateUnionDensity)
-```
+$$
+\begin{aligned}
+wageAfterExpectations &=  \\
+&\quad \max(reservationWage, \\
+&\quad rawWage \cdot (1 + expWagePassthrough \\
+&\quad \cdot \max(expectedInflation - targetInflation, 0) / 12)) \\
+ \\
+newWage &=  \\
+&\quad \max(reservationWage, \\
+&\quad wageAfterExpectations \\
+&\quad + (previousMarketWage - wageAfterExpectations) \\
+&\quad \cdot unionRigidity \cdot aggregateUnionDensity)
+\end{aligned}
+$$
 
 Employment is capped by working-age population. An operational hiring-slack
 factor reduces firm hiring when aggregate desired labor exceeds available labor.
@@ -471,12 +541,14 @@ factor reduces firm hiring when aggregate desired labor exceeds available labor.
 
 Monthly demographics update retirements and working-age population:
 
-```text
-retirements = demRetirementRate * employed
-workingAgePop' = max(0, workingAgePop - retirements - workingAgeDecline
-                        + netMigration)
-retirees' = retirees + retirements
-```
+$$
+\begin{aligned}
+retirements &= demRetirementRate \cdot employed \\
+workingAgePop' &= \max(0, workingAgePop - retirements - workingAgeDecline \\
+&\quad + netMigration) \\
+retirees' &= retirees + retirements
+\end{aligned}
+$$
 
 ZUS, NFZ, PPK, FP, and FGSP contributions are payroll-proportional, with
 contract-type adjustments for household workers. ZUS and NFZ deficits are
@@ -486,14 +558,16 @@ purchase request in the downstream bond waterfall.
 
 Earmarked funds follow:
 
-```text
-FP contributions = payroll * fpRate
-FP spending = unemploymentBenefits + employed * fpAlmpSpendPerWorker
-PFRON contributions = configured monthly revenue
-PFRON spending = configured monthly spending
-FGSP spending = bankruptFirms * avgFirmWorkers * fgspPayoutPerWorker
-governmentSubvention = sum(max(spending_i - contributions_i, 0))
-```
+$$
+\begin{aligned}
+\mathrm{FPContrib}_{\tau} &= payroll \cdot fpRate \\
+\mathrm{FPSpending}_{\tau} &= unemploymentBenefits + employed \cdot fpAlmpSpendPerWorker \\
+\mathrm{PFRONContrib}_{\tau} &= \text{configured monthly revenue} \\
+\mathrm{PFRONSpending}_{\tau} &= \text{configured monthly spending} \\
+\mathrm{FGSPSpending}_{\tau} &= bankruptFirms \cdot avgFirmWorkers \cdot fgspPayoutPerWorker \\
+\mathrm{governmentSubvention}_{\tau} &= \sum_i \max(spending_{i} - contributions_{i}, 0)
+\end{aligned}
+$$
 
 ## Demand, Prices, GDP, And Equity
 
@@ -512,11 +586,13 @@ Implementation anchors:
 Raw government purchases are price-indexed base spending plus an automatic
 stabilizer based on unemployment above NAIRU:
 
-```text
-unempGap = max(unemploymentRate - NAIRU, 0)
-rawGovPurchases = govBaseSpending * max(priceLevel, 1)
-                  + govBaseSpending * unempGap * govAutoStabMult
-```
+$$
+\begin{aligned}
+unempGap &= \max(unemploymentRate - NAIRU, 0) \\
+rawGovPurchases &= govBaseSpending \cdot \max(priceLevel, 1) \\
+&\quad + govBaseSpending \cdot unempGap \cdot govAutoStabMult
+\end{aligned}
+$$
 
 Fiscal rules then constrain spending through:
 
@@ -534,13 +610,15 @@ spending-cut ratio.
 Sector demand is a flow-of-funds allocation of domestic consumption,
 government purchases, lagged investment demand, and exports:
 
-```text
-demand_s =
-  consWeight_s * domesticConsumption
-  + govWeight_s * govPurchases
-  + investWeight_s * laggedInvestmentDemand
-  + exports_s
-```
+$$
+\begin{aligned}
+demand_{s} &=  \\
+&\quad consWeight_{s} \cdot domesticConsumption \\
+&\quad + govWeight_{s} \cdot govPurchases \\
+&\quad + investWeight_{s} \cdot laggedInvestmentDemand \\
+&\quad + exports_{s}
+\end{aligned}
+$$
 
 Demand pressure is demand divided by nominal sector capacity. Excess demand in
 capacity-constrained sectors is redistributed to sectors with slack. The
@@ -551,15 +629,17 @@ firm hiring.
 
 The monthly GDP proxy is:
 
-```text
-gdp =
-  domesticConsumption
-  + governmentDemandContribution
-  + euProjectContribution
-  + exports
-  + domesticGrossFixedCapitalFormation
-  + inventoryChange
-```
+$$
+\begin{aligned}
+gdp &=  \\
+&\quad domesticConsumption \\
+&\quad + governmentDemandContribution \\
+&\quad + euProjectContribution \\
+&\quad + exports \\
+&\quad + domesticGrossFixedCapitalFormation \\
+&\quad + inventoryChange
+\end{aligned}
+$$
 
 Inflation combines price-level dynamics from expected inflation, demand,
 wage growth, and exchange-rate deviation, plus firm markup inflation.
@@ -603,21 +683,27 @@ Firm technology is one of:
 Capacity starts from sector revenue multipliers and firm-size scaling. The
 labor-effective component is:
 
-```text
-laborEff =
-  workers / initialSize                                      if traditional
-  0.4 * workers / initialSize + 0.6 * aiEfficiency           if hybrid
-  aiEfficiency                                               if automated
-  0                                                          if bankrupt
-```
+$$
+\begin{aligned}
+laborEff &=
+\begin{cases}
+workers / initialSize, & \text{if traditional}, \\
+0.4 \cdot workers / initialSize + 0.6 \cdot aiEfficiency, & \text{if hybrid}, \\
+aiEfficiency, & \text{if automated}, \\
+0, & \text{if bankrupt}.
+\end{cases}
+\end{aligned}
+$$
 
 When physical capital is active, capacity uses a CES production function:
 
-```text
-capacity_f =
-  baseRevenue * sizeScale_f * sectorRevenueMultiplier_s
-  * CES(K_f / targetK_f, laborEff_f, sigma_s)
-```
+$$
+\begin{aligned}
+capacity_{f} &=  \\
+&\quad baseRevenue \cdot sizeScale_{f} \cdot sectorRevenueMultiplier_{s} \\
+&\quad \cdot \mathrm{CES}(K_{f} / targetK_{f}, laborEff_{f}, \sigma_{s})
+\end{aligned}
+$$
 
 Near the Cobb-Douglas boundary, the CES helper degrades to a Cobb-Douglas
 form. Sector sigma also enters technology-adoption thresholds and evolves by
@@ -627,26 +713,30 @@ learning-by-doing in `PriceEquityEconomics`.
 
 Revenue is capacity times sector demand and the price level:
 
-```text
-revenue_f = priceLevel * capacity_f * sectorDemandMultiplier_s
-```
+$$
+\begin{aligned}
+revenue_{f} &= priceLevel \cdot capacity_{f} \cdot sectorDemandMultiplier_{s}
+\end{aligned}
+$$
 
 Costs include labor, residual domestic operating costs, depreciation, AI or
 hybrid maintenance, bank and corporate-bond interest, inventory carrying cost,
 energy and ETS cost, and foreign-owned profit shifting:
 
-```text
-profitBeforeTax_f =
-  revenue_f
-  - laborCost_f
-  - otherCosts_f
-  - depreciation_f
-  - aiMaintenance_f
-  - interest_f
-  - inventoryCost_f
-  - energyCost_f
-  - profitShiftCost_f
-```
+$$
+\begin{aligned}
+profitBeforeTax_{f} &=  \\
+&\quad revenue_{f} \\
+&\quad - laborCost_{f} \\
+&\quad - otherCosts_{f} \\
+&\quad - depreciation_{f} \\
+&\quad - aiMaintenance_{f} \\
+&\quad - interest_{f} \\
+&\quad - inventoryCost_{f} \\
+&\quad - energyCost_{f} \\
+&\quad - profitShiftCost_{f}
+\end{aligned}
+$$
 
 CIT uses loss carryforward. Losses accumulate when profit is negative; positive
 profit can offset accumulated losses up to the configured share, and remaining
@@ -657,11 +747,15 @@ losses decay gradually.
 Traditional firms compute desired workers by searching for the largest
 headcount where marginal revenue exceeds wage cost:
 
-```text
-MR(workers) = (capacity(workers) - capacity(workers - 1))
-              * demandMultiplier_s * priceLevel
-desiredWorkers = largest workers where MR(workers) > wageCost_s
-```
+$$
+\begin{aligned}
+\mathrm{MR}(workers) &= (\mathrm{capacity}(workers) - \mathrm{capacity}(workers - 1)) \\
+&\quad \cdot demandMultiplier_{s} \cdot priceLevel
+\end{aligned}
+$$
+
+Desired workers are the largest headcount where
+$\mathrm{MR}(workers) > wageCost_{s}$.
 
 The target is bounded by minimum retained workers, a multiple of initial size,
 aggregate labor slack, hiring-signal persistence, monthly hiring headroom, and
@@ -697,18 +791,20 @@ firm.
 Physical capital investment follows depreciation plus partial adjustment toward
 a sector target capital-labor ratio:
 
-```text
-desiredInvestment_f =
-  depreciation_f
-  + max(targetK_f - postDepreciationK_f, 0) * capitalAdjustSpeed
-targetDebtNeed_f = desiredInvestment_f * investmentDebtTargetShare
-shortfallDebtNeed_f =
-  max(desiredInvestment_f - max(cash_f, 0), 0) * investmentCreditShare
-creditNeed_f = min(max(targetDebtNeed_f, shortfallDebtNeed_f), desiredInvestment_f)
-cashInvestment_f =
-  min(desiredInvestment_f - approvedCredit_f, max(cash_f, 0))
-actualInvestment_f = min(cashInvestment_f + approvedCredit_f, desiredInvestment_f)
-```
+$$
+\begin{aligned}
+desiredInvestment_{f} &=  \\
+&\quad depreciation_{f} \\
+&\quad + \max(targetK_{f} - postDepreciationK_{f}, 0) \cdot capitalAdjustSpeed \\
+targetDebtNeed_{f} &= desiredInvestment_{f} \cdot investmentDebtTargetShare \\
+shortfallDebtNeed_{f} &=  \\
+&\quad \max(desiredInvestment_{f} - \max(cash_{f}, 0), 0) \cdot investmentCreditShare \\
+creditNeed_{f} &= \min(\max(targetDebtNeed_{f}, shortfallDebtNeed_{f}), desiredInvestment_{f}) \\
+cashInvestment_{f} &=  \\
+&\quad \min(desiredInvestment_{f} - approvedCredit_{f}, \max(cash_{f}, 0)) \\
+actualInvestment_{f} &= \min(cashInvestment_{f} + approvedCredit_{f}, desiredInvestment_{f})
+\end{aligned}
+$$
 
 The target-debt leg prevents cash-rich firms from mechanically self-financing
 all investment before approaching their relationship bank. If the target-debt
@@ -733,13 +829,15 @@ depreciation, and a separate share of available cash.
 Inventory changes combine unsold production, spoilage, adjustment toward a
 target inventory ratio, and stress liquidation when cash is negative:
 
-```text
-unsoldValue_f = max(productionValue_f - salesValue_f, 0)
-targetInventory_f = revenue_f * inventoryTargetRatio_s
-rawInventoryChange_f =
-  unsoldValue_f
-  + (targetInventory_f - postSpoilageInventory_f) * inventoryAdjustSpeed
-```
+$$
+\begin{aligned}
+unsoldValue_{f} &= \max(productionValue_{f} - salesValue_{f}, 0) \\
+targetInventory_{f} &= revenue_{f} \cdot inventoryTargetRatio_{s} \\
+rawInventoryChange_{f} &=  \\
+&\quad unsoldValue_{f} \\
+&\quad + (targetInventory_{f} - postSpoilageInventory_{f}) \cdot inventoryAdjustSpeed
+\end{aligned}
+$$
 
 Foreign-owned firms shift a share of positive gross profit and repatriate a
 share of after-tax profit subject to available cash. Informal economy logic
@@ -761,9 +859,11 @@ capital. Unsold bond issuance reverts to bank loans.
 Newly bankrupt firms generate bank NPLs and corporate-bond defaults. Bank loan
 loss is:
 
-```text
-nplLoss = newNplDebt * (1 - loanRecovery)
-```
+$$
+\begin{aligned}
+nplLoss &= newNplDebt \cdot (1 - loanRecovery)
+\end{aligned}
+$$
 
 Firm entry replaces bankrupt slots and can add net entry when macro conditions
 allow. Sector entry weights depend on profit signals and entry barriers. New
@@ -793,10 +893,12 @@ ledger-owned financial stocks.
 
 Risk-weighted assets are:
 
-```text
-RWA_b = firmLoans_b + consumerLoans_b + 0.50 * corporateBondHoldings_b
-CAR_b = capital_b / RWA_b
-```
+$$
+\begin{aligned}
+RWA_{b} &= firmLoans_{b} + consumerLoans_{b} + 0.50 \cdot corporateBondHoldings_{b} \\
+CAR_{b} &= capital_{b} / RWA_{b}
+\end{aligned}
+$$
 
 When the denominator is effectively zero, the implementation returns a safe
 ratio floor.
@@ -810,11 +912,13 @@ unemployment trigger uses the increase over the carried reference unemployment
 rate, normally the previous month's pipeline value bootstrapped from the model
 start Poland baseline, plus any same-month GDP contraction:
 
-```text
-eclMigrationRate =
-  eclMigrationSensitivity * max(0, unemployment_t - unemployment_ref)
-  + eclGdpSensitivity * max(0, -gdpGrowth_t)
-```
+$$
+\begin{aligned}
+eclMigrationRate &=  \\
+&\quad eclMigrationSensitivity \cdot \max(0, unemployment_{t} - unemployment_{ref}) \\
+&\quad + eclGdpSensitivity \cdot \max(0, -gdpGrowth_{t})
+\end{aligned}
+$$
 
 The result is clamped by `banking.eclMaxMigration`. A stable baseline can remain
 above NAIRU without mechanically migrating the loan book to Stage 2, while
@@ -823,29 +927,31 @@ provisions.
 
 The monthly bank-capital diagnostic waterfall is:
 
-```text
-deltaCapital =
-  retainedIncome
-  - realizedCreditLoss
-  - bfgLevy
-  - polishBankLevyTax
-  - unrealizedBondLoss
-  - htmRealizedLoss
-  - eclProvisionChange
-  - interbankContagionLoss
-  - capitalDestruction
-
-waterfallResidual =
-  observedDeltaCapital
-  - deltaCapital
-  - reconciliationResidual
-
-realizedCreditLoss =
-  firmNplLoss
-  + mortgageNplLoss
-  + consumerNplLoss
-  + bankHeldCorporateBondDefaultLoss
-```
+$$
+\begin{aligned}
+deltaCapital &=  \\
+&\quad retainedIncome \\
+&\quad - realizedCreditLoss \\
+&\quad - bfgLevy \\
+&\quad - polishBankLevyTax \\
+&\quad - unrealizedBondLoss \\
+&\quad - htmRealizedLoss \\
+&\quad - eclProvisionChange \\
+&\quad - interbankContagionLoss \\
+&\quad - capitalDestruction \\
+ \\
+waterfallResidual &=  \\
+&\quad observedDeltaCapital \\
+&\quad - deltaCapital \\
+&\quad - reconciliationResidual \\
+ \\
+realizedCreditLoss &=  \\
+&\quad firmNplLoss \\
+&\quad + mortgageNplLoss \\
+&\quad + consumerNplLoss \\
+&\quad + bankHeldCorporateBondDefaultLoss
+\end{aligned}
+$$
 
 `BankCapital_InterbankContagionLoss` is reported as its own waterfall term:
 failed-bank interbank exposures reduce exposed counterparty bank capital before
@@ -897,20 +1003,22 @@ rates.
 
 Liquidity ratios are:
 
-```text
-HQLA_b = reserves_b + govBondAfs_b + govBondHtm_b
-netCashOutflows_b = demandDeposits_b * demandDepositRunoff
-LCR_b = HQLA_b / netCashOutflows_b
-
-ASF_b = capital_b + termDeposits_b * 0.95 + demandDeposits_b * 0.90
-RSF_b =
-  shortLoans_b * 0.50
-  + mediumLoans_b * 0.65
-  + longLoans_b * 0.85
-  + govBonds_b * 0.05
-  + corporateBonds_b * 0.50
-NSFR_b = ASF_b / RSF_b
-```
+$$
+\begin{aligned}
+HQLA_{b} &= reserves_{b} + govBondAfs_{b} + govBondHtm_{b} \\
+netCashOutflows_{b} &= demandDeposits_{b} \cdot demandDepositRunoff \\
+LCR_{b} &= HQLA_{b} / netCashOutflows_{b} \\
+ \\
+ASF_{b} &= capital_{b} + termDeposits_{b} \cdot 0.95 + demandDeposits_{b} \cdot 0.90 \\
+RSF_{b} &=  \\
+&\quad shortLoans_{b} \cdot 0.50 \\
+&\quad + mediumLoans_{b} \cdot 0.65 \\
+&\quad + longLoans_{b} \cdot 0.85 \\
+&\quad + govBonds_{b} \cdot 0.05 \\
+&\quad + corporateBonds_{b} \cdot 0.50 \\
+NSFR_{b} &= ASF_{b} / RSF_{b}
+\end{aligned}
+$$
 
 ### Loan Pricing And Approval
 
@@ -919,63 +1027,69 @@ spread, floored at zero.
 
 Firm lending rates first form a pre-portfolio private-credit rate:
 
-```text
-preLoanRate_b =
-  referenceOrWiborRate
-  + baseSpread
-  + bankSpecificSpread_b
-  + min(NPL_b(q) * nplSpreadFactor, NplSpreadCap)
-  + capitalShortfallPenalty_b
-```
+$$
+\begin{aligned}
+preLoanRate_{b} &=  \\
+&\quad referenceOrWiborRate \\
+&\quad + baseSpread \\
+&\quad + bankSpecificSpread_{b} \\
+&\quad + \min(NPL_{b}(q) \cdot nplSpreadFactor, NplSpreadCap) \\
+&\quad + capitalShortfallPenalty_{b}
+\end{aligned}
+$$
 
 Capital pressure is measured against the same management target used by
 quantity rationing:
 
-```text
-managementCAR_b = effectiveMinCar_b(ccyb) + creditManagementCarBuffer
-capitalShortfallPenalty_b =
-  max(managementCAR_b - CAR_b, 0) * creditCarShortfallPenaltyScale
-
-approvalThrottle_b(q, A) =
-  clamp((ProjectedCAR_b(q, A) - effectiveMinCar_b(ccyb)) /
-        creditManagementCarBuffer, 0, 1)
-```
+$$
+\begin{aligned}
+managementCAR_{b} &= effectiveMinCar_{b}(ccyb) + creditManagementCarBuffer \\
+capitalShortfallPenalty_{b} &=  \\
+&\quad \max(managementCAR_{b} - CAR_{b}, 0) \cdot creditCarShortfallPenaltyScale \\
+ \\
+approvalThrottle_{b}(q, A) &=  \\
+&\quad \mathrm{clamp}((ProjectedCAR_{b}(q, A) - effectiveMinCar_{b}(ccyb)) / \\
+&\quad creditManagementCarBuffer, 0, 1)
+\end{aligned}
+$$
 
 The government-bond channel is a portfolio-choice wedge. Banks compare the
 risk-adjusted return on private credit with the sovereign return; sovereign
 holdings are never subtracted from a loanable-funds capacity:
 
-```text
-loanReturnRA_b(q, A) =
-  preLoanRate_b
-  - expectedLossCost_b(q)
-  - capitalCost_b(q)
-  - marginalPolishBankLevyCost_b(q, A)
+$$
+\begin{aligned}
+loanReturnRA_{b}(q, A) &=  \\
+&\quad preLoanRate_{b} \\
+&\quad - expectedLossCost_{b}(q) \\
+&\quad - capitalCost_{b}(q) \\
+&\quad - marginalPolishBankLevyCost_{b}(q, A) \\
+ \\
+bondReturnRA_{b} &= govBondMarketYield \\
+wedge_{b}(q, A) &= loanReturnRA_{b}(q, A) - bondReturnRA_{b} \\
+ \\
+portfolioPricePremium_{b}(q, A) &=  \\
+&\quad \max(-wedge_{b}(q, A), 0) \cdot portfolioWedgePriceShare \\
+ \\
+portfolioThrottle_{b}(q, A) &=  \\
+&\quad 1 - \mathrm{clamp}( \\
+&\quad \max(-wedge_{b}(q, A), 0) \\
+&\quad \cdot (1 - portfolioWedgePriceShare) \\
+&\quad \cdot portfolioWedgeQuantitySensitivity, \\
+&\quad 0, \\
+&\quad 1 \\
+&\quad )
+\end{aligned}
+$$
 
-bondReturnRA_b = govBondMarketYield
-wedge_b(q, A) = loanReturnRA_b(q, A) - bondReturnRA_b
-
-portfolioPricePremium_b(q, A) =
-  max(-wedge_b(q, A), 0) * portfolioWedgePriceShare
-
-portfolioThrottle_b(q, A) =
-  1 - clamp(
-        max(-wedge_b(q, A), 0)
-        * (1 - portfolioWedgePriceShare)
-        * portfolioWedgeQuantitySensitivity,
-        0,
-        1
-      )
-```
-
-The final firm loan rate adds `portfolioPricePremium_b(firm, 0)` to the
-pre-portfolio rate. Failed banks receive a fixed penalty spread and cannot
-lend.
+The final firm loan rate adds $portfolioPricePremium_{b}(q, A)$ to the
+pre-portfolio rate, evaluated for pricing at $(q, A) = (\mathrm{firm}, 0)$.
+Failed banks receive a fixed penalty spread and cannot lend.
 
 Credit approval projects RWA into the requested product bucket, then requires
 the projected CAR above the macroprudential effective minimum and LCR/NSFR above
 regulatory minima. Banks that pass the hard gates still use
-`approvalThrottle_b * portfolioThrottle_b` as the quantity throttle. NPL pressure
+$approvalThrottle_{b}(q, A) \cdot portfolioThrottle_{b}(q, A)$ as the quantity throttle. NPL pressure
 affects credit supply through risk pricing, IFRS 9 / ECL provisioning, and the
 resulting capital path rather than through an independent approval-probability
 penalty.
@@ -988,13 +1102,15 @@ facilities, and lending spreads.
 The interbank rate is a corridor rate between the deposit facility and lombard
 facility. It rises with aggregate credit stress and scarce excess reserves:
 
-```text
-creditStress = clamp(aggregateNplRatio / stressThreshold, 0, 1)
-liquidityRatio = clamp(excessReserves / requiredReserves, 0, 1)
-interbankRate = depositFacilityRate
-                + (1 - liquidityRatio) * creditStress
-                  * (lombardRate - depositFacilityRate)
-```
+$$
+\begin{aligned}
+creditStress &= \mathrm{clamp}(aggregateNplRatio / stressThreshold, 0, 1) \\
+liquidityRatio &= \mathrm{clamp}(excessReserves / requiredReserves, 0, 1) \\
+interbankRate &= depositFacilityRate \\
+&\quad + (1 - liquidityRatio) \cdot creditStress \\
+&\quad \cdot (lombardRate - depositFacilityRate)
+\end{aligned}
+$$
 
 Interbank clearing matches lenders with excess reserves to borrowers with
 reserve deficits. A hoarding factor reduces lending when system NPL stress is
@@ -1002,41 +1118,45 @@ high.
 
 Monetary aggregates are:
 
-```text
-M0 = bank reserves at NBP
-M1 = demand deposits
-M2 = demand deposits + term deposits
-M3 = M2 + TFI AUM + corporate bonds outstanding
-creditMultiplier = M2 / M0
-```
+$$
+\begin{aligned}
+M0 &= \text{bank reserves at NBP} \\
+M1 &= \text{demand deposits} \\
+M2 &= demand deposits + term deposits \\
+M3 &= M2 + TFI AUM + corporate bonds outstanding \\
+creditMultiplier &= M2 / M0
+\end{aligned}
+$$
 
 ### Bank P&L, Provisioning, Failure, Resolution
 
 Bank capital changes by losses plus retained income:
 
-```text
-losses_b =
-  corporateNplLoss_b
-  + mortgageNplLoss_b
-  + ordinaryConsumerLoanNplLoss_b
-  + corporateBondDefaultLoss_b
-  + BFGLevy_b
-  + PolishBankLevyTax_b
-  + unrealizedAfsBondLoss_b
-
-grossIncome_b =
-  firmLoanInterest_b
-  + govBondIncome_b
-  - depositInterest_b
-  + reserveInterest_b
-  + standingFacilityIncome_b
-  + interbankInterest_b
-  + mortgageInterestIncome_b
-  + consumerInterestIncome_b
-  + corporateBondCoupon_b
-
-capital'_b = capital_b - losses_b + grossIncome_b * profitRetention
-```
+$$
+\begin{aligned}
+losses_{b} &=  \\
+&\quad corporateNplLoss_{b} \\
+&\quad + mortgageNplLoss_{b} \\
+&\quad + ordinaryConsumerLoanNplLoss_{b} \\
+&\quad + corporateBondDefaultLoss_{b} \\
+&\quad + BFGLevy_{b} \\
+&\quad + PolishBankLevyTax_{b} \\
+&\quad + unrealizedAfsBondLoss_{b} \\
+ \\
+grossIncome_{b} &=  \\
+&\quad firmLoanInterest_{b} \\
+&\quad + govBondIncome_{b} \\
+&\quad - depositInterest_{b} \\
+&\quad + reserveInterest_{b} \\
+&\quad + standingFacilityIncome_{b} \\
+&\quad + interbankInterest_{b} \\
+&\quad + mortgageInterestIncome_{b} \\
+&\quad + consumerInterestIncome_{b} \\
+&\quad + corporateBondCoupon_{b} \\
+ \\
+capital'_{b} &= capital_{b} - losses_{b} + grossIncome_{b} \cdot profitRetention
+\end{aligned}
+$$
 
 IFRS 9 ECL staging adds provision changes based on the performing book, new
 defaults, unemployment, and GDP growth. `EclStage1`, `EclStage2`, and
@@ -1108,25 +1228,27 @@ unemployment benefits, social transfers, current government purchases, capital
 government purchases, debt service, social-fund subventions, earmarked-fund
 subventions, and EU co-financing.
 
-```text
-totalSpend =
-  unemploymentBenefits
-  + socialTransfers
-  + govCurrentSpend
-  + govCapitalSpend
-  + debtService
-  + ZUSSubvention
-  + NFZSubvention
-  + earmarkedFundSubvention
-  + euCofinancing
-
-totalRevenue =
-  taxRevenue + governmentDividendRevenue
-
-deficit = totalSpend - totalRevenue
-cumulativeDebt' = cumulativeDebt + deficit
-govBondOutstanding' = max(govBondOutstanding + deficit, 0)
-```
+$$
+\begin{aligned}
+totalSpend &=  \\
+&\quad unemploymentBenefits \\
+&\quad + socialTransfers \\
+&\quad + govCurrentSpend \\
+&\quad + govCapitalSpend \\
+&\quad + debtService \\
+&\quad + ZUSSubvention \\
+&\quad + NFZSubvention \\
+&\quad + earmarkedFundSubvention \\
+&\quad + euCofinancing \\
+ \\
+totalRevenue &=  \\
+&\quad taxRevenue + governmentDividendRevenue \\
+ \\
+deficit &= totalSpend - totalRevenue \\
+cumulativeDebt' &= cumulativeDebt + deficit \\
+govBondOutstanding' &= \max(govBondOutstanding + deficit, 0)
+\end{aligned}
+$$
 
 Public capital depreciates monthly and increases with domestic government
 capital spending plus EU project capital.
@@ -1139,36 +1261,46 @@ enters at the current market yield.
 
 The reference rate follows a smoothed Taylor-type rule:
 
-```text
-policyInflation =
-  expectedInflationWeight * expectedInflation
-  + (1 - expectedInflationWeight) * inflation
-
-taylorTarget =
-  neutralRate
-  + taylorAlpha * (policyInflation - targetInflation)
-  - taylorDelta * outputGap
-  + taylorBeta * exchangeRateChange
-
-referenceRate' =
-  clamp(previousRate * inertia + taylorTarget * (1 - inertia),
-        rateFloor,
-        rateCeiling,
-        maxMonthlyChange)
-```
+$$
+\begin{aligned}
+policyInflation &=  \\
+&\quad expectedInflationWeight \cdot expectedInflation \\
+&\quad + (1 - expectedInflationWeight) \cdot inflation \\
+ \\
+taylorTarget &=  \\
+&\quad neutralRate \\
+&\quad + taylorAlpha \cdot (policyInflation - targetInflation) \\
+&\quad - taylorDelta \cdot outputGap \\
+&\quad + taylorBeta \cdot exchangeRateChange \\
+ \\
+referenceRate' &=  \\
+&\quad \mathrm{clamp}(previousRate \cdot inertia + taylorTarget \cdot (1 - inertia), \\
+&\quad rateFloor, \\
+&\quad rateCeiling, \\
+&\quad maxMonthlyChange)
+\end{aligned}
+$$
 
 Government bond yield is:
 
-```text
-annualGdp = 12 * monthlyGdp
-
-govBondMarketYield =
-  max(referenceRate + termPremium, bundYield + termPremium)
-  + fiscalRisk(debtToGdp)
-  - qeCompression(qeCumulative / annualGdp)
-  - foreignDemandDiscount(if NFA > 0)
-  + credibilityPremium
-```
+$$
+\begin{aligned}
+annualGdp &= 12 \cdot monthlyGdp \\
+ \\
+foreignDemandDiscount_{\tau} &=
+\begin{cases}
+\mathrm{foreignDemandDiscount}, & \text{if } NFA > 0, \\
+0, & \text{otherwise},
+\end{cases} \\
+ \\
+govBondMarketYield &=  \\
+&\quad \max(referenceRate + termPremium, bundYield + termPremium) \\
+&\quad + \mathrm{fiscalRisk}(debtToGdp) \\
+&\quad - \mathrm{qeCompression}(qeCumulative / annualGdp) \\
+&\quad - foreignDemandDiscount_{\tau} \\
+&\quad + credibilityPremium
+\end{aligned}
+$$
 
 QE activates near the lower bound when realized or expected inflation is below
 target by the configured threshold. QE purchases are requested by NBP but
@@ -1176,32 +1308,36 @@ settled through the bond waterfall, so actual sold bonds leave banks and enter
 NBP holdings exactly. The requested purchase is capped against the same
 annualized GDP basis used by bond-market ratios:
 
-```text
-qeRequest =
-  min(max(qeMaxGdpShare * annualGdp - nbpGovBondHoldings, 0),
-      bankGovBondHoldings,
-      qePace)
-```
+$$
+\begin{aligned}
+qeRequest &=  \\
+&\quad \min(\max(qeMaxGdpShare \cdot annualGdp - nbpGovBondHoldings, 0), \\
+&\quad bankGovBondHoldings, \\
+&\quad qePace)
+\end{aligned}
+$$
 
 The SGP fiscal correction applies to discretionary government purchases after
 subtracting lagged non-purchase outlays from the 3% deficit path:
 
-```text
-prevNonPurchaseSpend =
-  max(prevRevenue + prevDeficit - prevGovSpend, 0)
-
-maxDiscretionarySpend =
-  max(prevRevenue + monthlyGdp * sgpDeficitLimit - prevNonPurchaseSpend, 0)
-
-deficitOvershootScale =
-  max(deficitToGdp / sgpDeficitLimit, 1)
-
-sgpMonthlyCorrection =
-  min((sgpCorrectionSpeed / 12) * deficitOvershootScale, 1)
-
-sgpAdjustedSpend =
-  spending - (spending - maxDiscretionarySpend) * sgpMonthlyCorrection
-```
+$$
+\begin{aligned}
+prevNonPurchaseSpend &=  \\
+&\quad \max(prevRevenue + prevDeficit - prevGovSpend, 0) \\
+ \\
+maxDiscretionarySpend &=  \\
+&\quad \max(prevRevenue + monthlyGdp \cdot sgpDeficitLimit - prevNonPurchaseSpend, 0) \\
+ \\
+deficitOvershootScale &=  \\
+&\quad \max(deficitToGdp / sgpDeficitLimit, 1) \\
+ \\
+sgpMonthlyCorrection &=  \\
+&\quad \min((sgpCorrectionSpeed / 12) \cdot deficitOvershootScale, 1) \\
+ \\
+sgpAdjustedSpend &=  \\
+&\quad spending - (spending - maxDiscretionarySpend) \cdot sgpMonthlyCorrection
+\end{aligned}
+$$
 
 FX intervention buys or sells EUR when the exchange rate leaves the tolerance
 band around the base rate. EUR purchases inject PLN reserves; EUR sales drain
@@ -1226,23 +1362,27 @@ effects.
 
 The current account is:
 
-```text
-openEconomyCurrentAccount = tradeBalance + primaryIncome + secondaryIncome
-primaryIncome = NFA * nfaReturnRate.monthly
-secondaryIncome = EUFunds - remittanceOutflow + diasporaInflow
-```
+$$
+\begin{aligned}
+openEconomyCurrentAccount &= tradeBalance + primaryIncome + secondaryIncome \\
+primaryIncome &= NFA \cdot nfaReturnRate^{monthly} \\
+secondaryIncome &= EUFunds - remittanceOutflow + diasporaInflow
+\end{aligned}
+$$
 
 The final exported BoP then applies firm/equity owner outflows:
 
-```text
-CurrentAccount =
-  TradeBalance_OE
-  + CurrentAccountPrimaryIncome
-  + CurrentAccountSecondaryIncome
-  - ForeignDividendOutflow
-  - FdiRepatriation
-  + CurrentAccountClosureResidual
-```
+$$
+\begin{aligned}
+CurrentAccount &=  \\
+&\quad TradeBalance_{OE} \\
+&\quad + CurrentAccountPrimaryIncome \\
+&\quad + CurrentAccountSecondaryIncome \\
+&\quad - ForeignDividendOutflow \\
+&\quad - FdiRepatriation \\
+&\quad + CurrentAccountClosureResidual
+\end{aligned}
+$$
 
 `TradeBalance_OE` is the post-adjustment trade balance; `FdiProfitShifting` has
 already been booked into it as an imported service, so `FdiGrossOutflow` is not
@@ -1256,12 +1396,14 @@ differential and NFA risk premium.
 Exchange-rate change responds to the balance-of-payments ratio, negative-NFA
 risk, FX intervention shock, and PPP drift:
 
-```text
-exchangeRateShock =
-  exRateAdjSpeed * (-(CA + KA) / GDP + nfaRisk)
-  + fxInterventionShock
-  + pppDrift
-```
+$$
+\begin{aligned}
+exchangeRateShock &=  \\
+&\quad exRateAdjSpeed \cdot (-(CA + KA) / GDP + nfaRisk) \\
+&\quad + fxInterventionShock \\
+&\quad + pppDrift
+\end{aligned}
+$$
 
 NFA updates by the current account plus a partial exchange-rate valuation effect
 on foreign assets.
@@ -1287,19 +1429,23 @@ Implementation anchors:
 
 Life and non-life premiums are proportional to the employed wage bill:
 
-```text
-lifePremium = employed * wage * lifePremiumRate
-nonLifePremium = employed * wage * nonLifePremiumRate
-```
+$$
+\begin{aligned}
+lifePremium &= employed \cdot wage \cdot lifePremiumRate \\
+nonLifePremium &= employed \cdot wage \cdot nonLifePremiumRate
+\end{aligned}
+$$
 
 Life claims follow a loss ratio. Non-life claims widen with unemployment above
 the non-life unemployment threshold:
 
-```text
-nonLifeClaims =
-  nonLifePremium * nonLifeLossRatio
-  * (1 + max(unemploymentRate - threshold, 0) * nonLifeUnempSensitivity)
-```
+$$
+\begin{aligned}
+nonLifeClaims &=  \\
+&\quad nonLifePremium \cdot nonLifeLossRatio \\
+&\quad \cdot (1 + \max(unemploymentRate - threshold, 0) \cdot nonLifeUnempSensitivity)
+\end{aligned}
+$$
 
 Investment income comes from government bonds, corporate bonds, and equity,
 minus corporate-bond default loss. Reserves update from premiums, claims, and
@@ -1310,15 +1456,17 @@ toward target allocation shares.
 
 TFI inflow is proportional to wage bill and excess fund return over deposits:
 
-```text
-baseInflow = employed * wage * tfiInflowRate
-fundReturn =
-  govBondMarketYield * tfiGovBondShare
-  + equityReturn.annualized * tfiEquityShare
-  + govBondMarketYield * tfiCorpBondShare
-netInflow = baseInflow * (1 + clamp(fundReturn - depositRate, cap)
-                          * ExcessReturnSensitivity)
-```
+$$
+\begin{aligned}
+baseInflow &= employed \cdot wage \cdot tfiInflowRate \\
+fundReturn &=  \\
+&\quad govBondMarketYield \cdot tfiGovBondShare \\
+&\quad + \mathrm{equityReturn.annualized} \cdot tfiEquityShare \\
+&\quad + govBondMarketYield \cdot tfiCorpBondShare \\
+netInflow &= baseInflow \cdot (1 + \mathrm{clamp}(fundReturn - depositRate, cap) \\
+&\quad \cdot ExcessReturnSensitivity)
+\end{aligned}
+$$
 
 TFI AUM updates by net inflow and investment income, then rebalances toward
 government-bond and equity target shares. Net TFI inflow is recorded as deposit
@@ -1326,15 +1474,17 @@ drain from the banking system.
 
 NBFI credit is counter-cyclical to bank tightness:
 
-```text
-bankTightness = clamp((bankNplRatio - 0.03) / 0.03, 0, 1)
-origination = loanStock * creditBaseRate
-              * (1 + countercyclical * bankTightness)
-repayment = loanStock / creditMaturity
-defaults = loanStock * defaultBase
-           * (1 + defaultUnempSensitivity * max(unemploymentRate - 0.05, 0))
-loanStock' = max(loanStock + origination - repayment - defaults, 0)
-```
+$$
+\begin{aligned}
+bankTightness &= \mathrm{clamp}((bankNplRatio - 0.03) / 0.03, 0, 1) \\
+origination &= loanStock \cdot creditBaseRate \\
+&\quad \cdot (1 + countercyclical \cdot bankTightness) \\
+repayment &= loanStock / creditMaturity \\
+defaults &= loanStock \cdot defaultBase \\
+&\quad \cdot (1 + defaultUnempSensitivity \cdot \max(unemploymentRate - 0.05, 0)) \\
+loanStock' &= \max(loanStock + origination - repayment - defaults, 0)
+\end{aligned}
+$$
 
 The timeseries exposes `NbfiNetStockFlow` as `origination - repayment -
 defaults`, plus `NbfiOriginationToStock`, `NbfiRepaymentToStock`, and
@@ -1349,46 +1499,58 @@ direct term in the NBFI loan-stock identity.
 
 Quasi-fiscal issuance is a share of government capital programs:
 
-```text
-issuance = max((govCapitalSpend + euProjectCapital) * issuanceShare, 0)
-bondAmortization = bondsOutstanding / avgMaturityMonths
-nbpPurchase = issuance * nbpAbsorptionShare if NBP QE active else 0
-bankPurchase = issuance - nbpPurchase
-```
+$$
+\begin{aligned}
+issuance &= \max((govCapitalSpend + euProjectCapital) \cdot issuanceShare, 0) \\
+bondAmortization &= bondsOutstanding / avgMaturityMonths \\
+nbpPurchase &=
+\begin{cases}
+issuance \cdot nbpAbsorptionShare, & \text{if NBP QE is active}, \\
+0, & \text{otherwise},
+\end{cases} \\
+bankPurchase &= issuance - nbpPurchase
+\end{aligned}
+$$
 
 Subsidized lending is a share of issuance, with loan amortization by maturity:
 
-```text
-lending = issuance * lendingShare
-loanRepayment = loanPortfolio / loanMaturityMonths
-loanPortfolio' = max(loanPortfolio + lending - loanRepayment, 0)
-```
+$$
+\begin{aligned}
+lending &= issuance \cdot lendingShare \\
+loanRepayment &= loanPortfolio / loanMaturityMonths \\
+loanPortfolio' &= \max(loanPortfolio + lending - loanRepayment, 0)
+\end{aligned}
+$$
 
 ESA 2010 debt includes central-government cumulative debt plus quasi-fiscal
 bonds outstanding:
 
-```text
-esa2010Debt = govCumulativeDebt + quasiFiscalBondsOutstanding
-```
+$$
+\begin{aligned}
+esa2010Debt &= govCumulativeDebt + quasiFiscalBondsOutstanding
+\end{aligned}
+$$
 
 ### JST
 
 Local-government revenue combines PIT share, CIT share, property tax,
 education subvention, and targeted grants:
 
-```text
-jstRevenue =
-  pitRevenue * jstPitShare
-  + centralCitRevenue * jstCitShare
-  + firms * jstPropertyTax / 12
-  + gdp * jstSubventionShare / 12
-  + gdp * jstDotacjeShare / 12
-
-jstSpending = jstRevenue * jstSpendingMultiplier
-jstDeficit = jstSpending - jstRevenue
-jstDeposits' = jstDeposits + jstRevenue - jstSpending
-jstDebt' = jstDebt + jstDeficit
-```
+$$
+\begin{aligned}
+jstRevenue &=  \\
+&\quad pitRevenue \cdot jstPitShare \\
+&\quad + centralCitRevenue \cdot jstCitShare \\
+&\quad + firms \cdot jstPropertyTax / 12 \\
+&\quad + gdp \cdot jstSubventionShare / 12 \\
+&\quad + gdp \cdot jstDotacjeShare / 12 \\
+ \\
+jstSpending &= jstRevenue \cdot jstSpendingMultiplier \\
+jstDeficit &= jstSpending - jstRevenue \\
+jstDeposits' &= jstDeposits + jstRevenue - jstSpending \\
+jstDebt' &= jstDebt + jstDeficit
+\end{aligned}
+$$
 
 ## Known Simplifications And Empirical Grounding Gaps
 

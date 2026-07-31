@@ -108,7 +108,8 @@ deposit change follow the same row-sum-zero convention as the paper matrix.
   or level-clearing checks;
 - expected values come from `Sfc.SemanticFlows`, which is assembled from
   executed runtime mechanisms where a mechanism exists;
-- the row residual is `actual - expected` and must be zero for a passing row.
+- the row residual is $\mathrm{actual} - \mathrm{expected}$ and
+  must be zero for a passing row.
 
 The artifact deliberately avoids validating `otherChange = stockDelta -
 transactionDelta`. That diagnostic residual remains useful for coverage review,

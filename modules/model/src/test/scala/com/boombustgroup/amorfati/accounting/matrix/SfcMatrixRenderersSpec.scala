@@ -37,10 +37,12 @@ class SfcMatrixRenderersSpec extends AnyFlatSpec with Matchers:
 
     byName("symbolic-bsm.tex") should include("\\begin{tsv}")
     byName("symbolic-bsm.tex") should include("$+D_h$")
+    byName("symbolic-bsm.md") should include("$+D_h$")
     byName("symbolic-tfm.md") should include("| Flow \\\\ Sector |")
     byName("symbolic-tfm.md") should include("Consumption")
     byName("symbolic-tfm.md") should include("Equity revaluation")
     byName("matrix-mapping.md") should include("Demand deposits")
+    byName("matrix-mapping.md") should include("$+D_h$")
     byName("matrix-mapping.md") should include("Household consumption")
     byName("matrix-mapping.md") should include("Equity revaluation [id: 57]")
     byName("flow-mechanism-semantics.md") should include(s"${FlowMechanismSemantics.rows.size} runtime-emitted `FlowMechanism` entries")
@@ -69,6 +71,8 @@ class SfcMatrixRenderersSpec extends AnyFlatSpec with Matchers:
     markdown should include("money_scale=macro_pln")
     markdown should include("raw_validation=model_scale_pln")
     markdown should include("Expected (macro PLN)")
+    markdown should include("""macro-scaled PLN ($\mathrm{rawModelScalePLN} / \mathrm{SimParams.gdpRatio}$) to match Monte Carlo""")
+    markdown should not include "`raw model-scale PLN / SimParams.gdpRatio`"
     markdown should include("identity validation remains on raw model-scale fixed-point PLN")
 
     val latex = byName("stock-flow-reconciliation.tex")
