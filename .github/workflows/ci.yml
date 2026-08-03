@@ -8,12 +8,12 @@ jobs:
   generated-outputs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           submodules: recursive
 
-      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342
 
       - name: Check documentation hygiene
         run: nix develop --command python3 scripts/check-docs.py
@@ -24,11 +24,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - uses: cachix/install-nix-action@v31.10.6
+      - uses: cachix/install-nix-action@v31.11.0
 
       - name: Check Nix flake
         run: nix flake check --print-build-logs
@@ -55,7 +55,7 @@ jobs:
         run: nix develop --command sbt "integrationTests / Test / test"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: target/scala-3.8.2/scoverage-report/scoverage.xml
