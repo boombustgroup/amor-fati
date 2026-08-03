@@ -43,14 +43,14 @@ jobs:
       JAR_PATH: target/scala-3.8.2/amor-fati.jar
     steps:
       - name: Check out profiling ref
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.checkout_ref }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
 
-      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+      - uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342
 
       - name: Resolve profiling run metadata
         id: meta
@@ -374,7 +374,7 @@ jobs:
 
       - name: Upload profiling artifacts
         if: ${{ always() && steps.meta.outputs.artifact_name != '' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ${{ steps.meta.outputs.run_root }}/
